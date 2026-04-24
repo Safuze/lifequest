@@ -1,12 +1,13 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './hooks/useAuth'
 import Layout from './components/layout/Layout'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import DashboardPage from './pages/DashboardPage'
+import GoalsPage from './pages/GoalsPage'
+import TasksPage from './pages/TasksPage'
 
-// Заглушки для страниц которые сделаем позже
 const PlaceholderPage = ({ title }: { title: string }) => (
   <div className="flex items-center justify-center h-64">
     <div className="text-center">
@@ -17,8 +18,20 @@ const PlaceholderPage = ({ title }: { title: string }) => (
 )
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuth()
-  if (isLoading) {
+  const { isAuthenticated } = useAuth()
+  if (!isAuthenticated) return <Navigate to="/login" replace />
+  return <>{children}</>
+}
+
+export default function App() {
+  const { loadUser } = useAuth()
+  const [appLoading, setAppLoading] = useState(true)
+
+  useEffect(() => {
+    loadUser().finally(() => setAppLoading(false))
+  }, [])
+
+  if (appLoading) {
     return (
       <div
         className="min-h-screen flex items-center justify-center"
@@ -28,25 +41,12 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
       </div>
     )
   }
-  if (!isAuthenticated) return <Navigate to="/login" replace />
-  return <>{children}</>
-}
-
-export default function App() {
-  const { loadUser } = useAuth()
-
-  useEffect(() => {
-    loadUser()
-  }, [])
 
   return (
     <BrowserRouter>
       <Routes>
-        {/* Публичные роуты */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
-
-        {/* Защищённые роуты с Layout */}
         <Route
           path="/"
           element={
@@ -57,8 +57,8 @@ export default function App() {
         >
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<DashboardPage />} />
-          <Route path="goals" element={<PlaceholderPage title="Goals" />} />
-          <Route path="tasks" element={<PlaceholderPage title="Tasks" />} />
+          <Route path="goals" element={<GoalsPage />} />
+          <Route path="tasks" element={<TasksPage />} />
           <Route path="pomodoro" element={<PlaceholderPage title="Pomodoro" />} />
           <Route path="habits" element={<PlaceholderPage title="Habits" />} />
           <Route path="lifescope" element={<PlaceholderPage title="LifeScope" />} />
