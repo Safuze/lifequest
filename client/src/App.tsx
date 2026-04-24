@@ -1,29 +1,33 @@
 import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './hooks/useAuth'
+import Layout from './components/layout/Layout'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
+import DashboardPage from './pages/DashboardPage'
 
-// Временная заглушка для Dashboard
-function DashboardPage() {
-  const { user, logout } = useAuth()
-  return (
-    <div className="min-h-screen bg-gray-950 text-white p-8">
-      <h1 className="text-2xl font-bold">Добро пожаловать, {user?.name}!</h1>
-      <p className="text-gray-400 mt-2">Уровень: {user?.level} | XP: {user?.xp} | Золото: {user?.gold}</p>
-      <button
-        onClick={logout}
-        className="mt-4 bg-red-600 px-4 py-2 rounded-lg"
-      >
-        Выйти
-      </button>
+// Заглушки для страниц которые сделаем позже
+const PlaceholderPage = ({ title }: { title: string }) => (
+  <div className="flex items-center justify-center h-64">
+    <div className="text-center">
+      <h1 className="text-2xl font-bold text-white mb-2">{title}</h1>
+      <p className="text-slate-400">В разработке...</p>
     </div>
-  )
-}
+  </div>
+)
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth()
-  if (isLoading) return <div className="min-h-screen bg-gray-950" />
+  if (isLoading) {
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ backgroundColor: '#0f172a' }}
+      >
+        <div className="text-slate-400">Загрузка...</div>
+      </div>
+    )
+  }
   if (!isAuthenticated) return <Navigate to="/login" replace />
   return <>{children}</>
 }
@@ -38,17 +42,31 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Публичные роуты */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+
+        {/* Защищённые роуты с Layout */}
         <Route
-          path="/dashboard"
+          path="/"
           element={
             <ProtectedRoute>
-              <DashboardPage />
+              <Layout />
             </ProtectedRoute>
           }
-        />
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        >
+          <Route index element={<Navigate to="/dashboard" replace />} />
+          <Route path="dashboard" element={<DashboardPage />} />
+          <Route path="goals" element={<PlaceholderPage title="Goals" />} />
+          <Route path="tasks" element={<PlaceholderPage title="Tasks" />} />
+          <Route path="pomodoro" element={<PlaceholderPage title="Pomodoro" />} />
+          <Route path="habits" element={<PlaceholderPage title="Habits" />} />
+          <Route path="lifescope" element={<PlaceholderPage title="LifeScope" />} />
+          <Route path="leaderboard" element={<PlaceholderPage title="Leaderboard" />} />
+          <Route path="friends" element={<PlaceholderPage title="Friends" />} />
+          <Route path="profile" element={<PlaceholderPage title="Profile" />} />
+          <Route path="settings" element={<PlaceholderPage title="Settings" />} />
+        </Route>
       </Routes>
     </BrowserRouter>
   )
