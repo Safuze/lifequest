@@ -5,7 +5,7 @@ import { AuthRequest } from '../middleware/authMiddleware'
 
 export const createGoalSchema = z.object({
   title: z.string().min(1).max(100),
-  category: z.enum(['учёба', 'работа', 'здоровье', 'хобби', 'личное']).optional(),
+  category: z.enum(['учёба', 'работа', 'здоровье', 'хобби', 'личное', 'проект']).optional(),
   horizon: z.enum(['day', 'week', 'month', 'year', 'longterm']),
   plannedHours: z.number().positive().optional(),
   deadline: z.string().datetime().optional(),
@@ -13,7 +13,7 @@ export const createGoalSchema = z.object({
 
 export const updateGoalSchema = z.object({
   title: z.string().min(1).max(100).optional(),
-  category: z.enum(['учёба', 'работа', 'здоровье', 'хобби', 'личное']).optional(),
+  category: z.enum(['учёба', 'работа', 'здоровье', 'хобби', 'личное', 'проект']).optional(),
   horizon: z.enum(['day', 'week', 'month', 'year', 'longterm']).optional(),
   plannedHours: z.number().positive().nullable().optional(),
   status: z.enum(['active', 'completed', 'paused']).optional(),

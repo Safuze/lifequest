@@ -5,6 +5,8 @@ import dotenv from 'dotenv'
 import authRouter from './routes/auth'
 import goalsRouter from './routes/goals'
 import tasksRouter from './routes/tasks'
+import pomodoroRouter from './routes/pomodoro'
+
 dotenv.config()
 
 const app = express()
@@ -24,7 +26,7 @@ app.get('/api/health', (req, res) => {
 app.use('/api/v1/auth', authRouter)
 app.use('/api/v1/goals', goalsRouter)
 app.use('/api/v1/tasks', tasksRouter)
-
+app.use('/api/v1/pomodoro', pomodoroRouter)
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)

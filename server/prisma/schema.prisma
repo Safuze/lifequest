@@ -36,6 +36,7 @@ model User {
   weeklyReports  WeeklyReport[]
   sentRequests   Friendship[]      @relation("sender")
   receivedRequests Friendship[]    @relation("receiver")
+  pomodoroSettings PomodoroSettings?
 }
 
 model Goal {
@@ -249,4 +250,15 @@ model WeeklyReport {
 
   @@unique([userId, weekStart])
   @@index([userId])
+}
+
+model PomodoroSettings {
+  id              Int  @id @default(autoincrement())
+  userId          Int  @unique
+  workDuration    Int  @default(25)
+  shortBreak      Int  @default(5)
+  longBreak       Int  @default(15)
+  cyclesBeforeLong Int @default(4)
+
+  user            User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

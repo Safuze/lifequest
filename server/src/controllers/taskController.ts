@@ -10,7 +10,6 @@ export const createTaskSchema = z.object({
   category: z.string().optional(),
   labels: z.array(z.string()).default([]),
   goalId: z.number().positive().optional(),
-  projectId: z.number().positive().optional(),
   parentId: z.number().positive().optional(),
   dueDate: z.string().datetime().optional(),
 })
@@ -23,38 +22,64 @@ export const updateTaskSchema = z.object({
   labels: z.array(z.string()).optional(),
   status: z.enum(['todo', 'inProgress', 'done']).optional(),
   goalId: z.number().positive().nullable().optional(),
-  projectId: z.number().positive().nullable().optional(),
   dueDate: z.string().datetime().nullable().optional(),
   isPinned: z.boolean().optional(),
   isFocusToday: z.boolean().optional(),
 })
 
+function detectCategory(title: string): string {
+  const lower = title.toLowerCase()
+  if (['диплом', 'учёба', 'курс', 'экзамен', 'лекция', 'учить'].some(w => lower.includes(w))) return 'учёба'
+  if (['работа', 'проект', 'клиент', 'офис', 'дедлайн', 'встреча'].some(w => lower.includes(w))) return 'работа'
+  if (['спорт', 'бег', 'зал', 'тренировка', 'питание'].some(w => lower.includes(w))) return 'здоровье'
+  if (['читать', 'книга', 'музыка', 'рисовать', 'игра'].some(w => lower.includes(w))) return 'хобби'
+  return 'личное'
+}
+
 export const getTasks = async (req: AuthRequest, res: Response) => {
   try {
-    const { status, priority, goalId, search } = req.query
+    const { status, priority, category, goalId, date, search } = req.query
 
-    const where: any = { userId: req.userId! }
+    const where: any = { userId: req.userId!, parentId: null }
     if (status) where.status = status
     if (priority) where.priority = priority
+    if (category) where.category = category
     if (goalId) where.goalId = parseInt(goalId as string)
     if (search) where.title = { contains: search as string, mode: 'insensitive' }
+
+    // Фильтрация по конкретной дате
+    if (date) {
+      const dateObj = new Date(date as string)
+      const startOfDay = new Date(dateObj.setHours(0, 0, 0, 0))
+      const endOfDay = new Date(dateObj.setHours(23, 59, 59, 999))
+      where.dueDate = { gte: startOfDay, lte: endOfDay }
+    }
 
     const tasks = await prisma.task.findMany({
       where,
       orderBy: [
         { isPinned: 'desc' },
         { isFocusToday: 'desc' },
+        { priority: 'desc' },
         { createdAt: 'desc' },
       ],
       include: {
         goal: { select: { id: true, title: true, category: true } },
-        subtasks: {
-          select: { id: true, title: true, status: true }
+        subtasks: { select: { id: true, title: true, status: true } },
+        sessions: {
+          where: { status: 'completed' },
+          select: { actualDuration: true }
         },
-        _count: { select: { sessions: true } },
       }
     })
-    res.json({ tasks })
+
+    // Добавляем суммарное время помодоро к каждой задаче
+    const tasksWithTime = tasks.map(task => ({
+      ...task,
+      totalPomodoroMin: task.sessions.reduce((sum, s) => sum + s.actualDuration, 0),
+    }))
+
+    res.json({ tasks: tasksWithTime })
   } catch (error) {
     console.error('getTasks error:', error)
     res.status(500).json({ error: 'Внутренняя ошибка сервера' })
@@ -65,7 +90,24 @@ export const createTask = async (req: AuthRequest, res: Response) => {
   try {
     const data = req.body
 
-    // Проверяем что цель принадлежит пользователю
+    // Лимит 20 задач в сутки
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+
+    const todayCount = await prisma.task.count({
+      where: {
+        userId: req.userId!,
+        createdAt: { gte: today, lt: tomorrow }
+      }
+    })
+
+    if (todayCount >= 20) {
+      res.status(429).json({ error: 'Достигнут лимит задач на сегодня (20 задач)' })
+      return
+    }
+
     if (data.goalId) {
       const goal = await prisma.goal.findFirst({
         where: { id: data.goalId, userId: req.userId! }
@@ -76,25 +118,37 @@ export const createTask = async (req: AuthRequest, res: Response) => {
       }
     }
 
+    const category = data.category || detectCategory(data.title)
+
+    // Критические задачи автоматически становятся фокус-задачей
+    const isCritical = data.priority === 'critical'
+    if (isCritical) {
+      await prisma.task.updateMany({
+        where: { userId: req.userId!, isFocusToday: true },
+        data: { isFocusToday: false }
+      })
+    }
+
     const task = await prisma.task.create({
       data: {
         userId: req.userId!,
         title: data.title,
         description: data.description,
-        priority: data.priority,
-        category: data.category,
+        priority: data.priority || 'medium',
+        category,
         labels: data.labels || [],
         goalId: data.goalId || null,
-        projectId: data.projectId || null,
         parentId: data.parentId || null,
         dueDate: data.dueDate ? new Date(data.dueDate) : null,
+        isFocusToday: isCritical,
       },
       include: {
         goal: { select: { id: true, title: true, category: true } },
         subtasks: { select: { id: true, title: true, status: true } },
       }
     })
-    res.status(201).json({ task })
+
+    res.status(201).json({ task: { ...task, totalPomodoroMin: 0 } })
   } catch (error) {
     console.error('createTask error:', error)
     res.status(500).json({ error: 'Внутренняя ошибка сервера' })
@@ -113,8 +167,8 @@ export const updateTask = async (req: AuthRequest, res: Response) => {
       return
     }
 
-    // Если задача завершается — записываем время завершения
     const updateData: any = { ...req.body }
+
     if (req.body.status === 'done' && existing.status !== 'done') {
       updateData.completedAt = new Date()
     }
@@ -122,7 +176,6 @@ export const updateTask = async (req: AuthRequest, res: Response) => {
       updateData.completedAt = null
     }
 
-    // Если назначается фокус-задача — снимаем флаг у остальных
     if (req.body.isFocusToday === true) {
       await prisma.task.updateMany({
         where: { userId: req.userId!, isFocusToday: true },
@@ -136,9 +189,19 @@ export const updateTask = async (req: AuthRequest, res: Response) => {
       include: {
         goal: { select: { id: true, title: true, category: true } },
         subtasks: { select: { id: true, title: true, status: true } },
+        sessions: {
+          where: { status: 'completed' },
+          select: { actualDuration: true }
+        },
       }
     })
-    res.json({ task })
+
+    res.json({
+      task: {
+        ...task,
+        totalPomodoroMin: task.sessions.reduce((sum, s) => sum + s.actualDuration, 0)
+      }
+    })
   } catch (error) {
     console.error('updateTask error:', error)
     res.status(500).json({ error: 'Внутренняя ошибка сервера' })
