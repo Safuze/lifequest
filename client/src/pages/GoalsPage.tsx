@@ -17,6 +17,7 @@ const CATEGORIES = [
   { value: 'здоровье',label: 'Здоровье',color: '#22c55e', emoji: '💪' },
   { value: 'хобби',   label: 'Хобби',   color: '#ec4899', emoji: '🎨' },
   { value: 'личное',  label: 'Личное',  color: '#6b7280', emoji: '👤' },
+  { value: 'проект',  label: 'Проект',  color: '#b6c94d', emoji: '✍️' },
 ]
 
 const STATUS_CONFIG = {

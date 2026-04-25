@@ -15,8 +15,8 @@ export interface Task {
   isPinned: boolean
   isFocusToday: boolean
   timeSpent: number
+  totalPomodoroMin: number
   subtasks?: { id: number; title: string; status: string }[]
-  _count?: { sessions: number }
   createdAt: string
 }
 
@@ -27,6 +27,7 @@ export interface CreateTaskData {
   category?: string
   labels?: string[]
   goalId?: number
+  parentId?: number
   dueDate?: string
 }
 
@@ -34,7 +35,9 @@ export const tasksApi = {
   getAll: async (params?: {
     status?: string
     priority?: string
+    category?: string
     goalId?: number
+    date?: string
     search?: string
   }): Promise<{ tasks: Task[] }> => {
     const res = await apiClient.get('/tasks', { params })
@@ -46,7 +49,7 @@ export const tasksApi = {
     return res.data
   },
 
-  update: async (id: number, data: Partial<Task>): Promise<{ task: Task }> => {
+  update: async (id: number, data: Partial<Task & { dueDate?: string | null }>): Promise<{ task: Task }> => {
     const res = await apiClient.patch(`/tasks/${id}`, data)
     return res.data
   },

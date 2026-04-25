@@ -1,0 +1,54 @@
+import apiClient from './client'
+
+export interface PomodoroSettings {
+  id: number
+  workDuration: number
+  shortBreak: number
+  longBreak: number
+  cyclesBeforeLong: number
+}
+
+export interface PomodoroSession {
+  id: number
+  taskId: number
+  goalId?: number | null
+  plannedDuration: number
+  actualDuration: number
+  status: string
+  startedAt: string
+  completedAt?: string | null
+  task?: { id: number; title: string; isFocusToday: boolean }
+}
+
+export interface TodayStats {
+  totalMinutes: number
+  sessionsCount: number
+  completedCycles: number
+}
+
+export const pomodoroApi = {
+  getSettings: async (): Promise<{ settings: PomodoroSettings }> => {
+    const res = await apiClient.get('/pomodoro/settings')
+    return res.data
+  },
+  updateSettings: async (data: Partial<PomodoroSettings>): Promise<{ settings: PomodoroSettings }> => {
+    const res = await apiClient.patch('/pomodoro/settings', data)
+    return res.data
+  },
+  getActive: async (): Promise<{ session: PomodoroSession | null }> => {
+    const res = await apiClient.get('/pomodoro/active')
+    return res.data
+  },
+  getTodayStats: async (): Promise<TodayStats> => {
+    const res = await apiClient.get('/pomodoro/today-stats')
+    return res.data
+  },
+  startSession: async (data: { taskId: number; goalId?: number; plannedDuration: number }): Promise<{ session: PomodoroSession }> => {
+    const res = await apiClient.post('/pomodoro/sessions', data)
+    return res.data
+  },
+  completeSession: async (id: number, actualDuration: number) => {
+    const res = await apiClient.patch(`/pomodoro/sessions/${id}/complete`, { actualDuration })
+    return res.data
+  },
+}

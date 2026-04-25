@@ -5,11 +5,11 @@ export interface Goal {
   title: string
   category: string
   horizon: string
-  deadline: string | null
   plannedHours: number | null
   spentHours: number
   progress: number
   status: string
+  deadline?: string
   createdAt: string
   _count?: { tasks: number }
 }
@@ -18,8 +18,8 @@ export interface CreateGoalData {
   title: string
   category?: string
   horizon: string
-  deadline?: string
   plannedHours?: number
+  deadline?: string
 }
 
 export const goalsApi = {
