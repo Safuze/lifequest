@@ -47,20 +47,20 @@ export const getTasks = async (req: AuthRequest, res: Response) => {
     if (goalId) where.goalId = parseInt(goalId as string)
     if (search) where.title = { contains: search as string, mode: 'insensitive' }
 
-    // Фильтрация по конкретной дате
     if (date) {
-      const dateObj = new Date(date as string)
-      const startOfDay = new Date(dateObj.setHours(0, 0, 0, 0))
-      const endOfDay = new Date(dateObj.setHours(23, 59, 59, 999))
+      const dateStr = date as string
+      const startOfDay = new Date(dateStr + 'T00:00:00.000Z')
+      const endOfDay = new Date(dateStr + 'T23:59:59.999Z')
       where.dueDate = { gte: startOfDay, lte: endOfDay }
     }
 
     const tasks = await prisma.task.findMany({
       where,
+      // НЕ сортируем по priority здесь — Prisma делает это алфавитно
+      // Сортируем только по стабильным полям
       orderBy: [
         { isPinned: 'desc' },
         { isFocusToday: 'desc' },
-        { priority: 'desc' },
         { createdAt: 'desc' },
       ],
       include: {
@@ -73,13 +73,29 @@ export const getTasks = async (req: AuthRequest, res: Response) => {
       }
     })
 
-    // Добавляем суммарное время помодоро к каждой задаче
     const tasksWithTime = tasks.map(task => ({
       ...task,
       totalPomodoroMin: task.sessions.reduce((sum, s) => sum + s.actualDuration, 0),
     }))
 
-    res.json({ tasks: tasksWithTime })
+    const PRIORITY_ORDER: Record<string, number> = {
+      critical: 4, high: 3, medium: 2, low: 1
+    }
+
+    // JS сортировка работает правильно в отличие от Prisma
+    const sortedTasks = [...tasksWithTime].sort((a, b) => {
+      if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1
+      if (a.isFocusToday !== b.isFocusToday) return a.isFocusToday ? -1 : 1
+      const pa = PRIORITY_ORDER[a.priority] ?? 0
+      const pb = PRIORITY_ORDER[b.priority] ?? 0
+      if (pa !== pb) return pb - pa
+      if (a.dueDate && b.dueDate) return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
+      if (a.dueDate) return -1
+      if (b.dueDate) return 1
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    })
+
+    res.json({ tasks: sortedTasks })
   } catch (error) {
     console.error('getTasks error:', error)
     res.status(500).json({ error: 'Внутренняя ошибка сервера' })
@@ -108,6 +124,7 @@ export const createTask = async (req: AuthRequest, res: Response) => {
       return
     }
 
+    // Проверка цели
     if (data.goalId) {
       const goal = await prisma.goal.findFirst({
         where: { id: data.goalId, userId: req.userId! }
@@ -120,9 +137,15 @@ export const createTask = async (req: AuthRequest, res: Response) => {
 
     const category = data.category || detectCategory(data.title)
 
-    // Критические задачи автоматически становятся фокус-задачей
     const isCritical = data.priority === 'critical'
-    if (isCritical) {
+    const taskDueDate = data.dueDate ? new Date(data.dueDate) : null
+
+    // Фокус только если критическая И срок сегодня (или срока нет)
+    const shouldBeFocus =
+      isCritical &&
+      (!taskDueDate || (taskDueDate >= today && taskDueDate < tomorrow))
+
+    if (shouldBeFocus) {
       await prisma.task.updateMany({
         where: { userId: req.userId!, isFocusToday: true },
         data: { isFocusToday: false }
@@ -139,8 +162,8 @@ export const createTask = async (req: AuthRequest, res: Response) => {
         labels: data.labels || [],
         goalId: data.goalId || null,
         parentId: data.parentId || null,
-        dueDate: data.dueDate ? new Date(data.dueDate) : null,
-        isFocusToday: isCritical,
+        dueDate: taskDueDate, 
+        isFocusToday: shouldBeFocus, 
       },
       include: {
         goal: { select: { id: true, title: true, category: true } },

@@ -52,3 +52,18 @@ export const pomodoroApi = {
     return res.data
   },
 }
+
+export const inventoryApi = {
+  getUnlocked: async (): Promise<{ items: { itemType: string; name: string }[] }> => {
+    const res = await apiClient.get('/inventory')
+    return res.data
+  },
+  purchase: async (itemType: string, name: string, price: number): Promise<boolean> => {
+    try {
+      await apiClient.post('/inventory/purchase', { itemType, name, price })
+      return true
+    } catch {
+      return false
+    }
+  }
+}
