@@ -30,6 +30,13 @@ function getCategoryConfig(value: string) {
   return CATEGORIES.find(c => c.value === value) || CATEGORIES[4]
 }
 
+// Функция подсчёта дней
+function getDaysLeft(deadline: string): { days: number; isOverdue: boolean } {
+  const diff = new Date(deadline).getTime() - Date.now()
+  const days = Math.ceil(diff / (1000 * 60 * 60 * 24))
+  return { days, isOverdue: days < 0 }
+}
+
 interface CreateGoalModalProps {
   onClose: () => void
   onCreated: (goal: Goal) => void
@@ -131,21 +138,18 @@ function CreateGoalModal({ onClose, onCreated }: CreateGoalModalProps) {
               ))}
             </div>
           </div>
-
           <div>
-            <label className="text-slate-400 text-sm mb-1.5 block">Горизонт планирования *</label>
-            <select
-              value={horizon}
-              onChange={e => setHorizon(e.target.value)}
+            <label className="text-slate-400 text-sm mb-1.5 block">
+              Горизонт планирования
+              <span className="text-slate-500 ml-1">(определится из даты)</span>
+            </label>
+            <select value={horizon} onChange={e => setHorizon(e.target.value)}
               className="w-full rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500"
-              style={inputStyle}
-            >
-              {HORIZONS.map(h => (
-                <option key={h.value} value={h.value}>{h.label}</option>
-              ))}
+              style={inputStyle}>
+              <option value="">Автоматически</option>
+              {HORIZONS.map(h => <option key={h.value} value={h.value}>{h.label}</option>)}
             </select>
           </div>
-
           <div>
             <label className="text-slate-400 text-sm mb-1.5 block">
                 Дата дедлайна
@@ -353,11 +357,15 @@ export default function GoalsPage() {
                         <span className="text-slate-500 text-xs">
                           {HORIZONS.find(h => h.value === goal.horizon)?.label}
                         </span>
-                        {goal.deadline && (
-                           <span className="text-slate-500 text-xs flex items-center gap-1">
-                                📅 {new Date(goal.deadline).toLocaleDateString('ru-RU')}
+                        {goal.deadline && (() => {
+                          const { days, isOverdue } = getDaysLeft(goal.deadline)
+                          return (
+                            <span className="text-xs flex items-center gap-1"
+                              style={{ color: isOverdue ? '#ef4444' : days <= 3 ? '#f59e0b' : '#94a3b8' }}>
+                              📅 {isOverdue ? `Просрочено на ${Math.abs(days)} дн.` : `Осталось ${days} дн.`}
                             </span>
-                            )}
+                          )
+                        })()}
                         {goal._count && (
                           <span className="text-slate-500 text-xs">
                             {goal._count.tasks} задач

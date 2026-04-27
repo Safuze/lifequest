@@ -6,6 +6,8 @@ import authRouter from './routes/auth'
 import goalsRouter from './routes/goals'
 import tasksRouter from './routes/tasks'
 import pomodoroRouter from './routes/pomodoro'
+import usersRouter from './routes/users'
+import habitsRouter from './routes/habits'
 
 dotenv.config()
 
@@ -27,6 +29,8 @@ app.use('/api/v1/auth', authRouter)
 app.use('/api/v1/goals', goalsRouter)
 app.use('/api/v1/tasks', tasksRouter)
 app.use('/api/v1/pomodoro', pomodoroRouter)
+app.use('/api/v1/users', usersRouter)
+app.use('/api/v1/habits', habitsRouter)
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)

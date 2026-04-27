@@ -9,7 +9,7 @@ export interface Goal {
   spentHours: number
   progress: number
   status: string
-  deadline?: string
+  deadline: string | null
   createdAt: string
   _count?: { tasks: number }
 }
@@ -17,7 +17,7 @@ export interface Goal {
 export interface CreateGoalData {
   title: string
   category?: string
-  horizon: string
+  horizon?: string
   plannedHours?: number
   deadline?: string
 }
@@ -31,7 +31,7 @@ export const goalsApi = {
     const res = await apiClient.post('/goals', data)
     return res.data
   },
-  update: async (id: number, data: Partial<Goal>): Promise<{ goal: Goal }> => {
+  update: async (id: number, data: Partial<Goal & { deadline?: string | null }>): Promise<{ goal: Goal }> => {
     const res = await apiClient.patch(`/goals/${id}`, data)
     return res.data
   },
