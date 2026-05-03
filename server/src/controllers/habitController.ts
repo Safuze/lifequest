@@ -1,9 +1,9 @@
-// src/controllers/habitController.ts
 import { Response } from 'express'
 import { z } from 'zod'
 import { prisma } from '../prisma'
 import { AuthRequest } from '../middleware/authMiddleware'
-import { startOfDay, endOfDay, startOfWeek, endOfWeek, subDays } from 'date-fns'
+import { startOfDay, endOfDay, startOfWeek, subDays } from 'date-fns'
+import { checkAchievementsForUser } from '../services/achievementService'
 
 export const createHabitSchema = z.object({
   title: z.string().min(1).max(100),
@@ -12,29 +12,23 @@ export const createHabitSchema = z.object({
   frequency: z.enum(['daily', 'weekly']).default('daily'),
   timesPerDay: z.number().min(1).max(20).default(1),
   timesPerWeek: z.number().min(1).max(7).optional(),
-  startDate: z.string().optional(),
+  startDate: z.string().optional(), // для непрерывных — дата начала
 })
 
-export const updateHabitSchema = z.object({
-  title: z.string().min(1).max(100).optional(),
-  timesPerDay: z.number().min(1).max(20).optional(),
-  timesPerWeek: z.number().min(1).max(7).optional(),
-})
-
-// Шаблоны привычек
 const HABIT_TEMPLATES = [
-  { title: 'Почистить зубы', type: 'positive', trackingType: 'discrete', timesPerDay: 2, category: 'здоровье' },
-  { title: 'Заправить постель', type: 'positive', trackingType: 'discrete', timesPerDay: 1, category: 'личное' },
-  { title: '10 000 шагов', type: 'positive', trackingType: 'discrete', timesPerDay: 1, category: 'здоровье' },
+  { title: 'Почистить зубы',      type: 'positive', trackingType: 'discrete',   timesPerDay: 2, category: 'здоровье' },
+  { title: 'Заправить постель',   type: 'positive', trackingType: 'discrete',   timesPerDay: 1, category: 'личное'   },
+  { title: '10 000 шагов',        type: 'positive', trackingType: 'discrete',   timesPerDay: 1, category: 'здоровье' },
   { title: 'Выпить 8 стаканов воды', type: 'positive', trackingType: 'discrete', timesPerDay: 8, category: 'здоровье' },
-  { title: 'Читать 30 минут', type: 'positive', trackingType: 'discrete', timesPerDay: 1, category: 'хобби' },
-  { title: 'Медитация', type: 'positive', trackingType: 'discrete', timesPerDay: 1, category: 'здоровье' },
-  { title: 'Зарядка', type: 'positive', trackingType: 'discrete', timesPerDay: 1, category: 'здоровье' },
-  { title: 'Не есть сладкое', type: 'anti', trackingType: 'continuous', timesPerDay: 1, category: 'здоровье' },
-  { title: 'Не курить', type: 'anti', trackingType: 'continuous', timesPerDay: 1, category: 'здоровье' },
-  { title: 'Не листать соцсети', type: 'anti', trackingType: 'continuous', timesPerDay: 1, category: 'личное' },
-  { title: 'Ранний подъём', type: 'positive', trackingType: 'discrete', timesPerDay: 1, category: 'личное' },
-  { title: 'Вести дневник', type: 'positive', trackingType: 'discrete', timesPerDay: 1, category: 'личное' },
+  { title: 'Читать 30 минут',     type: 'positive', trackingType: 'discrete',   timesPerDay: 1, category: 'хобби'    },
+  { title: 'Медитация',           type: 'positive', trackingType: 'discrete',   timesPerDay: 1, category: 'здоровье' },
+  { title: 'Зарядка',             type: 'positive', trackingType: 'discrete',   timesPerDay: 1, category: 'здоровье' },
+  { title: 'Не есть сладкое',     type: 'anti',     trackingType: 'continuous', timesPerDay: 1, category: 'здоровье' },
+  { title: 'Не курить',           type: 'anti',     trackingType: 'continuous', timesPerDay: 1, category: 'здоровье' },
+  { title: 'Не листать соцсети', type: 'anti',     trackingType: 'continuous', timesPerDay: 1, category: 'личное'   },
+  { title: 'Ранний подъём',       type: 'positive', trackingType: 'discrete',   timesPerDay: 1, category: 'личное'   },
+  { title: 'Вести дневник',       type: 'positive', trackingType: 'discrete',   timesPerDay: 1, category: 'личное'   },
+  { title: 'Не пить алкоголь',    type: 'anti',     trackingType: 'continuous', timesPerDay: 1, category: 'здоровье' },
 ]
 
 export const getTemplates = async (req: AuthRequest, res: Response) => {
@@ -57,10 +51,81 @@ export const getHabits = async (req: AuthRequest, res: Response) => {
         }
       }
     })
+    const habitsWithMeta = await Promise.all(habits.map(async (habit) => {
+      // Для непрерывных и привычек с нулевым стриком — не показываем восстановление
+      if (habit.trackingType !== 'discrete' || habit.currentStreak === 0) {
+        return { ...habit, canRestoreStreak: false }
+      }
 
-    res.json({ habits })
+      const now = new Date()
+
+      // Начало и конец сегодня
+      const todayStart = new Date(now)
+      todayStart.setHours(0, 0, 0, 0)
+      const todayEnd = new Date(now)
+      todayEnd.setHours(23, 59, 59, 999)
+
+      // Начало и конец вчера
+      const yesterdayStart = new Date(todayStart)
+      yesterdayStart.setDate(yesterdayStart.getDate() - 1)
+      const yesterdayEnd = new Date(yesterdayStart)
+      yesterdayEnd.setHours(23, 59, 59, 999)
+
+      // Начало и конец позавчера
+      const twoDaysAgoStart = new Date(yesterdayStart)
+      twoDaysAgoStart.setDate(twoDaysAgoStart.getDate() - 1)
+      const twoDaysAgoEnd = new Date(twoDaysAgoStart)
+      twoDaysAgoEnd.setHours(23, 59, 59, 999)
+
+      const [todayLog, yesterdayLog, twoDaysAgoLog] = await Promise.all([
+        prisma.habitLog.findFirst({
+          where: { habitId: habit.id, date: { gte: todayStart, lte: todayEnd } }
+        }),
+        prisma.habitLog.findFirst({
+          where: { habitId: habit.id, date: { gte: yesterdayStart, lte: yesterdayEnd } }
+        }),
+        prisma.habitLog.findFirst({
+          where: { habitId: habit.id, date: { gte: twoDaysAgoStart, lte: twoDaysAgoEnd } }
+        }),
+      ])
+
+      let currentStreak = habit.currentStreak
+      if (currentStreak > 0 && !todayLog && !yesterdayLog) {
+        // Проверяем было ли восстановление вчера
+        const restoredYesterday = habit.streakRestoredAt
+          ? new Date(habit.streakRestoredAt) >= yesterdayStart && new Date(habit.streakRestoredAt) <= yesterdayEnd
+          : false
+
+        if (!restoredYesterday) {
+          // Стрик прерван — обнуляем
+          currentStreak = 0
+          await prisma.habit.update({
+            where: { id: habit.id },
+            data: { currentStreak: 0 }
+          }).catch(() => { /* ignore */ })
+        }
+      }
+
+      // Логика:
+      // - Сегодня уже отмечено → восстановление не нужно
+      // - Вчера не было отметки И позавчера была → можно восстановить
+      // - Вчера была отметка → стрик не прерван, восстановление не нужно
+      // - Стрик уже восстанавливался сегодня → не показываем
+      const alreadyRestoredToday = habit.streakRestoredAt
+        ? new Date(habit.streakRestoredAt) >= todayStart
+        : false
+
+      const canRestore = currentStreak > 0
+        && !todayLog
+        && !yesterdayLog
+        && !!twoDaysAgoLog
+        && !alreadyRestoredToday
+
+      return { ...habit, currentStreak, canRestoreStreak: canRestore }
+    }))
+
+    res.json({ habits: habitsWithMeta })
   } catch (error) {
-    console.error('getHabits error:', error)
     res.status(500).json({ error: 'Внутренняя ошибка сервера' })
   }
 }
@@ -68,6 +133,13 @@ export const getHabits = async (req: AuthRequest, res: Response) => {
 export const createHabit = async (req: AuthRequest, res: Response) => {
   try {
     const data = req.body
+
+    // Для непрерывных — startDate из запроса или сейчас
+    let startDate: Date | null = null
+    if (data.trackingType === 'continuous') {
+      startDate = data.startDate ? new Date(data.startDate) : new Date()
+    }
+
     const habit = await prisma.habit.create({
       data: {
         userId: req.userId!,
@@ -77,13 +149,13 @@ export const createHabit = async (req: AuthRequest, res: Response) => {
         frequency: data.frequency || 'daily',
         timesPerDay: data.timesPerDay || 1,
         timesPerWeek: data.timesPerWeek,
-        startDate: data.type === 'anti' ? new Date() : null,
+        startDate,
+        isDayTrackingEnabled: data.trackingType === 'continuous',
       },
       include: { logs: true }
     })
     res.status(201).json({ habit })
   } catch (error) {
-    console.error('createHabit error:', error)
     res.status(500).json({ error: 'Внутренняя ошибка сервера' })
   }
 }
@@ -94,9 +166,9 @@ export const deleteHabit = async (req: AuthRequest, res: Response) => {
     const existing = await prisma.habit.findFirst({
       where: { id: habitId, userId: req.userId! }
     })
-    if (!existing) { res.status(404).json({ error: 'Привычка не найдена' }); return }
+    if (!existing) { res.status(404).json({ error: 'Не найдена' }); return }
     await prisma.habit.delete({ where: { id: habitId } })
-    res.json({ message: 'Привычка удалена' })
+    res.json({ message: 'Удалено' })
   } catch (error) {
     res.status(500).json({ error: 'Внутренняя ошибка сервера' })
   }
@@ -108,12 +180,16 @@ export const logHabit = async (req: AuthRequest, res: Response) => {
     const habit = await prisma.habit.findFirst({
       where: { id: habitId, userId: req.userId! }
     })
-    if (!habit) { res.status(404).json({ error: 'Привычка не найдена' }); return }
+    if (!habit) { res.status(404).json({ error: 'Не найдена' }); return }
+
+    if (habit.trackingType === 'continuous') {
+      res.status(400).json({ error: 'Непрерывная привычка не требует отметки' })
+      return
+    }
 
     const today = startOfDay(new Date())
     const todayEnd = endOfDay(new Date())
 
-    // Считаем сколько отметок уже есть сегодня
     const todayLogs = await prisma.habitLog.count({
       where: { habitId, date: { gte: today, lte: todayEnd } }
     })
@@ -123,51 +199,43 @@ export const logHabit = async (req: AuthRequest, res: Response) => {
       return
     }
 
-    const nextRepetition = todayLogs + 1
+    const nextRep = todayLogs + 1
     await prisma.habitLog.create({
-      data: {
-        habitId,
-        date: new Date(),
-        repetition: nextRepetition,
-      }
+      data: { habitId, date: new Date(), repetition: nextRep }
     })
 
-    const isFullyCompleted = nextRepetition >= habit.timesPerDay
-
+    const isCompleted = nextRep >= habit.timesPerDay
     let xpEarned = 0
     let goldEarned = 0
     let newAchievements: any[] = []
     let newStreak = habit.currentStreak
 
-    if (isFullyCompleted) {
-      // Обновляем стрик
-      const yesterday = startOfDay(subDays(new Date(), 1))
+    if (isCompleted) {
+      const yesterdayStart = startOfDay(subDays(new Date(), 1))
       const yesterdayEnd = endOfDay(subDays(new Date(), 1))
 
       const yesterdayLog = await prisma.habitLog.findFirst({
-        where: { habitId, date: { gte: yesterday, lte: yesterdayEnd } }
+        where: { habitId, date: { gte: yesterdayStart, lte: yesterdayEnd } }
       })
 
-      if (yesterdayLog || habit.currentStreak === 0) {
+      // Проверяем было ли восстановление вчера (тогда стрик не прерван)
+      const restoredYesterday = habit.streakRestoredAt
+        ? new Date(habit.streakRestoredAt) >= yesterdayStart && new Date(habit.streakRestoredAt) <= yesterdayEnd
+        : false
+
+      if (habit.currentStreak === 0) {
+        // Первая отметка или после обнуления
+        newStreak = 1
+      } else if (yesterdayLog || restoredYesterday) {
+        // Вчера был лог ИЛИ вчера восстанавливали — стрик продолжается
         newStreak = habit.currentStreak + 1
       } else {
-        // Проверяем 50% правило
-        const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 })
-        const weekLogs = await prisma.habitLog.count({
-          where: { habitId, date: { gte: weekStart } }
-        })
-        const expectedDays = Math.min(7, Math.ceil((new Date().getTime() - weekStart.getTime()) / 86400000))
-        const rate = expectedDays > 0 ? weekLogs / expectedDays : 0
-
-        if (rate >= 0.5) {
-          newStreak = habit.currentStreak + 1
-        } else {
-          newStreak = 1
-        }
+        // Вчера не было ни лога ни восстановления — стрик прерван, начинаем с 1
+        // ← УБРАЛИ 50% правило, оно создавало баги
+        newStreak = 1
       }
 
-      // Начисляем XP с учётом стрика
-      const baseXp = habit.type === 'anti' ? 25 : 15
+      const baseXp = 15
       const streakBonus = newStreak >= 30 ? 10 : newStreak >= 7 ? 5 : 0
       xpEarned = baseXp + streakBonus
       goldEarned = 2
@@ -180,52 +248,90 @@ export const logHabit = async (req: AuthRequest, res: Response) => {
             bestStreak: Math.max(newStreak, habit.bestStreak),
           }
         })
-
-        await tx.user.update({
+        const updatedUser = await tx.user.update({
           where: { id: req.userId! },
           data: { xp: { increment: xpEarned }, gold: { increment: goldEarned } }
         })
 
-        // Достижения по стрику
-        const STREAK_MILESTONES = [
-          { days: 7,   type: 'streak_7',   title: '7 дней подряд!' },
-          { days: 30,  type: 'streak_30',  title: 'Месяц без остановки!' },
-          { days: 100, type: 'streak_100', title: '100 дней привычки!' },
-          { days: 365, type: 'streak_365', title: 'Год привычки — Легенда!' },
-        ]
+        const LEVEL_XP = [0, 1000, 3000, 6000, 10000, 15000]
+        let newLevel = 0
+        for (let i = LEVEL_XP.length - 1; i >= 0; i--) {
+          if (updatedUser.xp >= LEVEL_XP[i]) { newLevel = i; break }
+        }
+        if (newLevel !== updatedUser.level) {
+          await tx.user.update({ where: { id: req.userId! }, data: { level: newLevel } })
+        }
 
-        for (const milestone of STREAK_MILESTONES) {
-          if (newStreak >= milestone.days) {
-            const existing = await tx.achievement.findFirst({
-              where: { userId: req.userId!, type: `${milestone.type}_habit_${habitId}` }
-            })
-            if (!existing) {
-              const ach = await tx.achievement.create({
+        await tx.rewardTransaction.createMany({
+          data: [
+            { userId: req.userId!, sourceType: 'habit', sourceId: habitId, rewardType: 'xp', amount: xpEarned },
+            { userId: req.userId!, sourceType: 'habit', sourceId: habitId, rewardType: 'gold', amount: goldEarned },
+          ]
+        })
+
+        // Достижения за стрик
+        const milestones = [
+          { days: 7,   type: 'streak_7',   title: '7 дней подряд!',            icon: '📅', rarity: 'common'    },
+          { days: 30,  type: 'streak_30',  title: 'Месяц без остановки!',       icon: '🗓️', rarity: 'rare'      },
+          { days: 90,  type: 'streak_90',  title: 'Квартал дисциплины!',        icon: '💪', rarity: 'epic'      },
+          { days: 365, type: 'streak_365', title: 'Год привычки — Легенда!',    icon: '👑', rarity: 'legendary' },
+        ]
+        for (const m of milestones) {
+          if (newStreak >= m.days) {
+            const key = `${m.type}_habit_${habitId}`
+            const ex = await tx.achievement.findFirst({ where: { userId: req.userId!, type: key } })
+            if (!ex) {
+              const a = await tx.achievement.create({
                 data: {
                   userId: req.userId!,
-                  type: `${milestone.type}_habit_${habitId}`,
-                  title: milestone.title,
+                  type: key,
+                  title: m.title,
+                  description: `${m.days} дней стрика по привычке`,
+                  icon: m.icon,
+                  rarity: m.rarity,
                 }
               })
-              newAchievements.push(ach)
+              newAchievements.push(a)
             }
           }
         }
       })
+
+      checkAchievementsForUser(req.userId!).catch(() => {})
     }
 
     res.json({
       success: true,
-      repetitionsDone: nextRepetition,
+      repetitionsDone: nextRep,
       repetitionsTotal: habit.timesPerDay,
-      isFullyCompleted,
+      isFullyCompleted: isCompleted,
       currentStreak: newStreak,
       xpEarned,
       goldEarned,
       achievements: newAchievements,
     })
   } catch (error) {
-    console.error('logHabit error:', error)
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' })
+  }
+}
+
+// Нарушение непрерывной привычки — удаляет её
+export const breakContinuousHabit = async (req: AuthRequest, res: Response) => {
+  try {
+    const habitId = parseInt(req.params.id as string, 10)
+    const habit = await prisma.habit.findFirst({
+      where: { id: habitId, userId: req.userId! }
+    })
+    if (!habit) { res.status(404).json({ error: 'Не найдена' }); return }
+    if (habit.trackingType !== 'continuous') {
+      res.status(400).json({ error: 'Только для непрерывных привычек' })
+      return
+    }
+
+    // Удаляем привычку — стрик прерван безвозвратно
+    await prisma.habit.delete({ where: { id: habitId } })
+    res.json({ success: true, deleted: true })
+  } catch (error) {
     res.status(500).json({ error: 'Внутренняя ошибка сервера' })
   }
 }
@@ -233,31 +339,45 @@ export const logHabit = async (req: AuthRequest, res: Response) => {
 export const restoreStreak = async (req: AuthRequest, res: Response) => {
   try {
     const habitId = parseInt(req.params.id as string, 10)
-    const RESTORE_COST = 50
+    const COST = 50
 
     const [habit, user] = await Promise.all([
       prisma.habit.findFirst({ where: { id: habitId, userId: req.userId! } }),
       prisma.user.findUnique({ where: { id: req.userId! } })
     ])
 
-    if (!habit) { res.status(404).json({ error: 'Привычка не найдена' }); return }
-    if (!user || user.gold < RESTORE_COST) {
-      res.status(400).json({ error: `Недостаточно золота. Нужно ${RESTORE_COST} 🪙` })
+    if (!habit) { res.status(404).json({ error: 'Не найдена' }); return }
+    if (!user || user.gold < COST) {
+      res.status(400).json({ error: `Нужно ${COST} 🪙` })
       return
+    }
+
+    // Проверяем что стрик не восстанавливался сегодня
+    if (habit.streakRestoredAt) {
+      const restoredDay = new Date(habit.streakRestoredAt)
+      restoredDay.setHours(0, 0, 0, 0)
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      if (restoredDay.getTime() === today.getTime()) {
+        res.status(400).json({ error: 'Стрик уже восстанавливался сегодня' })
+        return
+      }
     }
 
     await prisma.$transaction([
       prisma.user.update({
         where: { id: req.userId! },
-        data: { gold: { decrement: RESTORE_COST } }
+        data: { gold: { decrement: COST } }
       }),
       prisma.habit.update({
         where: { id: habitId },
-        data: { currentStreak: habit.currentStreak + 1 }
+        data: {
+          streakRestoredAt: new Date()
+        }
       })
     ])
 
-    res.json({ success: true, goldSpent: RESTORE_COST })
+    res.json({ success: true, goldSpent: COST })
   } catch (error) {
     res.status(500).json({ error: 'Внутренняя ошибка сервера' })
   }
@@ -265,27 +385,46 @@ export const restoreStreak = async (req: AuthRequest, res: Response) => {
 
 export const getHeatmap = async (req: AuthRequest, res: Response) => {
   try {
-    const habitId = parseInt(req.params.id as string, 10)
-    const habit = await prisma.habit.findFirst({
-      where: { id: habitId, userId: req.userId! }
-    })
-    if (!habit) { res.status(404).json({ error: 'Привычка не найдена' }); return }
+    const days = parseInt(req.query.days as string || '30')
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+    since.setHours(0, 0, 0, 0)
 
-    const since = subDays(new Date(), 365)
+    // Все привычки пользователя
+    const habits = await prisma.habit.findMany({
+      where: { userId: req.userId!, trackingType: 'discrete' },
+      select: { id: true }
+    })
+    const totalHabits = habits.length
+    if (totalHabits === 0) { res.json({ heatmap: [] }); return }
+
+    const habitIds = habits.map(h => h.id)
+
+    // Все логи за период
     const logs = await prisma.habitLog.findMany({
-      where: { habitId, date: { gte: since } },
-      select: { date: true, repetition: true }
+      where: { habitId: { in: habitIds }, date: { gte: since } },
+      select: { habitId: true, date: true }
     })
 
-    // Группируем по датам
-    const heatmap: Record<string, number> = {}
-    logs.forEach(log => {
+    // Группируем по дате
+    const byDate: Record<string, Set<number>> = {}
+    for (const log of logs) {
       const dateStr = log.date.toISOString().split('T')[0]
-      heatmap[dateStr] = (heatmap[dateStr] || 0) + 1
-    })
+      if (!byDate[dateStr]) byDate[dateStr] = new Set()
+      byDate[dateStr].add(log.habitId)
+    }
+
+    // Строим массив дней
+    const heatmap: { date: string; completedCount: number; totalCount: number; percent: number }[] = []
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000)
+      const dateStr = d.toISOString().split('T')[0]
+      const completed = byDate[dateStr]?.size ?? 0
+      const percent = totalHabits > 0 ? Math.round((completed / totalHabits) * 100) : 0
+      heatmap.push({ date: dateStr, completedCount: completed, totalCount: totalHabits, percent })
+    }
 
     res.json({ heatmap })
   } catch (error) {
-    res.status(500).json({ error: 'Внутренняя ошибка сервера' })
+    res.status(500).json({ error: 'Ошибка сервера' })
   }
 }

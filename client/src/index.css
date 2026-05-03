@@ -10,3 +10,32 @@ input:-webkit-autofill:focus {
   caret-color: #ffffff;
   transition: background-color 5000s ease-in-out 0s;
 }
+
+/* Звёздный фон */
+@keyframes twinkle {
+  0%, 100% { opacity: 0.15; }
+  50%       { opacity: 0.9; }
+}
+
+/* Анимация лесного ветра (для fallback без видео) */
+@keyframes forest-sway {
+  0%, 100% { transform: translateX(0) scaleY(1); }
+  50%       { transform: translateX(3px) scaleY(1.02); }
+}
+
+/* Переворот песочных часов */
+@keyframes flipHourglass {
+  0%   { transform: rotate(0deg); }
+  50%  { transform: rotate(90deg); }
+  100% { transform: rotate(180deg); }
+}
+
+.hourglass-flip {
+  animation: flipHourglass 0.8s ease-in-out forwards;
+}
+
+/* Анимация уведомления о награде */
+@keyframes slideIn {
+  from { transform: translateX(100px); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}

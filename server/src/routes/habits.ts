@@ -1,8 +1,8 @@
 import { Router } from 'express'
 import {
   getHabits, createHabit, deleteHabit, logHabit,
-  restoreStreak, getHeatmap, getTemplates,
-  createHabitSchema, updateHabitSchema
+  breakContinuousHabit, restoreStreak, getHeatmap,
+  getTemplates, createHabitSchema
 } from '../controllers/habitController'
 import { authMiddleware } from '../middleware/authMiddleware'
 import { validate } from '../middleware/validateMiddleware'
@@ -15,7 +15,9 @@ router.get('/', getHabits)
 router.post('/', validate(createHabitSchema), createHabit)
 router.delete('/:id', deleteHabit)
 router.post('/:id/log', logHabit)
+router.post('/:id/break', breakContinuousHabit)
 router.post('/:id/restore-streak', restoreStreak)
 router.get('/:id/heatmap', getHeatmap)
+router.get('/heatmap', getHeatmap)
 
 export default router

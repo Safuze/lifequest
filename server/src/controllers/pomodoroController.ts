@@ -2,6 +2,7 @@ import { Response } from 'express'
 import { z } from 'zod'
 import { prisma } from '../prisma'
 import { AuthRequest } from '../middleware/authMiddleware'
+import { checkAchievementsForUser } from '../services/achievementService'
 
 export const settingsSchema = z.object({
   workDuration:     z.number().min(1).max(120).optional(),
@@ -11,7 +12,7 @@ export const settingsSchema = z.object({
 })
 
 export const createSessionSchema = z.object({
-  taskId:          z.number().positive(),
+  taskId:          z.number().positive().optional(),
   goalId:          z.number().positive().optional(),
   plannedDuration: z.number().positive(),
 })
@@ -67,31 +68,37 @@ export const startSession = async (req: AuthRequest, res: Response) => {
   try {
     const { taskId, goalId, plannedDuration } = req.body
 
-    const task = await prisma.task.findFirst({
-      where: { id: taskId, userId: req.userId! }
-    })
-    if (!task) {
-      res.status(404).json({ error: 'Задача не найдена' })
-      return
+    if (taskId) {
+      const task = await prisma.task.findFirst({
+        where: { id: taskId, userId: req.userId! }
+      })
+      if (!task) { res.status(404).json({ error: 'Задача не найдена' }); return }
     }
 
-    // Завершаем активные сессии если есть
     await prisma.pomodoroSession.updateMany({
       where: { userId: req.userId!, status: 'active' },
       data: { status: 'cancelled' }
     })
 
+    let resolvedGoalId = goalId || null
+    if (taskId && !resolvedGoalId) {
+      const task = await prisma.task.findUnique({
+        where: { id: taskId },
+        select: { goalId: true }
+      })
+      resolvedGoalId = task?.goalId || null
+    }
+
     const session = await prisma.pomodoroSession.create({
       data: {
         userId: req.userId!,
-        taskId,
-        goalId: goalId || task.goalId || null,
+        taskId: taskId || null,
+        goalId: resolvedGoalId,
         plannedDuration,
         status: 'active',
         startedAt: new Date(),
       }
     })
-
     res.status(201).json({ session })
   } catch (error) {
     res.status(500).json({ error: 'Внутренняя ошибка сервера' })
@@ -106,97 +113,159 @@ export const completeSession = async (req: AuthRequest, res: Response) => {
     const session = await prisma.pomodoroSession.findFirst({
       where: { id: sessionId, userId: req.userId! }
     })
-    if (!session) {
-      res.status(404).json({ error: 'Сессия не найдена' })
+    if (!session) { res.status(404).json({ error: 'Сессия не найдена' }); return }
+
+    if (session.status === 'completed') {
+      res.json({ session, reward: { xp: 0, gold: 0 }, cycleBonus: false, achievements: [] })
       return
     }
 
-    const task = await prisma.task.findUnique({ where: { id: session.taskId } })
+    await prisma.pomodoroSession.update({
+      where: { id: sessionId },
+      data: {
+        status: actualDuration > 0 ? 'completed' : 'cancelled',
+        actualDuration,
+        completedAt: new Date(),
+      }
+    })
 
-    // Считаем цикл: сколько завершённых сессий за последние N часов
+    // Сброс — ничего не начисляем
+    if (!actualDuration || actualDuration <= 0) {
+      res.json({ session, reward: { xp: 0, gold: 0 }, cycleBonus: false, achievements: [] })
+      return
+    }
+
+    // Базовые награды за время
+    const BASE_XP_PER_MIN = 2
+    const BASE_GOLD_PER_MIN = 0.4
+    let xpForSession = Math.max(1, Math.floor(actualDuration * BASE_XP_PER_MIN))
+    let goldForSession = Math.max(1, Math.floor(actualDuration * BASE_GOLD_PER_MIN))
+
+    // Бонус за фокус-задачу (×1.5)
+    if (session.taskId) {
+      const task = await prisma.task.findUnique({
+        where: { id: session.taskId },
+        select: { isFocusToday: true }
+      })
+      if (task?.isFocusToday) {
+        xpForSession = Math.floor(xpForSession * 1.5)
+        goldForSession = Math.floor(goldForSession * 1.5)
+      }
+    }
+
+    // Проверяем завершение цикла
     const settings = await prisma.pomodoroSettings.findUnique({
       where: { userId: req.userId! }
     })
     const cyclesBeforeLong = settings?.cyclesBeforeLong || 4
 
-    const recentSessions = await prisma.pomodoroSession.count({
+    const todayStart = new Date()
+    todayStart.setUTCHours(0, 0, 0, 0) // UTC чтобы избежать timezone-багов
+
+    // Считаем завершённые сессии сегодня ВКЛЮЧАЯ текущую
+    const completedTodayCount = await prisma.pomodoroSession.count({
       where: {
         userId: req.userId!,
         status: 'completed',
-        completedAt: { gte: new Date(Date.now() - 4 * 60 * 60 * 1000) }
+        completedAt: { gte: todayStart }
       }
     })
-    const cycleCompleted = (recentSessions + 1) % cyclesBeforeLong === 0
 
-    const { xp, gold } = calculateReward(
-      actualDuration,
-      task?.isFocusToday || false,
-      cycleCompleted
-    )
+    const isNewCycleCompleted = completedTodayCount > 0 && completedTodayCount % cyclesBeforeLong === 0
 
-    // Транзакция
-    const result = await prisma.$transaction(async (tx) => {
-      const completedSession = await tx.pomodoroSession.update({
-        where: { id: sessionId },
-        data: { status: 'completed', actualDuration, completedAt: new Date() }
+    let cycleBonusXp = 0
+    let cycleBonusGold = 0
+
+    if (isNewCycleCompleted) {
+      // Алгоритм: бонус = сумма XP всех сессий текущего цикла / 4
+      // Берём XP последних cyclesBeforeLong сессий из RewardTransaction
+      const cycleRewards = await prisma.rewardTransaction.findMany({
+        where: {
+          userId: req.userId!,
+          sourceType: 'pomodoro',
+          createdAt: { gte: todayStart },
+        },
+        orderBy: { createdAt: 'desc' },
+        // Берём только сессии текущего цикла
+        // Каждая сессия = 2 записи (xp + gold), берём cyclesBeforeLong * 2
+        // Но текущая сессия ещё не записана → берём (cyclesBeforeLong - 1) * 2 + текущая
+        take: (cyclesBeforeLong - 1) * 2,
       })
 
-      await tx.task.update({
-        where: { id: session.taskId },
-        data: { timeSpent: { increment: actualDuration } }
+      const prevCycleXp = cycleRewards
+        .filter(r => r.rewardType === 'xp')
+        .reduce((sum, r) => sum + r.amount, 0)
+
+      const prevCycleGold = cycleRewards
+        .filter(r => r.rewardType === 'gold')
+        .reduce((sum, r) => sum + r.amount, 0)
+
+      // Суммируем с текущей сессией
+      const totalCycleXp = prevCycleXp + xpForSession
+      const totalCycleGold = prevCycleGold + goldForSession
+
+      // Делим на 4 (всегда на 4, как описано в алгоритме)
+      cycleBonusXp = Math.max(1, Math.round(totalCycleXp / 4))
+      cycleBonusGold = Math.max(1, Math.round(totalCycleGold / 4))
+    }
+
+    const totalXp = xpForSession + cycleBonusXp
+    const totalGold = goldForSession + cycleBonusGold
+
+    const LEVEL_XP = [0, 1000, 3000, 6000, 10000, 15000]
+
+    await prisma.$transaction(async (tx) => {
+      const updatedUser = await tx.user.update({
+        where: { id: req.userId! },
+        data: { xp: { increment: totalXp }, gold: { increment: totalGold } }
       })
 
+      // Автообновление уровня
+      let newLevel = 0
+      for (let i = LEVEL_XP.length - 1; i >= 0; i--) {
+        if (updatedUser.xp >= LEVEL_XP[i]) { newLevel = i; break }
+      }
+      if (newLevel !== updatedUser.level) {
+        await tx.user.update({ where: { id: req.userId! }, data: { level: newLevel } })
+      }
+
+      // RewardTransaction
+      const rewardRows: any[] = [
+        { userId: req.userId!, sessionId, sourceType: 'pomodoro', sourceId: sessionId, rewardType: 'xp', amount: xpForSession },
+        { userId: req.userId!, sessionId, sourceType: 'pomodoro', sourceId: sessionId, rewardType: 'gold', amount: goldForSession },
+      ]
+      if (isNewCycleCompleted) {
+        rewardRows.push(
+          { userId: req.userId!, sessionId, sourceType: 'cycle_bonus', sourceId: sessionId, rewardType: 'xp', amount: cycleBonusXp },
+          { userId: req.userId!, sessionId, sourceType: 'cycle_bonus', sourceId: sessionId, rewardType: 'gold', amount: cycleBonusGold },
+        )
+      }
+      await tx.rewardTransaction.createMany({ data: rewardRows })
+
+      // Обновляем время задачи
+      if (session.taskId) {
+        await tx.task.update({
+          where: { id: session.taskId },
+          data: { timeSpent: { increment: actualDuration } }
+        })
+      }
+
+      // Обновляем часы цели
       if (session.goalId) {
         await tx.goal.update({
           where: { id: session.goalId },
           data: { spentHours: { increment: actualDuration / 60 } }
         })
       }
-
-      await tx.rewardTransaction.createMany({
-        data: [
-          { userId: req.userId!, sessionId, sourceType: 'pomodoro', sourceId: sessionId, rewardType: 'xp', amount: xp },
-          { userId: req.userId!, sessionId, sourceType: 'pomodoro', sourceId: sessionId, rewardType: 'gold', amount: gold },
-        ]
-      })
-
-      await tx.user.update({
-        where: { id: req.userId! },
-        data: { xp: { increment: xp }, gold: { increment: gold } }
-      })
-
-      // Проверка достижений
-      const user = await tx.user.findUnique({ where: { id: req.userId! } })
-      const totalSessions = await tx.pomodoroSession.count({
-        where: { userId: req.userId!, status: 'completed' }
-      })
-
-      const newAchievements: any[] = []
-      const existingAchievements = await tx.achievement.findMany({
-        where: { userId: req.userId! },
-        select: { type: true }
-      })
-      const existingTypes = new Set(existingAchievements.map(a => a.type))
-
-      if (totalSessions >= 10 && !existingTypes.has('pomodoro_10')) {
-        newAchievements.push({ userId: req.userId!, type: 'pomodoro_10', title: '10 помодоро завершено' })
-      }
-      if (totalSessions >= 100 && !existingTypes.has('pomodoro_100')) {
-        newAchievements.push({ userId: req.userId!, type: 'pomodoro_100', title: '100 помодоро!' })
-      }
-
-      if (newAchievements.length > 0) {
-        await tx.achievement.createMany({ data: newAchievements })
-      }
-
-      return { completedSession, xp, gold, cycleBonus: cycleCompleted, newAchievements, user }
     })
+    const newAchievements = await checkAchievementsForUser(req.userId!)
+
 
     res.json({
-      session: result.completedSession,
-      reward: { xp: result.xp, gold: result.gold },
-      cycleBonus: result.cycleBonus,
-      achievements: result.newAchievements,
+      session,
+      reward: { xp: totalXp, gold: totalGold },
+      cycleBonus: isNewCycleCompleted ? { xp: cycleBonusXp, gold: cycleBonusGold } : null,
+      achievements: newAchievements,
     })
   } catch (error) {
     console.error('completeSession error:', error)

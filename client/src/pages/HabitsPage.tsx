@@ -1,12 +1,154 @@
 import { useState, useEffect } from 'react'
 import { habitsApi } from '../api/habits'
-import type { Habit,  } from '../api/habits'
+import type { Habit, HabitTemplate} from '../api/habits'
 import { useAuth } from '../hooks/useAuth'
-import { Plus, Trash2, X, Flame, Trophy, RotateCcw, ChevronDown, ChevronUp } from 'lucide-react'
+import { Plus, Trash2, X, Flame, Trophy, RotateCcw, ChevronDown, ChevronUp, Calendar, AlertTriangle } from 'lucide-react'
 
-// Тепловая карта за последние 30 дней (для страницы)
-function MiniHeatmap({ logs }: { logs: { date: string; repetition: number }[] }) {
-  const days = 30
+// ============ УТИЛИТЫ ============
+
+// Динамический счётчик для непрерывных привычек
+function formatDuration(startDate: string): string {
+  const start = new Date(startDate)
+  const now = new Date()
+  const diffMs = now.getTime() - start.getTime()
+  const diffSec = Math.floor(diffMs / 1000)
+  const diffMin = Math.floor(diffSec / 60)
+  const diffHour = Math.floor(diffMin / 60)
+  const diffDay = Math.floor(diffHour / 24)
+  const diffMonth = Math.floor(diffDay / 30.44)
+  const diffYear = Math.floor(diffMonth / 12)
+
+  if (diffMin < 1) return `${diffSec} сек.`
+  if (diffHour < 1) return `${diffMin} мин.`
+  if (diffDay < 1) {
+    const h = diffHour
+    const m = diffMin % 60
+    return m > 0 ? `${h} час. ${m} мин.` : `${h} час.`
+  }
+  if (diffMonth < 1) {
+    const d = diffDay
+    const h = diffHour % 24
+    return h > 0 ? `${d} дн. ${h} час.` : `${d} дн.`
+  }
+  if (diffYear < 1) {
+    const mo = diffMonth
+    const d = diffDay % 30
+    return d > 0 ? `${mo} мес. ${d} дн.` : `${mo} мес.`
+  }
+  const y = diffYear
+  const mo = diffMonth % 12
+  return mo > 0 ? `${y} г. ${mo} мес.` : `${y} г.`
+}
+
+interface HeatmapDay {
+  date: string
+  completedCount: number
+  totalCount: number
+  percent: number
+}
+
+function HabitHeatmap({ days = 30 }: { days?: number }) {
+  const [heatmap, setHeatmap] = useState<HeatmapDay[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    habitsApi.getHeatmap(days).then(d => {
+      setHeatmap(d.heatmap)
+      setIsLoading(false)
+    })
+  }, [days])
+
+  if (isLoading) return <div className="text-slate-400 text-sm text-center py-4">Загрузка...</div>
+
+  const getColor = (percent: number) => {
+    if (percent === 0) return '#1e293b'
+    if (percent <= 25) return 'rgba(99,102,241,0.3)'
+    if (percent <= 50) return 'rgba(99,102,241,0.55)'
+    if (percent <= 75) return 'rgba(99,102,241,0.8)'
+    return '#4f46e5'
+  }
+
+  const getBorder = (percent: number) => {
+    if (percent === 0) return '#334155'
+    if (percent <= 25) return 'rgba(99,102,241,0.4)'
+    if (percent <= 50) return 'rgba(99,102,241,0.6)'
+    if (percent <= 75) return 'rgba(99,102,241,0.85)'
+    return '#6366f1'
+  }
+
+  const today = new Date().toISOString().split('T')[0]
+
+  // Разбиваем на недели (строки по 7)
+  const weeks: HeatmapDay[][] = []
+  for (let i = 0; i < heatmap.length; i += 7) {
+    weeks.push(heatmap.slice(i, i + 7))
+  }
+
+  const DAYS_RU = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
+
+  return (
+    <div>
+      {/* Легенда */}
+      <div className="flex items-center gap-3 mb-3">
+        <span className="text-slate-500 text-xs">Меньше</span>
+        {[0, 25, 50, 75, 100].map(p => (
+          <div key={p} className="w-4 h-4 rounded-sm"
+            style={{ backgroundColor: getColor(p), border: `1px solid ${getBorder(p)}` }} />
+        ))}
+        <span className="text-slate-500 text-xs">Больше</span>
+      </div>
+
+      {/* Метки дней недели */}
+      <div className="flex gap-1 mb-1 ml-0">
+        {DAYS_RU.map(d => (
+          <div key={d} className="w-8 text-center text-slate-600 text-xs">{d}</div>
+        ))}
+      </div>
+
+      {/* Сетка */}
+      <div className="space-y-1">
+        {weeks.map((week, wi) => (
+          <div key={wi} className="flex gap-1">
+            {week.map((day) => {
+              const isToday = day.date === today
+              const isFuture = day.date > today
+              const d = new Date(day.date)
+              const dayNum = d.getDate()
+
+              return (
+                <div key={day.date}
+                  title={`${day.date}: ${day.completedCount}/${day.totalCount} привычек (${day.percent}%)`}
+                  className="relative w-8 h-8 rounded-md flex items-center justify-center cursor-default transition-all hover:scale-110"
+                  style={{
+                    backgroundColor: isFuture ? 'transparent' : getColor(day.percent),
+                    border: `1px solid ${isFuture ? '#1e293b' : getBorder(day.percent)}`,
+                    boxShadow: isToday ? '0 0 0 2px #6366f1' : 'none',
+                    opacity: isFuture ? 0.3 : 1,
+                  }}>
+                  <span className="text-xs font-medium"
+                    style={{ color: day.percent > 50 && !isFuture ? '#e2e8f0' : '#64748b' }}>
+                    {dayNum}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        ))}
+      </div>
+
+      {/* Статистика под картой */}
+      <div className="flex items-center gap-4 mt-3 text-xs text-slate-500">
+        <span>🟦 0–25%</span>
+        <span>🔵 25–50%</span>
+        <span>💙 50–75%</span>
+        <span>🟣 75–100%</span>
+      </div>
+    </div>
+  )
+}
+
+// Тепловая карта за N дней
+function Heatmap({ logs, days = 30 }: { logs: { date: string }[]; days?: number }) {
   const today = new Date()
   const cells: { date: string; count: number }[] = []
 
@@ -14,22 +156,49 @@ function MiniHeatmap({ logs }: { logs: { date: string; repetition: number }[] })
     const d = new Date(today)
     d.setDate(d.getDate() - i)
     const dateStr = d.toISOString().split('T')[0]
-    const count = logs.filter(l => l.date.split('T')[0] === dateStr).length
+    const count = logs.filter(l => l.date.startsWith(dateStr)).length
     cells.push({ date: dateStr, count })
   }
 
   const maxCount = Math.max(...cells.map(c => c.count), 1)
 
+  // Группируем по неделям для 365-дневной карты
+  if (days === 365) {
+    const weeks: { date: string; count: number }[][] = []
+    for (let i = 0; i < cells.length; i += 7) {
+      weeks.push(cells.slice(i, i + 7))
+    }
+    return (
+      <div className="flex gap-0.5 overflow-x-auto pb-2">
+        {weeks.map((week, wi) => (
+          <div key={wi} className="flex flex-col gap-0.5">
+            {week.map(cell => (
+              <div key={cell.date}
+                className="w-3 h-3 rounded-sm"
+                title={`${cell.date}: ${cell.count} отметок`}
+                style={{
+                  backgroundColor: cell.count === 0
+                    ? '#1e293b'
+                    : `rgba(99,102,241,${0.2 + (cell.count / maxCount) * 0.8})`
+                }}
+              />
+            ))}
+          </div>
+        ))}
+      </div>
+    )
+  }
+
   return (
-    <div className="flex gap-0.5 flex-wrap mt-2">
+    <div className="flex gap-0.5 flex-wrap">
       {cells.map(cell => (
         <div key={cell.date}
-          className="w-3 h-3 rounded-sm transition-all"
-          title={`${cell.date}: ${cell.count} отметок`}
+          className="w-3 h-3 rounded-sm"
+          title={`${cell.date}: ${cell.count}`}
           style={{
             backgroundColor: cell.count === 0
               ? '#1e293b'
-              : `rgba(99,102,241,${0.2 + (cell.count / maxCount) * 0.8})`,
+              : `rgba(99,102,241,${0.2 + (cell.count / maxCount) * 0.8})`
           }}
         />
       ))}
@@ -37,95 +206,187 @@ function MiniHeatmap({ logs }: { logs: { date: string; repetition: number }[] })
   )
 }
 
-// Карточка привычки
+// Легенда тепловой карты
+function HeatmapLegend() {
+  return (
+    <div className="flex items-center gap-2 mt-2">
+      <span className="text-xs text-slate-500">Меньше</span>
+      {[0, 0.2, 0.5, 0.8, 1].map(o => (
+        <div key={o} className="w-3 h-3 rounded-sm"
+          style={{ backgroundColor: o === 0 ? '#1e293b' : `rgba(99,102,241,${0.2 + o * 0.8})` }} />
+      ))}
+      <span className="text-xs text-slate-500">Больше</span>
+    </div>
+  )
+}
+
+// ============ МОДАЛКА ПОДТВЕРЖДЕНИЯ НАРУШЕНИЯ ============
+interface BreakConfirmModalProps {
+  habitTitle: string
+  onConfirm: () => void
+  onClose: () => void
+}
+
+function BreakConfirmModal({ habitTitle, onConfirm, onClose }: BreakConfirmModalProps) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/70" onClick={onClose} />
+      <div className="relative w-full max-w-sm rounded-2xl p-6 z-10 text-center"
+        style={{ backgroundColor: '#1e293b', border: '1px solid rgba(239,68,68,0.4)' }}>
+        <div className="text-4xl mb-3">💔</div>
+        <h3 className="text-white font-semibold text-lg mb-2">Вы уверены?</h3>
+        <p className="text-slate-400 text-sm mb-2">
+          Привычка «<span className="text-white">{habitTitle}</span>» будет нарушена.
+        </p>
+        <p className="text-red-400 text-sm mb-6">
+          Счётчик обнулится и привычка удалится. Это действие необратимо.
+        </p>
+        <div className="flex gap-3">
+          <button onClick={onClose}
+            className="flex-1 py-2.5 rounded-xl font-medium text-white"
+            style={{ backgroundColor: '#4f46e5' }}>
+            Нет, продолжаю!
+          </button>
+          <button onClick={onConfirm}
+            className="flex-1 py-2.5 rounded-xl font-medium"
+            style={{ backgroundColor: 'rgba(239,68,68,0.2)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.4)' }}>
+            Да, нарушил
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ============ КАРТОЧКА ПРИВЫЧКИ ============
 interface HabitCardProps {
   habit: Habit
   userGold: number
   onLog: (id: number) => void
+  onBreak: (id: number) => void
   onDelete: (id: number) => void
   onRestoreStreak: (id: number) => void
   lastReward: { xp: number; gold: number } | null
+  heatmapView: 'month' | 'year'
+  streakRestored: boolean
 }
 
-function HabitCard({ habit, userGold, onLog, onDelete, onRestoreStreak, lastReward }: HabitCardProps) {
+function HabitCard({ habit, userGold, onLog, onBreak, onDelete, onRestoreStreak, lastReward, heatmapView, streakRestored  }: HabitCardProps) {
   const [expanded, setExpanded] = useState(false)
+  const [timer, setTimer] = useState('')
 
   const todayLogs = habit.logs.length
-  const isCompleted = todayLogs >= habit.timesPerDay
+  const isCompleted = habit.trackingType === 'discrete' && todayLogs >= habit.timesPerDay
 
-  const getDaysWithoutHabit = () => {
-    if (habit.trackingType !== 'continuous' || !habit.startDate) return 0
-    const start = new Date(habit.startDate)
-    const now = new Date()
-    return Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
-  }
-
-  const daysCount = getDaysWithoutHabit()
+  // Обновляем счётчик для непрерывных привычек
+  useEffect(() => {
+    if (habit.trackingType !== 'continuous' || !habit.startDate) return
+    const update = () => setTimer(formatDuration(habit.startDate!))
+    update()
+    const interval = setInterval(update, 30000) // каждые 30 секунд
+    return () => clearInterval(interval)
+  }, [habit.trackingType, habit.startDate])
 
   return (
-    <div className="rounded-2xl overflow-hidden"
-      style={{ backgroundColor: '#1e293b', border: `1px solid ${isCompleted ? 'rgba(34,197,94,0.3)' : '#334155'}` }}>
+    
+    <div className="rounded-2xl overflow-hidden transition-all"
+      style={{
+        backgroundColor: '#1e293b',
+        border: `1px solid ${isCompleted ? 'rgba(34,197,94,0.3)' : '#334155'}`,
+      }}>
       <div className="p-4">
-        <div className="flex items-start justify-between gap-3">
+        {/* Заголовок */}
+        <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <span className="text-lg">{habit.type === 'anti' ? '🚫' : '✅'}</span>
               <h3 className="text-white font-medium truncate">{habit.title}</h3>
-            </div>
-            <div className="flex items-center gap-3 text-xs text-slate-400">
-              <span className="flex items-center gap-1">
-                <Flame size={12} className="text-orange-400" />
-                Стрик: <span className="text-orange-400 font-medium">{habit.currentStreak}</span>
-              </span>
-              <span className="flex items-center gap-1">
-                <Trophy size={12} className="text-yellow-400" />
-                Рекорд: <span className="text-yellow-400 font-medium">{habit.bestStreak}</span>
-              </span>
+              {habit.trackingType === 'continuous' && (
+                <span className="text-xs px-2 py-0.5 rounded-full shrink-0"
+                  style={{ backgroundColor: 'rgba(99,102,241,0.2)', color: '#a5b4fc' }}>
+                  непрерывная
+                </span>
+              )}
             </div>
 
-            {/* Счётчик для непрерывного типа */}
-            {habit.trackingType === 'continuous' && (
-              <div className="mt-2 px-3 py-1.5 rounded-lg text-sm"
-                style={{ backgroundColor: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)' }}>
-                <span className="text-indigo-300">
-                  {habit.type === 'anti'
-                    ? `🕐 ${daysCount} дней без "${habit.title}"`
-                    : `⏱ Отслеживается ${daysCount} дней`
-                  }
+            {/* Стрик (только для дискретных) */}
+            {habit.trackingType === 'discrete' && (
+              <div className="flex items-center gap-3 text-xs text-slate-400">
+                <span className="flex items-center gap-1">
+                  <Flame size={12} className="text-orange-400" />
+                  <span className="text-orange-400 font-medium">{habit.currentStreak}</span> дн.
+                </span>
+                <span className="flex items-center gap-1">
+                  <Trophy size={12} className="text-yellow-400" />
+                  Рекорд: <span className="text-yellow-400 font-medium">{habit.bestStreak}</span>
                 </span>
               </div>
             )}
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1 shrink-0">
             <button onClick={() => setExpanded(!expanded)}
-              className="text-slate-500 hover:text-white transition-colors p-1">
+              className="p-1.5 text-slate-500 hover:text-white transition-colors">
               {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             </button>
             <button onClick={() => onDelete(habit.id)}
-              className="text-slate-500 hover:text-red-400 transition-colors p-1">
+              className="p-1.5 text-slate-500 hover:text-red-400 transition-colors">
               <Trash2 size={14} />
             </button>
           </div>
         </div>
 
-        {/* Кнопки отметки */}
-        <div className="mt-3">
-          {habit.trackingType === 'discrete' ? (
+        {/* Счётчик для непрерывных */}
+        {habit.trackingType === 'continuous' && habit.startDate && (
+          <div className="mb-3 p-3 rounded-xl"
+            style={{ backgroundColor: '#0f172a', border: '1px solid #334155' }}>
+            <div className="text-xs text-slate-400 mb-1">
+              {habit.type === 'anti' ? '⏱ Без нарушений:' : '⏱ Выполняется:'}
+            </div>
+            <div className="text-xl font-bold font-mono"
+              style={{ color: habit.type === 'anti' ? '#22c55e' : '#6366f1' }}>
+              {timer}
+            </div>
+            <div className="text-xs text-slate-500 mt-1">
+              с {new Date(habit.startDate).toLocaleDateString('ru-RU')}
+            </div>
+          </div>
+        )}
+
+        {/* Кнопки действий */}
+        {habit.trackingType === 'discrete' ? (
+          habit.canRestoreStreak ? (
+            // 🔥 ТОЛЬКО ВОССТАНОВЛЕНИЕ
+            <button
+              onClick={() => onRestoreStreak(habit.id)}
+              className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-medium transition-all"
+              style={{
+                backgroundColor: 'rgba(245,158,11,0.15)',
+                color: '#f59e0b',
+                border: '1px solid rgba(245,158,11,0.3)'
+              }}>
+              <RotateCcw size={14} />
+              Восстановить стрик за 50 🪙
+            </button>
+          ) : (
+            // ✅ ОБЫЧНЫЕ КНОПКИ
             <div className="flex items-center gap-3">
-              {habit.timesPerDay > 1 ? (
+              {habit.timesPerDay > 1 && (
                 <div className="flex items-center gap-2 flex-1">
                   <div className="flex gap-1 flex-1">
                     {Array.from({ length: habit.timesPerDay }).map((_, i) => (
-                      <div key={i} className="h-1.5 flex-1 rounded-full transition-all"
-                        style={{ backgroundColor: i < todayLogs ? '#22c55e' : '#334155' }} />
+                      <div key={i}
+                        className="h-1.5 flex-1 rounded-full transition-all"
+                        style={{ backgroundColor: i < todayLogs ? '#22c55e' : '#334155' }}
+                      />
                     ))}
                   </div>
                   <span className="text-xs text-slate-400 shrink-0">
                     {todayLogs}/{habit.timesPerDay}
                   </span>
                 </div>
-              ) : null}
+              )}
+
               <button
                 onClick={() => !isCompleted && onLog(habit.id)}
                 disabled={isCompleted}
@@ -135,62 +396,54 @@ function HabitCard({ habit, userGold, onLog, onDelete, onRestoreStreak, lastRewa
                   color: isCompleted ? '#22c55e' : '#fff',
                   border: isCompleted ? '1px solid rgba(34,197,94,0.3)' : 'none',
                   cursor: isCompleted ? 'default' : 'pointer',
-                  minWidth: '100px',
+                  minWidth: '110px',
                 }}>
-                {isCompleted ? '✓ Готово' : habit.timesPerDay > 1 ? `+1 (${todayLogs}/${habit.timesPerDay})` : 'Отметить'}
+                {isCompleted
+                  ? '✓ Готово'
+                  : habit.timesPerDay > 1
+                    ? `+1 (${todayLogs}/${habit.timesPerDay})`
+                    : 'Отметить'}
               </button>
             </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => onLog(habit.id)}
-                className="flex-1 py-2 rounded-xl text-sm font-medium text-white transition-all hover:opacity-90"
-                style={{ backgroundColor: habit.type === 'anti' ? '#ef4444' : '#4f46e5' }}>
-                {habit.type === 'anti' ? '💔 Нарушил' : '✓ Выполнено'}
-              </button>
-            </div>
-          )}
-        </div>
+          )
+        ) : (
+          // непрерывные привычки не трогаем
+          <button
+            onClick={() => onBreak(habit.id)}
+            className="w-full py-2 rounded-xl text-sm font-medium transition-all"
+            style={{
+              backgroundColor: 'rgba(239,68,68,0.1)',
+              color: '#ef4444',
+              border: '1px solid rgba(239,68,68,0.3)',
+            }}>
+            💔 Нарушил
+          </button>
+        )}
 
-        {/* Последняя награда */}
+        {/* Награда */}
         {lastReward && (lastReward.xp > 0 || lastReward.gold > 0) && (
           <div className="mt-2 flex items-center gap-3 text-xs">
             {lastReward.xp > 0 && <span className="text-indigo-400">+{lastReward.xp} XP</span>}
             {lastReward.gold > 0 && <span className="text-yellow-400">+{lastReward.gold} 🪙</span>}
           </div>
         )}
-
-        {/* Кнопка восстановления стрика */}
-        {!isCompleted && habit.currentStreak > 0 && (
-          <button
-            onClick={() => onRestoreStreak(habit.id)}
-            className="mt-2 w-full py-1.5 rounded-lg text-xs text-yellow-400 flex items-center justify-center gap-1 transition-all hover:bg-yellow-400/10"
-            style={{ border: '1px solid rgba(245,158,11,0.3)' }}>
-            <RotateCcw size={12} /> Восстановить стрик за 50 🪙
-          </button>
-        )}
       </div>
 
       {/* Тепловая карта (разворачивается) */}
-      {expanded && (
+      {expanded && habit.trackingType === 'discrete' && (
         <div className="px-4 pb-4" style={{ borderTop: '1px solid #334155' }}>
-          <p className="text-slate-500 text-xs mt-3 mb-2">Активность за 30 дней:</p>
-          <MiniHeatmap logs={habit.logs} />
-          <div className="flex items-center gap-2 mt-2">
-            <span className="text-xs text-slate-500">Меньше</span>
-            {[0, 0.25, 0.5, 0.75, 1].map(opacity => (
-              <div key={opacity} className="w-3 h-3 rounded-sm"
-                style={{ backgroundColor: opacity === 0 ? '#1e293b' : `rgba(99,102,241,${0.2 + opacity * 0.8})` }} />
-            ))}
-            <span className="text-xs text-slate-500">Больше</span>
-          </div>
+          <p className="text-slate-500 text-xs mt-3 mb-2">
+            Активность за {heatmapView === 'month' ? '30' : '365'} дней:
+          </p>
+          <Heatmap logs={habit.logs} days={heatmapView === 'month' ? 30 : 365} />
+          <HeatmapLegend />
         </div>
       )}
     </div>
   )
 }
 
-// Модалка создания привычки
+// ============ МОДАЛКА СОЗДАНИЯ ============
 interface CreateHabitModalProps {
   templates: HabitTemplate[]
   onClose: () => void
@@ -204,14 +457,24 @@ function CreateHabitModal({ templates, onClose, onCreated }: CreateHabitModalPro
   const [trackingType, setTrackingType] = useState<'discrete' | 'continuous'>('discrete')
   const [frequency, setFrequency] = useState('daily')
   const [timesPerDay, setTimesPerDay] = useState(1)
+  const [startDate, setStartDate] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+
+  const [templateStartDate, setTemplateStartDate] = useState('')
+  const [selectedTemplate, setSelectedTemplate] = useState<HabitTemplate | null>(null)
+
+  const maxDate = new Date().toISOString().split('T')[0]
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     try {
-      const result = await habitsApi.create({ title, type, trackingType, frequency, timesPerDay })
+      const payload: any = { title, type, trackingType, frequency, timesPerDay }
+      if (trackingType === 'continuous' && startDate) {
+        payload.startDate = new Date(startDate).toISOString()
+      }
+      const result = await habitsApi.create(payload)
       onCreated(result.habit)
       onClose()
     } catch (err: any) {
@@ -222,14 +485,26 @@ function CreateHabitModal({ templates, onClose, onCreated }: CreateHabitModalPro
   }
 
   const handleTemplateSelect = async (template: HabitTemplate) => {
+    // Если непрерывная — сначала показываем выбор даты
+    if (template.trackingType === 'continuous') {
+      setSelectedTemplate(template)
+      return
+    }
+    // Дискретная — сразу создаём
+    await createFromTemplate(template, undefined)
+  }
+
+  const createFromTemplate = async (template: HabitTemplate, startDate?: string) => {
     setIsLoading(true)
     try {
-      const result = await habitsApi.create({
+      const payload: any = {
         title: template.title,
         type: template.type as any,
         trackingType: template.trackingType as any,
         timesPerDay: template.timesPerDay,
-      })
+      }
+      if (startDate) payload.startDate = new Date(startDate).toISOString()
+      const result = await habitsApi.create(payload)
       onCreated(result.habit)
       onClose()
     } catch (err: any) {
@@ -251,7 +526,6 @@ function CreateHabitModal({ templates, onClose, onCreated }: CreateHabitModalPro
           <button onClick={onClose} className="text-slate-400 hover:text-white"><X size={20} /></button>
         </div>
 
-        {/* Табы */}
         <div className="flex rounded-xl overflow-hidden mb-5" style={{ border: '1px solid #334155' }}>
           {(['custom', 'template'] as const).map(t => (
             <button key={t} onClick={() => setTab(t)}
@@ -282,7 +556,7 @@ function CreateHabitModal({ templates, onClose, onCreated }: CreateHabitModalPro
             </div>
 
             <div>
-              <label className="text-slate-400 text-sm mb-1.5 block">Тип</label>
+              <label className="text-slate-400 text-sm mb-1.5 block">Тип привычки</label>
               <div className="grid grid-cols-2 gap-2">
                 {[
                   { value: 'positive', label: '✅ Положительная', desc: 'Хочу делать' },
@@ -306,8 +580,8 @@ function CreateHabitModal({ templates, onClose, onCreated }: CreateHabitModalPro
               <label className="text-slate-400 text-sm mb-1.5 block">Тип отслеживания</label>
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  { value: 'discrete', label: '☑️ Дискретное', desc: 'Сделал / не сделал' },
-                  { value: 'continuous', label: '⏱ Непрерывное', desc: 'Считаем дни' },
+                  { value: 'discrete', label: '☑️ Дискретное', desc: 'Отмечаю каждый день' },
+                  { value: 'continuous', label: '⏱ Непрерывное', desc: 'Идёт счётчик дней' },
                 ].map(opt => (
                   <button key={opt.value} type="button"
                     onClick={() => setTrackingType(opt.value as any)}
@@ -324,40 +598,58 @@ function CreateHabitModal({ templates, onClose, onCreated }: CreateHabitModalPro
             </div>
 
             {trackingType === 'discrete' && (
-              <div>
-                <label className="text-slate-400 text-sm mb-1.5 block">
-                  Повторений в день: <span className="text-white font-medium">{timesPerDay}</span>
-                </label>
-                <input type="range" min={1} max={10} value={timesPerDay}
-                  onChange={e => setTimesPerDay(Number(e.target.value))}
-                  className="w-full accent-indigo-500" />
-                <div className="flex justify-between text-xs text-slate-500 mt-1">
-                  <span>1 раз</span>
-                  <span>10 раз</span>
+              <>
+                <div>
+                  <label className="text-slate-400 text-sm mb-1.5 block">
+                    Повторений в день: <span className="text-white font-medium">{timesPerDay}</span>
+                  </label>
+                  <input type="range" min={1} max={10} value={timesPerDay}
+                    onChange={e => setTimesPerDay(Number(e.target.value))}
+                    className="w-full accent-indigo-500" />
+                  <div className="flex justify-between text-xs text-slate-500 mt-1">
+                    <span>1 раз</span><span>10 раз</span>
+                  </div>
                 </div>
-              </div>
+                <div>
+                  <label className="text-slate-400 text-sm mb-1.5 block">Частота</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { value: 'daily', label: 'Каждый день' },
+                      { value: 'weekly', label: 'Несколько раз в неделю' },
+                    ].map(opt => (
+                      <button key={opt.value} type="button"
+                        onClick={() => setFrequency(opt.value)}
+                        className="py-2.5 rounded-xl text-sm transition-all"
+                        style={{
+                          backgroundColor: frequency === opt.value ? '#4f46e5' : '#0f172a',
+                          color: frequency === opt.value ? '#fff' : '#94a3b8',
+                          border: `1px solid ${frequency === opt.value ? '#4f46e5' : '#334155'}`,
+                        }}>
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
             )}
 
-            <div>
-              <label className="text-slate-400 text-sm mb-1.5 block">Частота</label>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { value: 'daily', label: 'Каждый день' },
-                  { value: 'weekly', label: 'Несколько раз в неделю' },
-                ].map(opt => (
-                  <button key={opt.value} type="button"
-                    onClick={() => setFrequency(opt.value)}
-                    className="py-2.5 rounded-xl text-sm transition-all"
-                    style={{
-                      backgroundColor: frequency === opt.value ? '#4f46e5' : '#0f172a',
-                      color: frequency === opt.value ? '#fff' : '#94a3b8',
-                      border: `1px solid ${frequency === opt.value ? '#4f46e5' : '#334155'}`,
-                    }}>
-                    {opt.label}
-                  </button>
-                ))}
+            {trackingType === 'continuous' && (
+              <div>
+                <label className="text-slate-400 text-sm mb-1.5 block">
+                  <Calendar size={14} className="inline mr-1" />
+                  Дата начала
+                  <span className="text-slate-500 ml-1">(если началось раньше сегодня)</span>
+                </label>
+                <input type="date" value={startDate}
+                  onChange={e => setStartDate(e.target.value)}
+                  max={maxDate}
+                  className="w-full rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                  style={{ ...inputStyle, color: startDate ? '#fff' : '#64748b' }} />
+                <p className="text-slate-500 text-xs mt-1">
+                  Оставьте пустым — счётчик начнётся с сегодняшнего дня
+                </p>
               </div>
-            </div>
+            )}
 
             <div className="flex gap-3 pt-2">
               <button type="button" onClick={onClose}
@@ -373,35 +665,81 @@ function CreateHabitModal({ templates, onClose, onCreated }: CreateHabitModalPro
             </div>
           </form>
         ) : (
-          <div className="space-y-2">
-            {templates.map(template => (
-              <button key={template.title}
-                onClick={() => handleTemplateSelect(template)}
-                disabled={isLoading}
-                className="w-full flex items-center gap-3 p-3 rounded-xl text-left transition-all hover:border-indigo-500/50"
-                style={{ backgroundColor: '#0f172a', border: '1px solid #334155' }}>
-                <span className="text-2xl shrink-0">
-                  {template.type === 'anti' ? '🚫' : '✅'}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-white text-sm">{template.title}</p>
-                  <p className="text-slate-500 text-xs">
-                    {template.trackingType === 'discrete'
-                      ? `${template.timesPerDay}x в день`
-                      : 'Непрерывное отслеживание'}
-                    {' · '}{template.category}
+          <>
+            {selectedTemplate ? (
+              // Мини-форма для даты непрерывного шаблона
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 p-3 rounded-xl"
+                  style={{ backgroundColor: '#0f172a', border: '1px solid #334155' }}>
+                  <span className="text-2xl">{selectedTemplate.type === 'anti' ? '🚫' : '✅'}</span>
+                  <div>
+                    <p className="text-white text-sm font-medium">{selectedTemplate.title}</p>
+                    <p className="text-slate-500 text-xs">Непрерывное отслеживание</p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-slate-400 text-sm mb-1.5 block">
+                    📅 Дата начала
+                    <span className="text-slate-500 ml-1">(если началось раньше сегодня)</span>
+                  </label>
+                  <input type="date" value={templateStartDate}
+                    onChange={e => setTemplateStartDate(e.target.value)}
+                    max={maxDate}
+                    className="w-full rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                    style={{ backgroundColor: '#0f172a', border: '1px solid #334155', color: templateStartDate ? '#fff' : '#64748b' }} />
+                  <p className="text-slate-500 text-xs mt-1">
+                    Оставьте пустым — отсчёт начнётся с сегодня
                   </p>
                 </div>
-                <Plus size={16} className="text-indigo-400 shrink-0" />
-              </button>
-            ))}
-          </div>
+
+                <div className="flex gap-3">
+                  <button type="button" onClick={() => setSelectedTemplate(null)}
+                    className="flex-1 py-3 rounded-lg text-slate-400"
+                    style={{ backgroundColor: '#0f172a', border: '1px solid #334155' }}>
+                    ← Назад
+                  </button>
+                  <button type="button"
+                    onClick={() => createFromTemplate(selectedTemplate, templateStartDate || undefined)}
+                    disabled={isLoading}
+                    className="flex-1 py-3 rounded-lg text-white font-medium"
+                    style={{ backgroundColor: '#4f46e5', opacity: isLoading ? 0.7 : 1 }}>
+                    {isLoading ? 'Создание...' : 'Создать'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              // Список шаблонов
+              <div className="space-y-2">
+                {templates.map(template => (
+                  <button key={template.title}
+                    onClick={() => handleTemplateSelect(template)}
+                    disabled={isLoading}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl text-left transition-all hover:border-indigo-500/50"
+                    style={{ backgroundColor: '#0f172a', border: '1px solid #334155' }}>
+                    <span className="text-2xl shrink-0">{template.type === 'anti' ? '🚫' : '✅'}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white text-sm">{template.title}</p>
+                      <p className="text-slate-500 text-xs">
+                        {template.trackingType === 'continuous'
+                          ? '⏱ Непрерывное · '
+                          : `${template.timesPerDay}x в день · `}
+                        {template.category}
+                      </p>
+                    </div>
+                    <Plus size={16} className="text-indigo-400 shrink-0" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
   )
 }
 
+// ============ ГЛАВНАЯ СТРАНИЦА ============
 export default function HabitsPage() {
   const { user, loadUser } = useAuth()
   const [habits, setHabits] = useState<Habit[]>([])
@@ -409,7 +747,11 @@ export default function HabitsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [lastRewards, setLastRewards] = useState<Record<number, { xp: number; gold: number }>>({})
-
+  const [heatmapView, setHeatmapView] = useState<'month' | 'year'>('month')
+  const [breakConfirmId, setBreakConfirmId] = useState<number | null>(null)
+  const [activeTab, setActiveTab] = useState<'habits' | 'heatmap'>('habits')
+  const [restoringStreakIds, setRestoringStreakIds] = useState<Set<number>>(new Set())
+  const [heatmapDays, setHeatmapDays] = useState(30)
   useEffect(() => {
     Promise.all([loadHabits(), loadTemplates()])
   }, [])
@@ -435,17 +777,11 @@ export default function HabitsPage() {
   const handleLog = async (id: number) => {
     try {
       const result = await habitsApi.log(id)
-
       setHabits(prev => prev.map(h => {
         if (h.id !== id) return h
         const newLog = { id: Date.now(), date: new Date().toISOString(), repetition: result.repetitionsDone }
-        return {
-          ...h,
-          logs: [...h.logs, newLog],
-          currentStreak: result.currentStreak,
-        }
+        return { ...h, logs: [...h.logs, newLog], currentStreak: result.currentStreak }
       }))
-
       if (result.xpEarned > 0 || result.goldEarned > 0) {
         setLastRewards(prev => ({ ...prev, [id]: { xp: result.xpEarned, gold: result.goldEarned } }))
         loadUser()
@@ -458,8 +794,20 @@ export default function HabitsPage() {
     }
   }
 
+  const handleBreakConfirm = async () => {
+    if (!breakConfirmId) return
+    try {
+      await habitsApi.break(breakConfirmId)
+      setHabits(prev => prev.filter(h => h.id !== breakConfirmId))
+    } catch (error: any) {
+      console.error('Break error:', error)
+    } finally {
+      setBreakConfirmId(null)
+    }
+  }
+
   const handleDelete = async (id: number) => {
-    if (!confirm('Удалить привычку? История выполнений также удалится.')) return
+    if (!confirm('Удалить привычку?')) return
     try {
       await habitsApi.delete(id)
       setHabits(prev => prev.filter(h => h.id !== id))
@@ -467,21 +815,28 @@ export default function HabitsPage() {
   }
 
   const handleRestoreStreak = async (id: number) => {
+    if (restoringStreakIds.has(id)) return // уже восстанавливается
     if (!confirm('Восстановить стрик за 50 🪙?')) return
+    
+    // Немедленно блокируем кнопку
+    setRestoringStreakIds(prev => new Set([...prev, id]))
+    
     try {
       await habitsApi.restoreStreak(id)
-      setHabits(prev => prev.map(h =>
-        h.id === id ? { ...h, currentStreak: h.currentStreak + 1 } : h
-      ))
+      // просто обнови данные с сервера
+      await loadHabits()
       loadUser()
     } catch (error: any) {
-      alert(error.response?.data?.error || 'Ошибка восстановления')
+      alert(error.response?.data?.error || 'Ошибка')
+      // Если ошибка — разблокируем
+      setRestoringStreakIds(prev => { const n = new Set(prev); n.delete(id); return n })
     }
+    // При успехе — НЕ разблокируем, кнопка остаётся скрытой до следующего дня
   }
 
-  const completedCount = habits.filter(h =>
-    h.trackingType === 'discrete' && h.logs.length >= h.timesPerDay
-  ).length
+  const discreteHabits = habits.filter(h => h.trackingType === 'discrete')
+  const continuousHabits = habits.filter(h => h.trackingType === 'continuous')
+  const completedCount = discreteHabits.filter(h => h.logs.length >= h.timesPerDay).length
 
   if (isLoading) {
     return (
@@ -492,14 +847,16 @@ export default function HabitsPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="max-w-2xl mx-auto space-y-5">
       {/* Заголовок */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Привычки</h1>
-          <p className="text-slate-400 text-sm mt-1">
-            {completedCount}/{habits.filter(h => h.trackingType === 'discrete').length} выполнено сегодня
-          </p>
+          {discreteHabits.length > 0 && (
+            <p className="text-slate-400 text-sm mt-1">
+              {completedCount}/{discreteHabits.length} выполнено сегодня
+            </p>
+          )}
         </div>
         <button onClick={() => setShowCreateModal(true)}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white font-medium hover:opacity-90 transition-opacity"
@@ -508,76 +865,132 @@ export default function HabitsPage() {
         </button>
       </div>
 
-      {/* Прогресс дня */}
-      {habits.filter(h => h.trackingType === 'discrete').length > 0 && (
-        <div className="rounded-2xl p-4" style={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}>
-          <div className="flex justify-between text-sm mb-2">
-            <span className="text-slate-400">Прогресс дня</span>
-            <span className="text-white font-medium">
-              {completedCount}/{habits.filter(h => h.trackingType === 'discrete').length}
-            </span>
-          </div>
-          <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
-            <div className="h-full rounded-full transition-all duration-500"
-              style={{
-                width: `${habits.filter(h => h.trackingType === 'discrete').length > 0
-                  ? (completedCount / habits.filter(h => h.trackingType === 'discrete').length) * 100
-                  : 0}%`,
-                backgroundColor: completedCount === habits.filter(h => h.trackingType === 'discrete').length && completedCount > 0
-                  ? '#22c55e' : '#4f46e5'
-              }} />
-          </div>
-          {completedCount === habits.filter(h => h.trackingType === 'discrete').length && completedCount > 0 && (
-            <p className="text-green-400 text-sm mt-2 text-center">🎉 Все привычки выполнены!</p>
-          )}
-        </div>
-      )}
-
-      {/* Список привычек */}
-      {habits.length === 0 ? (
-        <div className="rounded-2xl p-12 text-center" style={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}>
-          <div className="text-5xl mb-4">🌱</div>
-          <h3 className="text-white font-semibold mb-2">Нет привычек</h3>
-          <p className="text-slate-400 text-sm mb-6">
-            Начните с малого — добавьте первую привычку
-          </p>
-          <button onClick={() => setShowCreateModal(true)}
-            className="px-6 py-2.5 rounded-xl text-white font-medium"
-            style={{ backgroundColor: '#4f46e5' }}>
-            Добавить привычку
+      {/* Табы */}
+      <div className="flex rounded-xl overflow-hidden" style={{ border: '1px solid #334155' }}>
+        {([
+          { id: 'habits', label: '📋 Привычки' },
+          { id: 'heatmap', label: '🗓 Активность' },
+        ] as const).map(tab => (
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+            className="flex-1 py-2.5 text-sm font-medium transition-all"
+            style={{
+              backgroundColor: activeTab === tab.id ? '#4f46e5' : '#1e293b',
+              color: activeTab === tab.id ? '#fff' : '#94a3b8',
+            }}>
+            {tab.label}
           </button>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {/* Антипривычки сверху */}
-          {habits.filter(h => h.type === 'anti').map(habit => (
-            <HabitCard key={habit.id} habit={habit}
-              userGold={user?.gold || 0}
-              onLog={handleLog}
-              onDelete={handleDelete}
-              onRestoreStreak={handleRestoreStreak}
-              lastReward={lastRewards[habit.id] || null}
-            />
-          ))}
+        ))}
+      </div>
 
-          {/* Обычные привычки */}
-          {habits.filter(h => h.type === 'positive').map(habit => (
-            <HabitCard key={habit.id} habit={habit}
-              userGold={user?.gold || 0}
-              onLog={handleLog}
-              onDelete={handleDelete}
-              onRestoreStreak={handleRestoreStreak}
-              lastReward={lastRewards[habit.id] || null}
-            />
-          ))}
+      {activeTab === 'habits' && (
+        <>
+          {/* Прогресс дня */}
+          {discreteHabits.length > 0 && (
+            <div className="rounded-2xl p-4" style={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}>
+              <div className="flex justify-between text-sm mb-2">
+                <span className="text-slate-400">Прогресс дня</span>
+                <span className="text-white font-medium">{completedCount}/{discreteHabits.length}</span>
+              </div>
+              <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                <div className="h-full rounded-full transition-all duration-500"
+                  style={{
+                    width: `${discreteHabits.length > 0 ? (completedCount / discreteHabits.length) * 100 : 0}%`,
+                    backgroundColor: completedCount === discreteHabits.length && completedCount > 0 ? '#22c55e' : '#4f46e5'
+                  }} />
+              </div>
+              {completedCount === discreteHabits.length && completedCount > 0 && (
+                <p className="text-green-400 text-sm mt-2 text-center">🎉 Все привычки выполнены!</p>
+              )}
+            </div>
+          )}
+
+          {habits.length === 0 ? (
+            <div className="rounded-2xl p-12 text-center" style={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}>
+              <div className="text-5xl mb-4">🌱</div>
+              <h3 className="text-white font-semibold mb-2">Нет привычек</h3>
+              <p className="text-slate-400 text-sm mb-6">Начните с малого — добавьте первую привычку</p>
+              <button onClick={() => setShowCreateModal(true)}
+                className="px-6 py-2.5 rounded-xl text-white font-medium"
+                style={{ backgroundColor: '#4f46e5' }}>
+                Добавить привычку
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {/* Непрерывные сверху */}
+              {continuousHabits.length > 0 && (
+                <div>
+                  <p className="text-slate-500 text-xs uppercase tracking-wide mb-2">⏱ Непрерывные</p>
+                  {continuousHabits.map(habit => (
+                    <HabitCard key={habit.id} habit={habit}
+                      userGold={user?.gold || 0}
+                      onLog={handleLog}
+                      onBreak={(id) => setBreakConfirmId(id)}
+                      onDelete={handleDelete}
+                      onRestoreStreak={handleRestoreStreak}
+                      lastReward={lastRewards[habit.id] || null}
+                      heatmapView={heatmapView}
+                      streakRestored={restoringStreakIds.has(habit.id)}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Дискретные */}
+              {discreteHabits.length > 0 && (
+                <div>
+                  {continuousHabits.length > 0 && (
+                    <p className="text-slate-500 text-xs uppercase tracking-wide mb-2">☑️ Ежедневные</p>
+                  )}
+                  {discreteHabits.map(habit => (
+                    <HabitCard key={habit.id} habit={habit}
+                      userGold={user?.gold || 0}
+                      onLog={handleLog}
+                      onBreak={(id) => setBreakConfirmId(id)}
+                      onDelete={handleDelete}
+                      onRestoreStreak={handleRestoreStreak}
+                      lastReward={lastRewards[habit.id] || null}
+                      heatmapView={heatmapView}
+                      streakRestored={restoringStreakIds.has(habit.id)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      {activeTab === 'heatmap' && (
+        <div className="rounded-2xl p-5" style={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-white font-semibold">Активность привычек</h3>
+            <select
+              onChange={e => setHeatmapDays(parseInt(e.target.value))}
+              className="text-sm rounded-lg px-3 py-1.5 outline-none"
+              style={{ backgroundColor: '#0f172a', border: '1px solid #334155', color: '#94a3b8' }}>
+              <option value={30}>30 дней</option>
+              <option value={90}>90 дней</option>
+            </select>
+          </div>
+          <HabitHeatmap days={heatmapDays} />
         </div>
       )}
 
+      {/* Модалки */}
       {showCreateModal && (
         <CreateHabitModal
           templates={templates}
           onClose={() => setShowCreateModal(false)}
           onCreated={habit => setHabits(prev => [...prev, habit])}
+        />
+      )}
+
+      {breakConfirmId !== null && (
+        <BreakConfirmModal
+          habitTitle={habits.find(h => h.id === breakConfirmId)?.title || ''}
+          onConfirm={handleBreakConfirm}
+          onClose={() => setBreakConfirmId(null)}
         />
       )}
     </div>

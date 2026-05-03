@@ -1,0 +1,383 @@
+import { useState, useEffect } from 'react'
+import apiClient from '../api/client'
+import { Trophy, Clock, CheckSquare, Flame, TrendingUp, Star, Package } from 'lucide-react'
+
+type Period = 'day' | 'week' | 'month'
+
+const LEVEL_NAMES = ['Новичок', 'Ученик', 'Практик', 'Эксперт', 'Мастер', 'Легенда']
+const LEVEL_COLORS = ['#64748b', '#22c55e', '#4f46e5', '#f59e0b', '#ef4444', '#a855f7']
+interface ProfileAchievement {
+  id: number
+  type: string
+  title: string
+  description: string
+  icon: string
+  rarity: 'common' | 'rare' | 'epic' | 'legendary'
+  createdAt: string
+}
+
+const RARITY_COLORS: Record<string, string> = {
+  common:    '#22c55e',
+  rare:      '#4f46e5',
+  epic:      '#a855f7',
+  legendary: '#f59e0b',
+}
+function formatMinutes(min: number): string {
+  if (min < 60) return `${min}м`
+  return `${Math.floor(min / 60)}ч ${min % 60 > 0 ? `${min % 60}м` : ''}`
+}
+
+// Радарная диаграмма (SVG)
+interface RadarProps {
+  data: { focus: number; discipline: number; progress: number; productivity: number; gold: number }
+}
+
+function RadarChart({ data }: RadarProps) {
+  const labels = [
+    { key: 'focus',        label: 'Фокус',          emoji: '' },
+    { key: 'discipline',   label: 'Дисциплина',     emoji: '' },
+    { key: 'progress',     label: 'Прогресс',       emoji: '' },
+    { key: 'productivity', label: 'Продуктивность', emoji: '' },
+    { key: 'gold',         label: 'Добыча',         emoji: '  223' },
+  ]
+
+  const n = labels.length
+  const cx = 100
+  const cy = 100
+  const r = 75
+
+  // Вычисляем точки многоугольника
+  const getPoint = (i: number, value: number) => {
+    const angle = (Math.PI * 2 * i) / n - Math.PI / 2
+    const dist = (value / 100) * r
+    return {
+      x: cx + dist * Math.cos(angle),
+      y: cy + dist * Math.sin(angle),
+    }
+  }
+
+  const getLabelPoint = (i: number) => {
+    const angle = (Math.PI * 2 * i) / n - Math.PI / 2
+    const dist = r + 20
+    return { x: cx + dist * Math.cos(angle), y: cy + dist * Math.sin(angle) }
+  }
+
+  const dataPoints = labels.map((l, i) => getPoint(i, data[l.key as keyof typeof data]))
+  const polyPoints = dataPoints.map(p => `${p.x},${p.y}`).join(' ')
+
+  // Сетка (3 кольца)
+  const gridLevels = [25, 50, 75, 100]
+
+  return (
+    <div className="flex justify-center">
+      <svg viewBox="0 0 200 220" className="w-full max-w-xs">
+        {/* Сетка */}
+        {gridLevels.map(level => {
+          const gridPoints = labels.map((_, i) => {
+            const p = getPoint(i, level)
+            return `${p.x},${p.y}`
+          }).join(' ')
+          return (
+            <polygon key={level} points={gridPoints}
+              fill="none" stroke="#334155" strokeWidth="0.5" opacity="0.7" />
+          )
+        })}
+
+        {/* Оси */}
+        {labels.map((_, i) => {
+          const p = getPoint(i, 100)
+          return <line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="#334155" strokeWidth="0.5" />
+        })}
+
+        {/* Данные */}
+        <polygon points={polyPoints} fill="rgba(79,70,229,0.25)" stroke="#4f46e5" strokeWidth="2" />
+
+        {/* Точки */}
+        {dataPoints.map((p, i) => (
+          <circle key={i} cx={p.x} cy={p.y} r="3" fill="#4f46e5" />
+        ))}
+
+        {/* Подписи */}
+        {labels.map((l, i) => {
+          const lp = getLabelPoint(i)
+          return (
+            <text key={i} x={lp.x} y={lp.y}
+              textAnchor="middle" dominantBaseline="middle"
+              fontSize="8" fill="#94a3b8">
+              {l.emoji} {l.label}
+            </text>
+          )
+        })}
+
+        {/* Значения в центре */}
+        <text x={cx} y={cy - 5} textAnchor="middle" fontSize="8" fill="#64748b">
+          средний
+        </text>
+        <text x={cx} y={cy + 8} textAnchor="middle" fontSize="10" fontWeight="bold" fill="#f1f5f9">
+          {Math.round((data.focus + data.discipline + data.progress + data.productivity + data.gold) / 5)}%
+        </text>
+      </svg>
+    </div>
+  )
+}
+
+interface ProfileData {
+  user: {
+    id: number; name: string; email: string; xp: number; gold: number
+    level: number; levelName: string; xpProgress: number; nextLevelXp: number; prevLevelXp: number; createdAt: string
+  }
+  stats: {
+    totalPomodoroMin: number
+    tasksCompleted: number
+    habitsCompletion: number
+
+    taskStreak: number
+    maxHabitStreak: number
+    maxBestHabitStreak: number
+
+    earnedXp: number
+    earnedGold: number
+    goalsProgress: number
+    
+  }
+  radar: { focus: number; discipline: number; progress: number; productivity: number; gold: number }
+  achievements: ProfileAchievement[]
+  inventory: { name: string; itemType: string; rarity: string }[]
+  period: string
+}
+
+export default function ProfilePage() {
+  const [data, setData] = useState<ProfileData | null>(null)
+  const [period, setPeriod] = useState<Period>('week')
+  const [activeTab, setActiveTab] = useState<'stats' | 'achievements' | 'inventory'>('stats')
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    loadProfile()
+  }, [period])
+
+  const loadProfile = async () => {
+    setIsLoading(true)
+    try {
+      const res = await apiClient.get(`/users/profile?period=${period}`)
+      setData(res.data)
+    } catch (error) {
+      console.error('Profile load error:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  if (isLoading || !data) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-slate-400">Загрузка профиля...</div>
+      </div>
+    )
+  }
+
+  const { user, stats, radar, achievements, inventory } = data
+  const levelColor = LEVEL_COLORS[user.level] || '#64748b'
+  const daysInApp = Math.floor((Date.now() - new Date(user.createdAt).getTime()) / 86400000)
+  const statCards = [
+    { icon: <Clock size={16} />,       label: 'Время в фокусе',        value: formatMinutes(stats.totalPomodoroMin), color: '#4f46e5', bg: 'rgba(79,70,229,0.15)'  },
+    { icon: <CheckSquare size={16} />, label: 'Задач выполнено',        value: stats.tasksCompleted,                 color: '#22c55e', bg: 'rgba(34,197,94,0.15)'   },
+    { icon: <Flame size={16} />,       label: 'Стрик задач (дней)',     value: `${stats.taskStreak} дн.`,            color: '#f59e0b', bg: 'rgba(245,158,11,0.15)'  },
+    { icon: <Trophy size={16} />,      label: 'Стрик привычек',         value: `${stats.maxHabitStreak} дн.`,        color: '#ec4899', bg: 'rgba(236,72,153,0.15)'  },
+    { icon: <TrendingUp size={16} />,  label: 'Прогресс целей',         value: `${stats.goalsProgress}%`,           color: '#a855f7', bg: 'rgba(168,85,247,0.15)'  },
+    { icon: <Star size={16} />,        label: 'Привычки выполнено',     value: `${stats.habitsCompletion}%`,         color: '#f97316', bg: 'rgba(249,115,22,0.15)'  },
+    { icon: <Star size={16} />,        label: 'XP заработано',          value: `+${stats.earnedXp}`,                color: '#6366f1', bg: 'rgba(99,102,241,0.15)'  },
+    { icon: <Star size={16} />,        label: 'Золото заработано',      value: `+${stats.earnedGold} 🪙`,          color: '#eab308', bg: 'rgba(234,179,8,0.15)'   },
+  ]
+
+  return (
+    <div className="max-w-2xl mx-auto space-y-5">
+
+      {/* RPG-карточка профиля */}
+      <div className="rounded-2xl p-5 relative overflow-hidden"
+        style={{ backgroundColor: '#1e293b', border: `1px solid ${levelColor}40` }}>
+        {/* Фоновый градиент уровня */}
+        <div className="absolute inset-0 opacity-5"
+          style={{ background: `radial-gradient(circle at top right, ${levelColor}, transparent 70%)` }} />
+
+        <div className="flex items-start gap-4 relative">
+          {/* Аватар */}
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-bold shrink-0"
+            style={{ backgroundColor: `${levelColor}20`, border: `2px solid ${levelColor}60`, color: levelColor }}>
+            {user.name.charAt(0).toUpperCase()}
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-white font-bold text-xl">{user.name}</h1>
+              <span className="text-xs px-2 py-0.5 rounded-full font-medium"
+                style={{ backgroundColor: `${levelColor}20`, color: levelColor }}>
+                {user.levelName}
+              </span>
+            </div>
+            <p className="text-slate-500 text-xs mt-0.5">ID: #{user.id} · Стаж пользования {daysInApp} дн.</p>
+
+            {/* XP прогресс */}
+            <div className="mt-3">
+              <div className="flex justify-between text-xs mb-1">
+                <span className="text-slate-400">Ур. {user.level}</span>
+                <span style={{ color: levelColor }}>{user.xp} / {user.nextLevelXp} XP</span>
+              </div>
+              <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                <div className="h-full rounded-full transition-all"
+                  style={{ width: `${user.xpProgress}%`, backgroundColor: levelColor }} />
+              </div>
+            </div>
+
+            {/* Ресурсы */}
+            <div className="flex gap-4 mt-2">
+              <span className="text-sm text-indigo-400">{user.xp} XP всего</span>
+              <span className="text-sm text-yellow-400">{user.gold} 🪙</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Табы */}
+      <div className="flex rounded-xl overflow-hidden" style={{ border: '1px solid #334155' }}>
+        {([
+          { id: 'stats',        label: '📊 Статистика' },
+          { id: 'achievements', label: '🏆 Достижения' },
+          { id: 'inventory',    label: '🎒 Инвентарь'  },
+        ] as const).map(tab => (
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+            className="flex-1 py-2.5 text-sm font-medium transition-all"
+            style={{
+              backgroundColor: activeTab === tab.id ? '#4f46e5' : '#1e293b',
+              color: activeTab === tab.id ? '#fff' : '#94a3b8',
+            }}>
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'stats' && (
+        <>
+          {/* Период */}
+          <div className="flex rounded-xl overflow-hidden w-fit" style={{ border: '1px solid #334155' }}>
+            {(['day', 'week', 'month'] as Period[]).map(p => (
+              <button key={p} onClick={() => setPeriod(p)}
+                className="px-4 py-2 text-sm font-medium transition-all"
+                style={{
+                  backgroundColor: period === p ? '#4f46e5' : '#1e293b',
+                  color: period === p ? '#fff' : '#94a3b8',
+                }}>
+                {p === 'day' ? 'День' : p === 'week' ? 'Неделя' : 'Месяц'}
+              </button>
+            ))}
+          </div>
+
+          {/* Метрики */}
+          <div className="grid grid-cols-2 gap-3">
+            {statCards.map(({ icon, label, value, color, bg }) => (
+              <div key={label} className="p-4 rounded-2xl"
+                style={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}>
+                
+                <div className="p-1.5 rounded-lg w-fit mb-2" style={{ backgroundColor: bg, color }}>
+                  {icon}
+                </div>
+
+                <div className="text-xl font-bold text-white">{value}</div>
+                <div className="text-xs text-slate-400 mt-0.5">{label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Радар */}
+          <div className="rounded-2xl p-5" style={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}>
+            <h3 className="text-white font-medium mb-4">🕸 Радар характеристик</h3>
+            <RadarChart data={radar} />
+            <div className="grid grid-cols-5 gap-1 mt-3">
+              {[
+                { label: 'Фокус', value: radar.focus },
+                { label: 'Дисципл.', value: radar.discipline },
+                { label: 'Прогресс', value: radar.progress },
+                { label: 'Продукт.', value: radar.productivity },
+                { label: 'Добыча', value: radar.gold },
+              ].map(({ label, value }) => (
+                <div key={label} className="text-center">
+                  <div className="text-white text-sm font-semibold">{value}</div>
+                  <div className="text-slate-500 text-xs">{label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      {activeTab === 'achievements' && (
+        <div>
+          {achievements.length === 0 ? (
+            <div className="rounded-2xl p-12 text-center" style={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}>
+              <div className="text-5xl mb-4">🏆</div>
+              <h3 className="text-white font-semibold mb-2">Нет достижений</h3>
+              <p className="text-slate-400 text-sm">Выполняйте задачи и поддерживайте стрики</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              {achievements.map(ach => {
+                const color = RARITY_COLORS[ach.rarity] || '#4f46e5'
+                return (
+                  <div key={ach.id} className="p-4 rounded-2xl"
+                    style={{ backgroundColor: '#1e293b', border: `1px solid ${color}30` }}>
+                    <div className="text-3xl mb-2">{ach.icon}</div>
+                    <p className="text-white text-sm font-semibold">{ach.title}</p>
+                    <p className="text-slate-400 text-xs mt-0.5">{ach.description}</p>
+                    <div className="flex items-center justify-between mt-2">
+                      <span className="text-xs px-1.5 py-0.5 rounded font-medium"
+                        style={{ backgroundColor: `${color}20`, color }}>
+                        {ach.rarity === 'common' ? 'Обычное'
+                          : ach.rarity === 'rare' ? 'Редкое'
+                          : ach.rarity === 'epic' ? 'Эпическое'
+                          : 'Легендарное'}
+                      </span>
+                      <span className="text-slate-600 text-xs">
+                        {new Date(ach.createdAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}
+                      </span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'inventory' && (
+        <div>
+          {inventory.length === 0 ? (
+            <div className="rounded-2xl p-12 text-center" style={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}>
+              <div className="text-5xl mb-4">🎒</div>
+              <h3 className="text-white font-semibold mb-2">Инвентарь пуст</h3>
+              <p className="text-slate-400 text-sm">Покупайте фоны, звуки и стили таймера в Pomodoro</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              {inventory.map((item, i) => {
+                const rarityColor = item.rarity === 'epic' ? '#a855f7' : item.rarity === 'rare' ? '#4f46e5' : '#22c55e'
+                const typeIcon = item.itemType === 'sound' ? '🔊' : item.itemType === 'background' ? '🎨' : '⏰'
+                return (
+                  <div key={i} className="p-4 rounded-2xl"
+                    style={{ backgroundColor: '#1e293b', border: `1px solid ${rarityColor}30` }}>
+                    <div className="text-2xl mb-2">{typeIcon}</div>
+                    <p className="text-white text-sm font-medium">{item.name}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-xs" style={{ color: rarityColor }}>
+                        {item.rarity === 'epic' ? '⚡ Эпик' : item.rarity === 'rare' ? '💎 Редкий' : '✨ Обычный'}
+                      </span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}

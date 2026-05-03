@@ -9,7 +9,12 @@ import GoalsPage from './pages/GoalsPage'
 import TasksPage from './pages/TasksPage'
 import PomodoroPage from './pages/PomodoroPage'
 import HabitsPage from './pages/HabitsPage'
-
+import LifeScopePage from './pages/LifeScopePage'
+import ProfilePage from './pages/ProfilePage'
+import LeaderboardPage from './pages/LeaderboardPage'
+import PublicProfilePage from './pages/PublicProfilePage'
+import FriendsPage from './pages/FriendsPage'
+import SettingsPage from './pages/SettingsPage'
 const PlaceholderPage = ({ title }: { title: string }) => (
   <div className="flex items-center justify-center h-64">
     <div className="text-center">
@@ -63,11 +68,13 @@ export default function App() {
           <Route path="tasks" element={<TasksPage />} />
           <Route path="pomodoro" element={<PomodoroPage />} />
           <Route path="habits" element={<HabitsPage />} />
-          <Route path="lifescope" element={<PlaceholderPage title="LifeScope" />} />
-          <Route path="leaderboard" element={<PlaceholderPage title="Leaderboard" />} />
-          <Route path="friends" element={<PlaceholderPage title="Friends" />} />
-          <Route path="profile" element={<PlaceholderPage title="Profile" />} />
-          <Route path="settings" element={<PlaceholderPage title="Settings" />} />
+          <Route path="lifescope" element={<LifeScopePage />} />
+          <Route path="leaderboard" element={<LeaderboardPage />} />
+          <Route path="friends" element={<FriendsPage />} />
+          <Route path="profile" element={<ProfilePage />} />
+          <Route path="profile/:userId" element={<PublicProfilePage />} />
+          <Route path="settings" element={<SettingsPage />} />
+
         </Route>
       </Routes>
     </BrowserRouter>

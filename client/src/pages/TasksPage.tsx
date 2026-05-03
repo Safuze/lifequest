@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { tasksApi } from '../api/tasks'
 import type { Task, CreateTaskData } from '../api/tasks'
+import { useAuth } from '../hooks/useAuth'
 
 import { goalsApi } from '../api/goals'
 import type { Goal } from '../api/goals'
@@ -254,6 +255,8 @@ function CreateTaskModal({ goals, defaultDueDate, onClose, onCreated }: CreateTa
   )
 }
 
+
+
 // ============ МОДАЛЬНОЕ ОКНО ДЕТАЛЕЙ ЗАДАЧИ ============
 interface TaskDetailModalProps {
   task: Task
@@ -290,6 +293,17 @@ function TaskDetailModal({ task, goals, onClose, onUpdate, onDelete }: TaskDetai
     }
   }
 
+  const handleUpdateSubtask = async (subtaskId: number, newStatus: 'todo' | 'inProgress' | 'done') => {
+    try {
+      await tasksApi.update(subtaskId, { status: newStatus })
+      // Обновляем родительскую задачу — вызываем onUpdate с пустым объектом
+      // чтобы перезагрузить данные из сервера (subtasks обновятся)
+      await onUpdate(task.id, {})
+    } catch (error) {
+      console.error('Subtask update error:', error)
+    }
+  }
+
   const handleDateChange = async () => {
     if (!newDueDate) {
       await onUpdate(task.id, { dueDate: null })
@@ -300,6 +314,8 @@ function TaskDetailModal({ task, goals, onClose, onUpdate, onDelete }: TaskDetai
       : new Date(`${newDueDate}T23:59:00`).toISOString()
     await onUpdate(task.id, { dueDate: dateTime })
   }
+
+  
 
   const startPomodoro = () => {
     navigate('/pomodoro', { state: { taskId: task.id, taskTitle: task.title, goalId: task.goalId } })
@@ -438,21 +454,29 @@ function TaskDetailModal({ task, goals, onClose, onUpdate, onDelete }: TaskDetai
 
           {task.subtasks && task.subtasks.length > 0 && (
             <div className="space-y-1.5 mb-3">
-              {task.subtasks.map(sub => (
-                <div key={sub.id} className="flex items-center gap-2 px-3 py-2 rounded-lg"
-                  style={{ backgroundColor: '#0f172a' }}>
-                  <div className="w-4 h-4 rounded border-2 flex items-center justify-center shrink-0"
+              {task.subtasks?.map(subtask => (
+                <div key={subtask.id}
+                  className="flex items-center gap-2 cursor-pointer group"
+                  onClick={() => handleUpdateSubtask(subtask.id, subtask.status === 'done' ? 'todo' : 'done')}>
+                  <div
+                    className="w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all"
                     style={{
-                      borderColor: sub.status === 'done' ? '#22c55e' : '#475569',
-                      backgroundColor: sub.status === 'done' ? '#22c55e' : 'transparent',
+                      borderColor: subtask.status === 'done' ? '#22c55e' : '#475569',
+                      backgroundColor: subtask.status === 'done' ? '#22c55e' : 'transparent',
                     }}>
-                    {sub.status === 'done' && <span className="text-white text-xs">✓</span>}
+                    {subtask.status === 'done' && (
+                      <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                        <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    )}
                   </div>
-                  <span className="text-sm flex-1" style={{
-                    color: sub.status === 'done' ? '#64748b' : '#f1f5f9',
-                    textDecoration: sub.status === 'done' ? 'line-through' : 'none',
-                  }}>
-                    {sub.title}
+                  <span
+                    className="text-sm transition-colors group-hover:text-slate-300"
+                    style={{
+                      color: subtask.status === 'done' ? '#475569' : '#94a3b8',
+                      textDecoration: subtask.status === 'done' ? 'line-through' : 'none',
+                    }}>
+                    {subtask.title}
                   </span>
                 </div>
               ))}
@@ -585,6 +609,34 @@ function TaskCard({ task, onClick }: TaskCardProps) {
   )
 }
 
+// Добавь state для наград:
+
+// Компонент анимированного уведомления (добавь перед TasksPage):
+function RewardToast({ xp, gold, onDone }: { xp: number; gold: number; onDone: () => void }) {
+  useEffect(() => {
+    const timer = setTimeout(onDone, 2500)
+    return () => clearTimeout(timer)
+  }, [onDone])
+
+  return (
+    <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3 rounded-2xl shadow-2xl animate-bounce"
+      style={{
+        backgroundColor: '#1e293b',
+        border: '1px solid rgba(99,102,241,0.5)',
+        animation: 'slideIn 0.3s ease-out',
+      }}>
+      <div className="text-2xl">🎉</div>
+      <div>
+        <p className="text-white text-sm font-semibold">Задача выполнена!</p>
+        <div className="flex items-center gap-3 mt-0.5">
+          <span className="text-indigo-400 text-sm font-medium">+{xp} XP</span>
+          <span className="text-yellow-400 text-sm font-medium">+{gold} 🪙</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ============ ГЛАВНАЯ СТРАНИЦА ============
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([])
@@ -600,6 +652,13 @@ export default function TasksPage() {
   const [filterGoal, setFilterGoal] = useState('')
   const [selectedDate, setSelectedDate] = useState<string>('')
   const [sortBy, setSortBy] = useState<'priority' | 'date'>('priority')
+  const [taskReward, setTaskReward] = useState<{ xp: number; gold: number; taskId: number } | null>(null)
+
+  const [activeView, setActiveView] = useState<'active' | 'archive'>('active')
+  const [archivedTasks, setArchivedTasks] = useState<Task[]>([])
+  const [archiveLoading, setArchiveLoading] = useState(false)
+
+  const { loadUser } = useAuth()
 
   useEffect(() => {
     Promise.all([loadTasks(), loadGoals()])
@@ -627,13 +686,40 @@ export default function TasksPage() {
 
   const handleUpdate = useCallback(async (id: number, data: any) => {
     try {
+      const prevTask = tasks.find(t => t.id === id)
       const result = await tasksApi.update(id, data)
+      if ((result.achievements?.length ?? 0) > 0) {
+        window.dispatchEvent(
+          new CustomEvent('achievements', {
+            detail: { achievements: result.achievements! }
+          })
+        )
+      }
       setTasks(prev => prev.map(t => t.id === id ? result.task : t))
       setSelectedTask(prev => prev?.id === id ? result.task : prev)
+
+      // Показываем анимацию если задача завершена
+      if (data.status === 'done' && prevTask?.status !== 'done') {
+        const XP_MAP: Record<string, number> = { low: 15, medium: 30, high: 50, critical: 70 }
+        const GOLD_MAP: Record<string, number> = { low: 1, medium: 3, high: 5, critical: 8 }
+        const priority = prevTask?.priority || 'medium'
+        const hasPomo = (prevTask?.totalPomodoroMin || 0) > 0
+
+        setTaskReward({
+          taskId: id,
+          xp: Math.round((XP_MAP[priority] || 15) * (hasPomo ? 1.2 : 1)),
+          gold: GOLD_MAP[priority] || 1,
+        })
+
+        // Обновляем XP/gold в хедере
+        loadUser()
+        
+      }
+      
     } catch (error) {
       console.error('Update error:', error)
     }
-  }, [])
+  }, [tasks, loadUser])
 
   const handleDelete = useCallback(async (id: number) => {
     if (!confirm('Удалить задачу?')) return
@@ -718,6 +804,26 @@ export default function TasksPage() {
     )
   }
 
+  // Функция загрузки архива:
+  const loadArchive = async () => {
+    if (archivedTasks.length > 0) return // кэшируем
+    setArchiveLoading(true)
+    try {
+      const data = await tasksApi.getArchived()
+      setArchivedTasks(data.tasks)
+    } catch (error) {
+      console.error('Archive load error:', error)
+    } finally {
+      setArchiveLoading(false)
+    }
+  }
+
+  // При смене на архив:
+  const handleViewChange = (view: 'active' | 'archive') => {
+    setActiveView(view)
+    if (view === 'archive') loadArchive()
+  }
+
   return (
     <div className="space-y-4">
       {/* Заголовок */}
@@ -764,6 +870,25 @@ export default function TasksPage() {
           </div>
         </div>
       )}
+      {/* Переключатель активные/архив */}
+      <div className="flex rounded-xl overflow-hidden w-fit" style={{ border: '1px solid #334155' }}>
+        <button onClick={() => handleViewChange('active')}
+          className="px-4 py-2 text-sm font-medium transition-all"
+          style={{
+            backgroundColor: activeView === 'active' ? '#4f46e5' : '#1e293b',
+            color: activeView === 'active' ? '#fff' : '#94a3b8',
+          }}>
+          Активные
+        </button>
+        <button onClick={() => handleViewChange('archive')}
+          className="px-4 py-2 text-sm font-medium transition-all flex items-center gap-1"
+          style={{
+            backgroundColor: activeView === 'archive' ? '#4f46e5' : '#1e293b',
+            color: activeView === 'archive' ? '#fff' : '#94a3b8',
+          }}>
+          Архив
+        </button>
+      </div>
 
       {/* Панель фильтров */}
       <div className="rounded-xl p-4 space-y-3"
@@ -889,122 +1014,175 @@ export default function TasksPage() {
           )}
         </div>
       </div>
-
-      {/* Канбан */}
-      {view === 'kanban' && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {COLUMNS.map(column => {
-            const columnTasks = getColumnTasks(column.id)
-            return (
-              <div key={column.id} className="rounded-2xl p-4"
-                style={{ backgroundColor: '#1e293b', border: '1px solid #334155', minHeight: '300px' }}>
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-white font-medium text-sm">{column.label}</h3>
-                  <span className="text-xs px-2 py-0.5 rounded-full"
-                    style={{ backgroundColor: '#334155', color: '#94a3b8' }}>
-                    {columnTasks.length}
-                  </span>
-                </div>
-
-                {columnTasks.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-8">
-                    <p className="text-slate-600 text-sm">Нет задач</p>
-                    {column.id === 'todo' && (
-                      <button onClick={() => setShowCreateModal(true)}
-                        className="mt-2 text-indigo-400 text-xs hover:text-indigo-300">
-                        + Добавить
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  columnTasks.map(task => (
-                    <TaskCard key={task.id} task={task} onClick={() => setSelectedTask(task)} />
-                  ))
-                )}
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {/* Список */}
-      {view === 'list' && (
-        <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #334155' }}>
-          {sortedTasks.length === 0 ? (
-            <div className="p-12 text-center" style={{ backgroundColor: '#1e293b' }}>
-              <p className="text-slate-400">Нет задач</p>
+      
+      {activeView === 'archive' ? (
+        // ===== АРХИВ =====
+        <div className="space-y-3">
+          {archiveLoading ? (
+            <div className="text-center py-8 text-slate-400">Загрузка архива...</div>
+          ) : archivedTasks.length === 0 ? (
+            <div className="rounded-2xl p-12 text-center" style={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}>
+              <p className="text-slate-400">Архив пуст</p>
+              <p className="text-slate-500 text-sm mt-1">Выполненные задачи попадают сюда через 24 часа</p>
             </div>
           ) : (
-            sortedTasks.map((task, i) => {
-              const priority = PRIORITY_CONFIG[task.priority]
-              const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== 'done'
-              return (
-                <div key={task.id}
-                  className="cursor-pointer hover:bg-slate-800/30 transition-colors"
-                  onClick={() => setSelectedTask(task)}
-                  style={{
-                    backgroundColor: i % 2 === 0 ? '#1e293b' : '#172033',
-                    borderBottom: '1px solid #334155',
-                  }}>
-                  <div className="flex items-center gap-3 px-4 py-3">
-                    <button onClick={e => {
-                      e.stopPropagation()
-                      handleUpdate(task.id, { status: task.status === 'done' ? 'todo' : 'done' })
-                    }}
-                      className="w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-all"
+            <>
+              <p className="text-slate-500 text-sm">{archivedTasks.length} задач в архиве</p>
+              <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #334155' }}>
+                {archivedTasks.map((task, i) => {
+                  const priority = PRIORITY_CONFIG[task.priority]
+                  return (
+                    <div key={task.id} className="flex items-center gap-3 px-4 py-3"
                       style={{
-                        borderColor: task.status === 'done' ? '#22c55e' : '#475569',
-                        backgroundColor: task.status === 'done' ? '#22c55e' : 'transparent',
+                        backgroundColor: i % 2 === 0 ? '#1e293b' : '#172033',
+                        borderBottom: '1px solid #334155',
+                        opacity: 0.7,
                       }}>
-                      {task.status === 'done' && <span className="text-white text-xs">✓</span>}
-                    </button>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        {task.isPinned && <Pin size={11} className="text-orange-400 shrink-0" />}
-                        {task.isFocusToday && <Star size={11} className="text-yellow-400 shrink-0" />}
-                        <span className="text-sm" style={{
-                          color: task.status === 'done' ? '#64748b' : '#f1f5f9',
-                          textDecoration: task.status === 'done' ? 'line-through' : 'none',
-                        }}>
-                          {task.title}
-                        </span>
+                      <div className="w-5 h-5 rounded border-2 flex items-center justify-center shrink-0"
+                        style={{ borderColor: '#22c55e', backgroundColor: '#22c55e' }}>
+                        <span className="text-white text-xs">✓</span>
                       </div>
-                      {/* Метки в списке */}
-                      {task.labels && task.labels.length > 0 && (
-                        <div className="flex gap-1 mt-1">
-                          {task.labels.slice(0, 3).map(label => (
-                            <span key={label} className="text-xs px-1.5 py-0.5 rounded"
-                              style={{ backgroundColor: 'rgba(99,102,241,0.15)', color: '#a5b4fc' }}>
-                              #{label}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-xs px-2 py-0.5 rounded"
-                        style={{ backgroundColor: priority.bg, color: priority.color }}>
-                        {priority.label}
-                      </span>
-                      {task.dueDate && (
-                        <span className="text-xs" style={{ color: isOverdue ? '#ef4444' : '#64748b' }}>
-                          {formatDateTime(task.dueDate)}
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm text-slate-400 line-through truncate block">{task.title}</span>
+                        {task.goal && <p className="text-xs text-slate-600">🎯 {task.goal.title}</p>}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-xs px-1.5 py-0.5 rounded"
+                          style={{ backgroundColor: priority?.bg, color: priority?.color }}>
+                          {priority?.label}
                         </span>
-                      )}
-                      {task.goal && (
-                        <span className="text-xs text-slate-500 hidden sm:block">🎯 {task.goal.title}</span>
-                      )}
+                        {task.completedAt && (
+                          <span className="text-xs text-slate-600">
+                            {new Date(task.completedAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </div>
-              )
-            })
+                  )
+                })}
+              </div>
+            </>
           )}
         </div>
-      )}
+      ) : (
+        // ===== АКТИВНЫЕ =====
+        <>
+          {/* Канбан */}
+          {view === 'kanban' && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {COLUMNS.map(column => {
+                const columnTasks = getColumnTasks(column.id)
+                return (
+                  <div key={column.id} className="rounded-2xl p-4"
+                    style={{ backgroundColor: '#1e293b', border: '1px solid #334155', minHeight: '300px' }}>
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-white font-medium text-sm">{column.label}</h3>
+                      <span className="text-xs px-2 py-0.5 rounded-full"
+                        style={{ backgroundColor: '#334155', color: '#94a3b8' }}>
+                        {columnTasks.length}
+                      </span>
+                    </div>
 
+                    {columnTasks.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-8">
+                        <p className="text-slate-600 text-sm">Нет задач</p>
+                        {column.id === 'todo' && (
+                          <button onClick={() => setShowCreateModal(true)}
+                            className="mt-2 text-indigo-400 text-xs hover:text-indigo-300">
+                            + Добавить
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      columnTasks.map(task => (
+                        <TaskCard key={task.id} task={task} onClick={() => setSelectedTask(task)} />
+                      ))
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Список */}
+          {view === 'list' && (
+            <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid #334155' }}>
+              {sortedTasks.length === 0 ? (
+                <div className="p-12 text-center" style={{ backgroundColor: '#1e293b' }}>
+                  <p className="text-slate-400">Нет задач</p>
+                </div>
+              ) : (
+                sortedTasks.map((task, i) => {
+                  const priority = PRIORITY_CONFIG[task.priority]
+                  const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== 'done'
+                  return (
+                    <div key={task.id}
+                      className="cursor-pointer hover:bg-slate-800/30 transition-colors"
+                      onClick={() => setSelectedTask(task)}
+                      style={{
+                        backgroundColor: i % 2 === 0 ? '#1e293b' : '#172033',
+                        borderBottom: '1px solid #334155',
+                      }}>
+                      <div className="flex items-center gap-3 px-4 py-3">
+                        <button onClick={e => {
+                          e.stopPropagation()
+                          handleUpdate(task.id, { status: task.status === 'done' ? 'todo' : 'done' })
+                        }}
+                          className="w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-all"
+                          style={{
+                            borderColor: task.status === 'done' ? '#22c55e' : '#475569',
+                            backgroundColor: task.status === 'done' ? '#22c55e' : 'transparent',
+                          }}>
+                          {task.status === 'done' && <span className="text-white text-xs">✓</span>}
+                        </button>
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            {task.isPinned && <Pin size={11} className="text-orange-400 shrink-0" />}
+                            {task.isFocusToday && <Star size={11} className="text-yellow-400 shrink-0" />}
+                            <span className="text-sm" style={{
+                              color: task.status === 'done' ? '#64748b' : '#f1f5f9',
+                              textDecoration: task.status === 'done' ? 'line-through' : 'none',
+                            }}>
+                              {task.title}
+                            </span>
+                          </div>
+                          {/* Метки в списке */}
+                          {task.labels && task.labels.length > 0 && (
+                            <div className="flex gap-1 mt-1">
+                              {task.labels.slice(0, 3).map(label => (
+                                <span key={label} className="text-xs px-1.5 py-0.5 rounded"
+                                  style={{ backgroundColor: 'rgba(99,102,241,0.15)', color: '#a5b4fc' }}>
+                                  #{label}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-xs px-2 py-0.5 rounded"
+                            style={{ backgroundColor: priority.bg, color: priority.color }}>
+                            {priority.label}
+                          </span>
+                          {task.dueDate && (
+                            <span className="text-xs" style={{ color: isOverdue ? '#ef4444' : '#64748b' }}>
+                              {formatDateTime(task.dueDate)}
+                            </span>
+                          )}
+                          {task.goal && (
+                            <span className="text-xs text-slate-500 hidden sm:block">🎯 {task.goal.title}</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+          )}
+        </>
+      )}
       {/* Модалки */}
       {showCreateModal && (
         <CreateTaskModal
@@ -1022,6 +1200,13 @@ export default function TasksPage() {
           onClose={() => setSelectedTask(null)}
           onUpdate={handleUpdate}
           onDelete={handleDelete}
+        />
+      )}
+      {taskReward && (
+        <RewardToast
+          xp={taskReward.xp}
+          gold={taskReward.gold}
+          onDone={() => { setTaskReward(null) }}
         />
       )}
     </div>
