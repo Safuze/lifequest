@@ -8,7 +8,12 @@ import tasksRouter from './routes/tasks'
 import pomodoroRouter from './routes/pomodoro'
 import usersRouter from './routes/users'
 import habitsRouter from './routes/habits'
+import inventoryRouter from './routes/inventory'
+import lifescopeRouter from './routes/lifescope'
+import notificationsRouter from './routes/notifications'
+import { PrismaClient } from '@prisma/client'
 
+const prisma = new PrismaClient()
 dotenv.config()
 
 const app = express()
@@ -31,7 +36,57 @@ app.use('/api/v1/tasks', tasksRouter)
 app.use('/api/v1/pomodoro', pomodoroRouter)
 app.use('/api/v1/users', usersRouter)
 app.use('/api/v1/habits', habitsRouter)
+app.use('/api/v1/inventory', inventoryRouter)
+app.use('/api/v1/lifescope', lifescopeRouter)
+app.use('/api/v1/notifications', notificationsRouter)
+setInterval(async () => {
+  try {
+    const now = new Date()
+    const in1hour = new Date(now.getTime() + 60 * 60 * 1000)
 
+    const dueTasks = await prisma.task.findMany({
+      where: {
+        status: { not: 'done' },
+        dueDate: {
+          gte: now,
+          lte: in1hour,
+        },
+      },
+      include: {
+        user: { select: { id: true } }
+      }
+    })
+
+    for (const task of dueTasks) {
+      // проверяем — не создавали ли уже уведомление
+      const existing = await prisma.notification.findFirst({
+        where: {
+          userId: task.user.id,
+          type: 'task_due',
+          data: {
+            path: ['taskId'],
+            equals: task.id
+          }
+        }
+      })
+
+      if (!existing) {
+        await prisma.notification.create({
+          data: {
+            userId: task.user.id,
+            type: 'task_due',
+            title: 'Задача скоро истекает',
+            body: `«${task.title}» — срок через час`,
+            data: { taskId: task.id }
+          }
+        })
+      }
+    }
+
+  } catch (error) {
+    console.error('Task notification cron error:', error)
+  }
+}, 60 * 60 * 1000) // каждый час
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
 })

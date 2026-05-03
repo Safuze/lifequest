@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
-
+import { Eye, EyeOff } from 'lucide-react'
 export default function RegisterPage() {
   const navigate = useNavigate()
   const { register } = useAuth()
@@ -10,10 +10,22 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [showConfirm, setShowConfirm] = useState(false)
+  const [validationError, setValidationError] = useState('')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
+    if (password !== confirmPassword) {
+      setValidationError('Пароли не совпадают')
+      return
+    }
+    if (password.length < 6) {
+      setValidationError('Пароль минимум 6 символов')
+      return
+    }
+    setValidationError('')
     try {
       await register(name, email, password)
       navigate('/dashboard')
@@ -99,6 +111,32 @@ export default function RegisterPage() {
               required
             />
           </div>
+
+          <div>
+            <label className="text-slate-400 text-sm mb-1.5 block">Подтверждение пароля</label>
+            <div className="relative">
+              <input
+                type={showConfirm ? 'text' : 'password'}
+                value={confirmPassword}
+                onChange={e => { setConfirmPassword(e.target.value); setValidationError('') }}
+                className="w-full text-white rounded-lg px-4 py-3 pr-12 outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                style={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}
+                placeholder="Повторите пароль"
+                required
+              />
+              <button type="button" onClick={() => setShowConfirm(!showConfirm)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
+                {showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+          </div>
+
+          {validationError && (
+            <div className="p-3 rounded-lg text-sm text-red-400"
+              style={{ backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)' }}>
+              {validationError}
+            </div>
+          )}
 
           <button
             type="submit"

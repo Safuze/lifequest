@@ -12,6 +12,7 @@ export interface Habit {
   startDate: string | null
   logs: { id: number; date: string; repetition: number }[]
   createdAt: string
+  canRestoreStreak?: boolean
 }
 
 export interface HabitTemplate {
@@ -32,11 +33,8 @@ export const habitsApi = {
     return res.data
   },
   create: async (data: {
-    title: string
-    type: string
-    trackingType: string
-    frequency?: string
-    timesPerDay?: number
+    title: string; type: string; trackingType: string
+    frequency?: string; timesPerDay?: number; startDate?: string
   }): Promise<{ habit: Habit }> => {
     const res = await apiClient.post('/habits', data)
     return res.data
@@ -45,24 +43,23 @@ export const habitsApi = {
     await apiClient.delete(`/habits/${id}`)
   },
   log: async (id: number): Promise<{
-    success: boolean
-    repetitionsDone: number
-    repetitionsTotal: number
-    isFullyCompleted: boolean
-    currentStreak: number
-    xpEarned: number
-    goldEarned: number
-    achievements: any[]
+    success: boolean; repetitionsDone: number; repetitionsTotal: number
+    isFullyCompleted: boolean; currentStreak: number
+    xpEarned: number; goldEarned: number; achievements: any[]
   }> => {
     const res = await apiClient.post(`/habits/${id}/log`)
+    return res.data
+  },
+  break: async (id: number): Promise<{ success: boolean; deleted: boolean }> => {
+    const res = await apiClient.post(`/habits/${id}/break`)
     return res.data
   },
   restoreStreak: async (id: number): Promise<{ success: boolean; goldSpent: number }> => {
     const res = await apiClient.post(`/habits/${id}/restore-streak`)
     return res.data
   },
-  getHeatmap: async (id: number): Promise<{ heatmap: Record<string, number> }> => {
-    const res = await apiClient.get(`/habits/${id}/heatmap`)
+  getHeatmap: async (days = 30): Promise<{ heatmap: HeatmapDay[] }> => {
+    const res = await apiClient.get(`/habits/heatmap?days=${days}`)
     return res.data
   },
 }

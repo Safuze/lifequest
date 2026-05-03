@@ -2,6 +2,7 @@ import { Response } from 'express'
 import { z } from 'zod'
 import { prisma } from '../prisma'
 import { AuthRequest } from '../middleware/authMiddleware'
+import { checkAchievementsForUser } from '../services/achievementService'
 
 export const createTaskSchema = z.object({
   title: z.string().min(1).max(200),
@@ -40,7 +41,19 @@ export const getTasks = async (req: AuthRequest, res: Response) => {
   try {
     const { status, priority, category, goalId, date, search } = req.query
 
-    const where: any = { userId: req.userId!, parentId: null }
+    const threshold24h = new Date(Date.now() - 24 * 60 * 60 * 1000)
+
+    const where: any = {
+      userId: req.userId!,
+      parentId: null,
+      // Исключаем задачи выполненные более 24ч назад — они в архиве
+      NOT: {
+        AND: [
+          { status: 'done' },
+          { completedAt: { lt: threshold24h } }
+        ]
+      }
+    }
     if (status) where.status = status
     if (priority) where.priority = priority
     if (category) where.category = category
@@ -56,8 +69,6 @@ export const getTasks = async (req: AuthRequest, res: Response) => {
 
     const tasks = await prisma.task.findMany({
       where,
-      // НЕ сортируем по priority здесь — Prisma делает это алфавитно
-      // Сортируем только по стабильным полям
       orderBy: [
         { isPinned: 'desc' },
         { isFocusToday: 'desc' },
@@ -181,20 +192,62 @@ export const createTask = async (req: AuthRequest, res: Response) => {
 export const updateTask = async (req: AuthRequest, res: Response) => {
   try {
     const taskId = parseInt(req.params.id as string, 10)
-
     const existing = await prisma.task.findFirst({
       where: { id: taskId, userId: req.userId! }
     })
-    if (!existing) {
-      res.status(404).json({ error: 'Задача не найдена' })
-      return
-    }
+    if (!existing) { res.status(404).json({ error: 'Задача не найдена' }); return }
 
     const updateData: any = { ...req.body }
 
     if (req.body.status === 'done' && existing.status !== 'done') {
       updateData.completedAt = new Date()
+
+      // Начисляем XP и золото за завершение задачи
+      const XP_BY_PRIORITY: Record<string, number> = {
+        low: 15, medium: 30, high: 50, critical: 70
+      }
+      const GOLD_BY_PRIORITY: Record<string, number> = {
+        low: 1, medium: 3, high: 5, critical: 8
+      }
+      
+
+      const baseXp = XP_BY_PRIORITY[existing.priority] || 15
+      const baseGold = GOLD_BY_PRIORITY[existing.priority] || 1
+
+      // Проверяем был ли помодоро для этой задачи
+      const pomodoroCount = await prisma.pomodoroSession.count({
+        where: { taskId, status: 'completed' }
+      })
+      const bonusMultiplier = pomodoroCount > 0 ? 1.2 : 1
+      const finalXp = Math.round(baseXp * bonusMultiplier)
+      const finalGold = baseGold
+
+      const LEVEL_XP = [0, 1000, 3000, 6000, 10000, 15000]
+
+      await prisma.$transaction(async (tx) => {
+        const updatedUser = await tx.user.update({
+          where: { id: req.userId! },
+          data: { xp: { increment: finalXp }, gold: { increment: finalGold } }
+        })
+
+        // Автообновление уровня
+        let newLevel = 0
+        for (let i = LEVEL_XP.length - 1; i >= 0; i--) {
+          if (updatedUser.xp >= LEVEL_XP[i]) { newLevel = i; break }
+        }
+        if (newLevel !== updatedUser.level) {
+          await tx.user.update({ where: { id: req.userId! }, data: { level: newLevel } })
+        }
+
+        await tx.rewardTransaction.createMany({
+          data: [
+            { userId: req.userId!, sourceType: 'task', sourceId: taskId, rewardType: 'xp', amount: finalXp },
+            { userId: req.userId!, sourceType: 'task', sourceId: taskId, rewardType: 'gold', amount: finalGold },
+          ]
+        })
+      })
     }
+    const newAchievements = await checkAchievementsForUser(req.userId!)
     if (req.body.status !== 'done' && existing.status === 'done') {
       updateData.completedAt = null
     }
@@ -212,18 +265,16 @@ export const updateTask = async (req: AuthRequest, res: Response) => {
       include: {
         goal: { select: { id: true, title: true, category: true } },
         subtasks: { select: { id: true, title: true, status: true } },
-        sessions: {
-          where: { status: 'completed' },
-          select: { actualDuration: true }
-        },
+        sessions: { where: { status: 'completed' }, select: { actualDuration: true } },
       }
     })
 
     res.json({
       task: {
         ...task,
-        totalPomodoroMin: task.sessions.reduce((sum, s) => sum + s.actualDuration, 0)
-      }
+        totalPomodoroMin: task.sessions.reduce((s, sess) => s + sess.actualDuration, 0)
+      },
+      achievements: newAchievements
     })
   } catch (error) {
     console.error('updateTask error:', error)
@@ -247,6 +298,36 @@ export const deleteTask = async (req: AuthRequest, res: Response) => {
     res.json({ message: 'Задача удалена' })
   } catch (error) {
     console.error('deleteTask error:', error)
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' })
+  }
+}
+
+export const getArchivedTasks = async (req: AuthRequest, res: Response) => {
+  try {
+    const threshold = new Date(Date.now() - 24 * 60 * 60 * 1000) // 24 часа назад
+
+    const tasks = await prisma.task.findMany({
+      where: {
+        userId: req.userId!,
+        status: 'done',
+        completedAt: { lt: threshold },
+        parentId: null,
+      },
+      orderBy: { completedAt: 'desc' },
+      take: 100,
+      include: {
+        goal: { select: { id: true, title: true, category: true } },
+        sessions: { where: { status: 'completed' }, select: { actualDuration: true } }
+      }
+    })
+
+    const tasksWithTime = tasks.map(t => ({
+      ...t,
+      totalPomodoroMin: t.sessions.reduce((s, sess) => s + sess.actualDuration, 0)
+    }))
+
+    res.json({ tasks: tasksWithTime })
+  } catch (error) {
     res.status(500).json({ error: 'Внутренняя ошибка сервера' })
   }
 }

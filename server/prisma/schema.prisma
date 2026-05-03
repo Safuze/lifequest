@@ -19,12 +19,13 @@ model User {
   name           String
   avatar         String?
   characterClass String   @default("warrior")
-  level          Int      @default(1)
+  level          Int      @default(0)
   xp             Int      @default(0)
   gold           Int      @default(0)
   theme          String   @default("dark")
   createdAt      DateTime @default(now())
-
+  isProfilePublic Boolean @default(true)
+  
   goals          Goal[]
   projects       Project[]
   tasks          Task[]
@@ -37,6 +38,7 @@ model User {
   sentRequests   Friendship[]      @relation("sender")
   receivedRequests Friendship[]    @relation("receiver")
   pomodoroSettings PomodoroSettings?
+  notifications Notification[]
 }
 
 model Goal {
@@ -105,7 +107,7 @@ model Task {
 model PomodoroSession {
   id              Int       @id @default(autoincrement())
   userId          Int
-  taskId          Int
+  taskId          Int?
   goalId          Int?
   plannedDuration Int
   actualDuration  Int       @default(0)
@@ -115,7 +117,7 @@ model PomodoroSession {
   completedAt     DateTime?
 
   user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  task            Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  task            Task?     @relation(fields: [taskId], references: [id], onDelete: Cascade)
   goal            Goal?     @relation(fields: [goalId], references: [id], onDelete: SetNull)
   transactions    RewardTransaction[]
 
@@ -138,6 +140,7 @@ model Habit {
   startDate           DateTime?
   isDayTrackingEnabled Boolean  @default(false)
   createdAt           DateTime  @default(now())
+  streakRestoredAt DateTime?
 
   user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   logs                HabitLog[]
@@ -174,10 +177,13 @@ model Achievement {
   userId   Int
   type     String
   title    String
-  earnedAt DateTime @default(now())
+  description String  @default("")
+  icon        String  @default("🏆")
+  rarity      String  @default("common")
+  createdAt DateTime  @default(now())
 
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  @@unique([userId, type]) 
   @@index([userId])
 }
 
@@ -261,4 +267,19 @@ model PomodoroSettings {
   cyclesBeforeLong Int @default(4)
 
   user            User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  type      String   // 'friend_request' | 'task_due' | 'habit_reminder' | 'achievement'
+  title     String
+  body      String
+  isRead    Boolean  @default(false)
+  data      Json?    // дополнительные данные (taskId, habitId и т.д.)
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
 }

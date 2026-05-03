@@ -55,7 +55,7 @@ export const register = async (req: Request, res: Response) => {
         publicId: true,
         name: true,
         email: true,
-        level: true,
+        level: false,
         xp: true,
         gold: true,
         characterClass: true,

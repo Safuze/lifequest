@@ -3,7 +3,11 @@ import { ZodSchema } from 'zod'
 
 export const validate = (schema: ZodSchema) => {
   return (req: Request, res: Response, next: NextFunction) => {
-    const result = schema.safeParse(req.body)
+    // Очищаем пустые строки — Zod enum не принимает ""
+    const cleanBody = Object.fromEntries(
+      Object.entries(req.body).map(([k, v]) => [k, v === '' ? undefined : v])
+    )
+    const result = schema.safeParse(cleanBody)
     if (!result.success) {
       res.status(400).json({
         error: 'Ошибка валидации',

@@ -30,6 +30,12 @@ export interface CreateTaskData {
   parentId?: number
   dueDate?: string
 }
+export interface Achievement {
+  id: number
+  title: string
+  description: string
+  icon?: string
+}
 
 export const tasksApi = {
   getAll: async (params?: {
@@ -49,7 +55,7 @@ export const tasksApi = {
     return res.data
   },
 
-  update: async (id: number, data: Partial<Task & { dueDate?: string | null }>): Promise<{ task: Task }> => {
+  update: async (id: number, data: Partial<Task & { dueDate?: string | null }>): Promise<{ task: Task; achievements?: Achievement[] }> => {
     const res = await apiClient.patch(`/tasks/${id}`, data)
     return res.data
   },
@@ -57,4 +63,10 @@ export const tasksApi = {
   delete: async (id: number): Promise<void> => {
     await apiClient.delete(`/tasks/${id}`)
   },
+
+  getArchived: async (): Promise<{ tasks: Task[] }> => {
+    const res = await apiClient.get('/tasks/archive')
+    return res.data
+  },
 }
+

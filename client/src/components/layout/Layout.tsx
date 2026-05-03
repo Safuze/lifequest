@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
+import apiClient from '../../api/client'
 import {
   LayoutDashboard,
   Target,
@@ -13,6 +14,8 @@ import {
   Settings,
   LogOut,
   Bell,
+  X,
+  Check,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react'
@@ -28,15 +31,146 @@ const navItems = [
   { to: '/friends',     icon: Users,           label: 'Friends'      },
 ]
 
+// Тип уведомления
+interface AppNotification {
+  id: number
+  type: string
+  title: string
+  body: string
+  isRead: boolean
+  createdAt: string
+  data?: any
+}
+
+// Компонент уведомлений (добавь в Layout перед return):
+function NotificationDropdown({
+    onClose,
+    onUnreadCountChange,
+  }: {
+    onClose: () => void
+    onUnreadCountChange: React.Dispatch<React.SetStateAction<number>>
+  }) {
+  const [notifications, setNotifications] = useState<AppNotification[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await apiClient.get('/notifications')
+        setNotifications(res.data.notifications)
+        // Синхронизируем счётчик сразу при открытии
+        onUnreadCountChange(res.data.unreadCount)
+      } catch { /* ignore */ }
+      finally { setIsLoading(false) }
+    }
+    load()
+  }, [])
+
+  const markAllRead = async () => {
+    try {
+      await apiClient.patch('/notifications/read-all')
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })))
+      onUnreadCountChange(0) // ← сразу обнуляем
+    } catch { /* ignore */ }
+  }
+
+  const markRead = async (id: number) => {
+    const notif = notifications.find(n => n.id === id)
+    if (!notif || notif.isRead) return
+    try {
+      await apiClient.patch(`/notifications/${id}/read`)
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n))
+      // Декрементируем счётчик немедленно
+      onUnreadCountChange(prev => Math.max(0, prev - 1))
+    } catch { /* ignore */ }
+  }
+
+  const getIcon = (type: string) => {
+    if (type === 'friend_request') return '👥'
+    if (type === 'task_due') return '⏰'
+    if (type === 'habit_reminder') return '🔥'
+    if (type === 'achievement') return '🏅'
+    return '🔔'
+  }
+
+  return (
+    <div className="absolute right-0 top-full mt-2 w-80 rounded-2xl shadow-2xl z-50 overflow-hidden"
+      style={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}>
+      <div className="flex items-center justify-between px-4 py-3"
+        style={{ borderBottom: '1px solid #334155' }}>
+        <h3 className="text-white font-semibold text-sm">Уведомления</h3>
+        <div className="flex items-center gap-2">
+          {notifications.some(n => !n.isRead) && (
+            <button onClick={markAllRead} className="text-indigo-400 text-xs hover:text-indigo-300">
+              Прочитать все
+            </button>
+          )}
+          <button onClick={onClose} className="text-slate-400 hover:text-white">
+            <X size={16} />
+          </button>
+        </div>
+      </div>
+
+      <div className="max-h-80 overflow-y-auto">
+        {isLoading ? (
+          <div className="p-4 text-center text-slate-400 text-sm">Загрузка...</div>
+        ) : notifications.length === 0 ? (
+          <div className="p-8 text-center">
+            <Bell size={32} className="mx-auto mb-2 text-slate-600" />
+            <p className="text-slate-400 text-sm">Нет уведомлений</p>
+          </div>
+        ) : (
+          notifications.map(notif => (
+            <div key={notif.id}
+              className="flex gap-3 px-4 py-3 cursor-pointer hover:bg-slate-800/30 transition-colors"
+              style={{
+                borderBottom: '1px solid #334155',
+                backgroundColor: notif.isRead ? 'transparent' : 'rgba(99,102,241,0.05)',
+              }}
+              onClick={() => !notif.isRead && markRead(notif.id)}>
+              <span className="text-xl shrink-0 mt-0.5">{getIcon(notif.type)}</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-white text-sm font-medium">{notif.title}</p>
+                <p className="text-slate-400 text-xs mt-0.5 leading-relaxed">{notif.body}</p>
+                <p className="text-slate-600 text-xs mt-1">
+                  {new Date(notif.createdAt).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                </p>
+              </div>
+              {!notif.isRead && (
+                <div className="w-2 h-2 rounded-full bg-indigo-500 shrink-0 mt-2" />
+              )}
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function Layout() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const [collapsed, setCollapsed] = useState(false)
+  const [showNotifications, setShowNotifications] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
 
   const handleLogout = () => {
     logout()
     navigate('/login')
   }
+
+  // Загружаем счётчик непрочитанных
+  useEffect(() => {
+    const loadUnread = async () => {
+      try {
+        const res = await apiClient.get('/notifications')
+        setUnreadCount(res.data.unreadCount)
+      } catch { /* ignore */ }
+    }
+    loadUnread()
+    const interval = setInterval(loadUnread, 60000) // каждую минуту
+    return () => clearInterval(interval)
+  }, [])
 
   const sidebarWidth = collapsed ? '72px' : '220px'
 
@@ -149,10 +283,26 @@ export default function Layout() {
               <span className="text-yellow-400 text-sm font-medium">{user?.gold}</span>
             </div>
 
-            {/* Уведомления */}
-            <button className="text-slate-400 hover:text-white transition-colors relative">
-              <Bell size={20} />
-            </button>
+            <div className="relative">
+              <button
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="relative p-2 rounded-lg text-slate-400 hover:text-white transition-colors"
+                style={{ backgroundColor: 'rgba(30,41,59,0.8)' }}>
+                <Bell size={18} />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full text-xs font-bold flex items-center justify-center text-white"
+                    style={{ backgroundColor: '#ef4444' }}>
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
+              {showNotifications && (
+                <NotificationDropdown
+                  onClose={() => setShowNotifications(false)}
+                  onUnreadCountChange={setUnreadCount} // ← добавь
+                />
+              )}
+            </div>
 
             {/* Аватар */}
             <button
