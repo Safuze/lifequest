@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import apiClient from '../api/client'
 import { Trophy, Clock, CheckSquare, Flame, TrendingUp, Star, Package } from 'lucide-react'
+import { AchievementGrid } from '../components/AchievementGrid'
+import { getAvatarBorderStyle, getAvatarBorderClass, getProfileBgStyle } from '../utils/avatar'
 
 type Period = 'day' | 'week' | 'month'
 
@@ -123,7 +125,7 @@ function RadarChart({ data }: RadarProps) {
 
 interface ProfileData {
   user: {
-    id: number; name: string; email: string; xp: number; gold: number
+    id: number; name: string; email: string; xp: number; gold: number; avatarBorder: string; profileBg: string
     level: number; levelName: string; xpProgress: number; nextLevelXp: number; prevLevelXp: number; createdAt: string
   }
   stats: {
@@ -178,6 +180,9 @@ export default function ProfilePage() {
 
   const { user, stats, radar, achievements, inventory } = data
   const levelColor = LEVEL_COLORS[user.level] || '#64748b'
+  const profileBgStyle = user.profileBg && user.profileBg !== 'default'
+    ? getProfileBgStyle(user.profileBg)
+    : { backgroundColor: '#1e293b' }
   const daysInApp = Math.floor((Date.now() - new Date(user.createdAt).getTime()) / 86400000)
   const statCards = [
     { icon: <Clock size={16} />,       label: 'Время в фокусе',        value: formatMinutes(stats.totalPomodoroMin), color: '#4f46e5', bg: 'rgba(79,70,229,0.15)'  },
@@ -189,21 +194,30 @@ export default function ProfilePage() {
     { icon: <Star size={16} />,        label: 'XP заработано',          value: `+${stats.earnedXp}`,                color: '#6366f1', bg: 'rgba(99,102,241,0.15)'  },
     { icon: <Star size={16} />,        label: 'Золото заработано',      value: `+${stats.earnedGold} 🪙`,          color: '#eab308', bg: 'rgba(234,179,8,0.15)'   },
   ]
+  
 
   return (
     <div className="max-w-2xl mx-auto space-y-5">
 
       {/* RPG-карточка профиля */}
       <div className="rounded-2xl p-5 relative overflow-hidden"
-        style={{ backgroundColor: '#1e293b', border: `1px solid ${levelColor}40` }}>
+        style={{
+          ...profileBgStyle,
+          border: `1px solid ${levelColor}40`,
+        }}>
         {/* Фоновый градиент уровня */}
         <div className="absolute inset-0 opacity-5"
           style={{ background: `radial-gradient(circle at top right, ${levelColor}, transparent 70%)` }} />
 
         <div className="flex items-start gap-4 relative">
           {/* Аватар */}
-          <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-bold shrink-0"
-            style={{ backgroundColor: `${levelColor}20`, border: `2px solid ${levelColor}60`, color: levelColor }}>
+          <div
+            className={`w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-bold shrink-0 ${getAvatarBorderClass(user.avatarBorder)}`}
+            style={{
+              backgroundColor: `${levelColor}20`,
+              color: levelColor,
+              ...getAvatarBorderStyle(user.avatarBorder, 'lg'),
+            }}>
             {user.name.charAt(0).toUpperCase()}
           </div>
 
@@ -311,41 +325,7 @@ export default function ProfilePage() {
       )}
 
       {activeTab === 'achievements' && (
-        <div>
-          {achievements.length === 0 ? (
-            <div className="rounded-2xl p-12 text-center" style={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}>
-              <div className="text-5xl mb-4">🏆</div>
-              <h3 className="text-white font-semibold mb-2">Нет достижений</h3>
-              <p className="text-slate-400 text-sm">Выполняйте задачи и поддерживайте стрики</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-3">
-              {achievements.map(ach => {
-                const color = RARITY_COLORS[ach.rarity] || '#4f46e5'
-                return (
-                  <div key={ach.id} className="p-4 rounded-2xl"
-                    style={{ backgroundColor: '#1e293b', border: `1px solid ${color}30` }}>
-                    <div className="text-3xl mb-2">{ach.icon}</div>
-                    <p className="text-white text-sm font-semibold">{ach.title}</p>
-                    <p className="text-slate-400 text-xs mt-0.5">{ach.description}</p>
-                    <div className="flex items-center justify-between mt-2">
-                      <span className="text-xs px-1.5 py-0.5 rounded font-medium"
-                        style={{ backgroundColor: `${color}20`, color }}>
-                        {ach.rarity === 'common' ? 'Обычное'
-                          : ach.rarity === 'rare' ? 'Редкое'
-                          : ach.rarity === 'epic' ? 'Эпическое'
-                          : 'Легендарное'}
-                      </span>
-                      <span className="text-slate-600 text-xs">
-                        {new Date(ach.createdAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}
-                      </span>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
+        <AchievementGrid earned={achievements} showLocked={true} />
       )}
 
       {activeTab === 'inventory' && (

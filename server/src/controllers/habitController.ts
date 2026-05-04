@@ -4,6 +4,7 @@ import { prisma } from '../prisma'
 import { AuthRequest } from '../middleware/authMiddleware'
 import { startOfDay, endOfDay, startOfWeek, subDays } from 'date-fns'
 import { checkAchievementsForUser } from '../services/achievementService'
+import { getLevelFromXp, getLevelName } from '../services/levelService'
 
 export const createHabitSchema = z.object({
   title: z.string().min(1).max(100),
@@ -209,8 +210,13 @@ export const logHabit = async (req: AuthRequest, res: Response) => {
     let goldEarned = 0
     let newAchievements: any[] = []
     let newStreak = habit.currentStreak
+    let levelUp: { level: number; levelName: string } | null = null
 
     if (isCompleted) {
+      const userBefore = await prisma.user.findUnique({
+        where: { id: req.userId! },
+        select: { level: true }
+      })
       const yesterdayStart = startOfDay(subDays(new Date(), 1))
       const yesterdayEnd = endOfDay(subDays(new Date(), 1))
 
@@ -254,10 +260,8 @@ export const logHabit = async (req: AuthRequest, res: Response) => {
         })
 
         const LEVEL_XP = [0, 1000, 3000, 6000, 10000, 15000]
-        let newLevel = 0
-        for (let i = LEVEL_XP.length - 1; i >= 0; i--) {
-          if (updatedUser.xp >= LEVEL_XP[i]) { newLevel = i; break }
-        }
+        const newLevel = getLevelFromXp(updatedUser.xp)
+
         if (newLevel !== updatedUser.level) {
           await tx.user.update({ where: { id: req.userId! }, data: { level: newLevel } })
         }
@@ -296,8 +300,22 @@ export const logHabit = async (req: AuthRequest, res: Response) => {
           }
         }
       })
+      const userAfter = await prisma.user.findUnique({
+        where: { id: req.userId! },
+        select: { level: true }
+      })
 
-      checkAchievementsForUser(req.userId!).catch(() => {})
+      levelUp =
+        userBefore?.level !== undefined &&
+        userAfter?.level !== undefined &&
+        userAfter.level > userBefore.level
+          ? {
+              level: userAfter.level,
+              levelName: getLevelName(userAfter.level)
+            }
+          : null
+      const extraAchievements = await checkAchievementsForUser(req.userId!)
+      newAchievements.push(...extraAchievements)
     }
 
     res.json({
@@ -309,6 +327,7 @@ export const logHabit = async (req: AuthRequest, res: Response) => {
       xpEarned,
       goldEarned,
       achievements: newAchievements,
+      levelUp,
     })
   } catch (error) {
     res.status(500).json({ error: 'Внутренняя ошибка сервера' })

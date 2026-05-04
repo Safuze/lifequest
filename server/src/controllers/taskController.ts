@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { prisma } from '../prisma'
 import { AuthRequest } from '../middleware/authMiddleware'
 import { checkAchievementsForUser } from '../services/achievementService'
+import { getLevelFromXp, getLevelName } from '../services/levelService'
 
 export const createTaskSchema = z.object({
   title: z.string().min(1).max(200),
@@ -191,6 +192,7 @@ export const createTask = async (req: AuthRequest, res: Response) => {
 
 export const updateTask = async (req: AuthRequest, res: Response) => {
   try {
+    type Priority = 'low' | 'medium' | 'high' | 'critical'
     const taskId = parseInt(req.params.id as string, 10)
     const existing = await prisma.task.findFirst({
       where: { id: taskId, userId: req.userId! }
@@ -199,54 +201,80 @@ export const updateTask = async (req: AuthRequest, res: Response) => {
 
     const updateData: any = { ...req.body }
 
+    let userBeforeLevel: number | null = null
+
+    let finalXp: number | null = null
+    let finalGold: number | null = null
+    let levelUp: { level: number; levelName: string } | null = null
+    
     if (req.body.status === 'done' && existing.status !== 'done') {
+      const priority = existing.priority as Priority
+
       updateData.completedAt = new Date()
 
-      // Начисляем XP и золото за завершение задачи
-      const XP_BY_PRIORITY: Record<string, number> = {
+      const userBefore = await prisma.user.findUnique({
+        where: { id: req.userId! },
+        select: { level: true }
+      })
+      userBeforeLevel = userBefore?.level ?? null
+
+      const XP_BY_PRIORITY = {
         low: 15, medium: 30, high: 50, critical: 70
       }
-      const GOLD_BY_PRIORITY: Record<string, number> = {
+
+      const GOLD_BY_PRIORITY = {
         low: 1, medium: 3, high: 5, critical: 8
       }
-      
 
-      const baseXp = XP_BY_PRIORITY[existing.priority] || 15
-      const baseGold = GOLD_BY_PRIORITY[existing.priority] || 1
+      const baseXp = XP_BY_PRIORITY[priority] ?? 15
+      const baseGold = GOLD_BY_PRIORITY[priority] ?? 1
 
-      // Проверяем был ли помодоро для этой задачи
       const pomodoroCount = await prisma.pomodoroSession.count({
         where: { taskId, status: 'completed' }
       })
+
       const bonusMultiplier = pomodoroCount > 0 ? 1.2 : 1
-      const finalXp = Math.round(baseXp * bonusMultiplier)
-      const finalGold = baseGold
 
-      const LEVEL_XP = [0, 1000, 3000, 6000, 10000, 15000]
+      finalXp = Math.round(baseXp * bonusMultiplier)
+      finalGold = baseGold
 
-      await prisma.$transaction(async (tx) => {
-        const updatedUser = await tx.user.update({
+      const updatedUser = await prisma.$transaction(async (tx) => {
+        const user = await tx.user.update({
           where: { id: req.userId! },
-          data: { xp: { increment: finalXp }, gold: { increment: finalGold } }
+          data: { xp: { increment: finalXp! }, gold: { increment: finalGold! } }
         })
 
-        // Автообновление уровня
-        let newLevel = 0
-        for (let i = LEVEL_XP.length - 1; i >= 0; i--) {
-          if (updatedUser.xp >= LEVEL_XP[i]) { newLevel = i; break }
-        }
-        if (newLevel !== updatedUser.level) {
-          await tx.user.update({ where: { id: req.userId! }, data: { level: newLevel } })
+        const newLevel = getLevelFromXp(user.xp)
+
+        if (newLevel !== user.level) {
+          await tx.user.update({
+            where: { id: req.userId! },
+            data: { level: newLevel }
+          })
         }
 
         await tx.rewardTransaction.createMany({
           data: [
-            { userId: req.userId!, sourceType: 'task', sourceId: taskId, rewardType: 'xp', amount: finalXp },
-            { userId: req.userId!, sourceType: 'task', sourceId: taskId, rewardType: 'gold', amount: finalGold },
+            { userId: req.userId!, sourceType: 'task', sourceId: taskId, rewardType: 'xp', amount: finalXp! },
+            { userId: req.userId!, sourceType: 'task', sourceId: taskId, rewardType: 'gold', amount: finalGold! },
           ]
         })
+
+        return user
       })
+
+      if (updatedUser && userBeforeLevel !== null) {
+        const newLevel = getLevelFromXp(updatedUser.xp)
+
+        if (newLevel > userBeforeLevel) {
+          levelUp = {
+            level: newLevel,
+            levelName: getLevelName(newLevel)
+          }
+        }
+      }
     }
+    
     const newAchievements = await checkAchievementsForUser(req.userId!)
     if (req.body.status !== 'done' && existing.status === 'done') {
       updateData.completedAt = null
@@ -274,6 +302,10 @@ export const updateTask = async (req: AuthRequest, res: Response) => {
         ...task,
         totalPomodoroMin: task.sessions.reduce((s, sess) => s + sess.actualDuration, 0)
       },
+      reward: req.body.status === 'done' && existing.status !== 'done'
+        ? { xp: finalXp, gold: finalGold }
+        : null,
+      levelUp,
       achievements: newAchievements
     })
   } catch (error) {

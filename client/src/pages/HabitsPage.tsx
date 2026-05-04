@@ -3,6 +3,7 @@ import { habitsApi } from '../api/habits'
 import type { Habit, HabitTemplate} from '../api/habits'
 import { useAuth } from '../hooks/useAuth'
 import { Plus, Trash2, X, Flame, Trophy, RotateCcw, ChevronDown, ChevronUp, Calendar, AlertTriangle } from 'lucide-react'
+import { dispatchRewards } from '../utils/dispatchRewards'
 
 // ============ УТИЛИТЫ ============
 
@@ -271,12 +272,50 @@ interface HabitCardProps {
   streakRestored: boolean
 }
 
+function getStreakBorderStyle(streak: number): { borderColor: string; boxShadow?: string; label?: string } {
+  if (streak >= 365) return {
+    borderColor: '#b9f2ff',  // алмаз
+    boxShadow: '0 0 12px rgba(185,242,255,0.4), 0 0 24px rgba(185,242,255,0.2)',
+    label: '💠 Алмаз',
+  }
+  if (streak >= 180) return {
+    borderColor: '#ef4444',  // рубин
+    boxShadow: '0 0 10px rgba(239,68,68,0.4)',
+    label: '♦️ Рубин',
+  }
+  if (streak >= 90) return {
+    borderColor: '#10b981',  // изумруд
+    boxShadow: '0 0 10px rgba(16,185,129,0.3)',
+    label: '💚 Изумруд',
+  }
+  if (streak >= 30) return {
+    borderColor: '#f59e0b',  // золото
+    boxShadow: '0 0 8px rgba(245,158,11,0.3)',
+    label: '🥇 Золото',
+  }
+  if (streak >= 7) return {
+    borderColor: '#94a3b8',  // серебро
+    boxShadow: '0 0 6px rgba(148,163,184,0.2)',
+    label: '🥈 Серебро',
+  }
+  // до 7 — бронза если есть хоть какой-то стрик
+  if (streak >= 3) return {
+    borderColor: '#b45309',  // бронза
+    label: '🥉 Бронза',
+  }
+  return { borderColor: '#334155' }
+}
+
 function HabitCard({ habit, userGold, onLog, onBreak, onDelete, onRestoreStreak, lastReward, heatmapView, streakRestored  }: HabitCardProps) {
   const [expanded, setExpanded] = useState(false)
   const [timer, setTimer] = useState('')
 
   const todayLogs = habit.logs.length
   const isCompleted = habit.trackingType === 'discrete' && todayLogs >= habit.timesPerDay
+
+  const streakStyle = habit.trackingType === 'discrete'
+    ? getStreakBorderStyle(habit.currentStreak)
+    : { borderColor: '#334155' }
 
   // Обновляем счётчик для непрерывных привычек
   useEffect(() => {
@@ -292,7 +331,9 @@ function HabitCard({ habit, userGold, onLog, onBreak, onDelete, onRestoreStreak,
     <div className="rounded-2xl overflow-hidden transition-all"
       style={{
         backgroundColor: '#1e293b',
-        border: `1px solid ${isCompleted ? 'rgba(34,197,94,0.3)' : '#334155'}`,
+        border: `1px solid ${isCompleted ? 'rgba(34,197,94,0.4)' : streakStyle.borderColor}`,
+        boxShadow: !isCompleted && streakStyle.boxShadow ? streakStyle.boxShadow : 'none',
+        transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
       }}>
       <div className="p-4">
         {/* Заголовок */}
@@ -356,7 +397,7 @@ function HabitCard({ habit, userGold, onLog, onBreak, onDelete, onRestoreStreak,
         {/* Кнопки действий */}
         {habit.trackingType === 'discrete' ? (
           habit.canRestoreStreak ? (
-            // 🔥 ТОЛЬКО ВОССТАНОВЛЕНИЕ
+            // ТОЛЬКО ВОССТАНОВЛЕНИЕ
             <button
               onClick={() => onRestoreStreak(habit.id)}
               className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-medium transition-all"
@@ -369,7 +410,7 @@ function HabitCard({ habit, userGold, onLog, onBreak, onDelete, onRestoreStreak,
               Восстановить стрик за 50 🪙
             </button>
           ) : (
-            // ✅ ОБЫЧНЫЕ КНОПКИ
+            // ОБЫЧНЫЕ КНОПКИ
             <div className="flex items-center gap-3">
               {habit.timesPerDay > 1 && (
                 <div className="flex items-center gap-2 flex-1">
@@ -788,6 +829,10 @@ export default function HabitsPage() {
         setTimeout(() => {
           setLastRewards(prev => { const n = { ...prev }; delete n[id]; return n })
         }, 3000)
+      }
+      // Показываем модалки
+      if (result.achievements?.length || result.levelUp) {
+        dispatchRewards(result.achievements, result.levelUp)
       }
     } catch (error: any) {
       console.error('Log error:', error.response?.data?.error)

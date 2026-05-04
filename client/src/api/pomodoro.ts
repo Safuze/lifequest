@@ -1,5 +1,4 @@
 import apiClient from './client'
-
 export interface PomodoroSettings {
   id: number
   workDuration: number
@@ -26,6 +25,26 @@ export interface TodayStats {
   completedCycles: number
 }
 
+export interface AchievementItem {
+  type: string
+  title: string
+  description: string
+  icon: string
+  rarity: string
+}
+
+export interface LevelUp {
+  level: number
+  levelName: string
+}
+export interface CompleteSessionResponse {
+  session: any
+  reward: { xp: number; gold: number }
+  cycleBonus: { xp: number; gold: number } | null
+  achievements: AchievementItem[]
+  levelUp: LevelUp | null
+}
+
 export const pomodoroApi = {
   getSettings: async (): Promise<{ settings: PomodoroSettings }> => {
     const res = await apiClient.get('/pomodoro/settings')
@@ -47,8 +66,14 @@ export const pomodoroApi = {
     const res = await apiClient.post('/pomodoro/sessions', data)
     return res.data
   },
-  completeSession: async (id: number, actualDuration: number) => {
-    const res = await apiClient.patch(`/pomodoro/sessions/${id}/complete`, { actualDuration })
+  completeSession: async (
+    id: number,
+    actualDuration: number
+  ): Promise<CompleteSessionResponse> => {
+    const res = await apiClient.patch(
+      `/pomodoro/sessions/${id}/complete`,
+      { actualDuration }
+    )
     return res.data
   },
 }

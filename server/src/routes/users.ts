@@ -6,6 +6,7 @@ import { startOfDay, subDays, startOfWeek, startOfMonth } from 'date-fns'
 import bcrypt from 'bcryptjs'
 import { Hash } from 'node:crypto'
 import { createNotification } from './notifications'
+import { checkAchievementsForUser } from '../services/achievementService'
 
 
 const router = Router()
@@ -30,7 +31,7 @@ router.patch('/me', async (req: AuthRequest, res: Response) => {
     const updated = await prisma.user.update({
       where: { id: req.userId! },
       data: { gold: { increment: goldDelta } },
-      select: { id: true, gold: true, xp: true, level: true }
+      select: { id: true, gold: true, xp: true, level: true, avatarBorder: true }
     })
     res.json({ user: updated })
   } catch (error) {
@@ -48,7 +49,7 @@ router.get('/dashboard', async (req: AuthRequest, res: Response) => {
     const [user, todayTasks, focusTask, pomodoroStats, habits, activeGoals] = await Promise.all([
       prisma.user.findUnique({
         where: { id: userId },
-        select: { id: true, name: true, xp: true, gold: true, level: true }
+        select: { id: true, name: true, xp: true, gold: true, level: true, avatarBorder: true }
       }),
       // Задачи на сегодня
       prisma.task.findMany({
@@ -196,7 +197,7 @@ router.get('/profile', async (req: AuthRequest, res: Response) => {
       
       prisma.user.findUnique({
         where: { id: userId },
-        select: { id: true, name: true, email: true, xp: true, gold: true, level: true, createdAt: true }
+        select: { id: true, name: true, email: true, xp: true, gold: true, level: true, avatarBorder: true, profileBg: true, createdAt: true }
       }),
       prisma.achievement.findMany({ where: { userId }, orderBy: { createdAt: 'desc' } }),
       prisma.pomodoroSession.findMany({
@@ -339,7 +340,7 @@ router.get('/profile', async (req: AuthRequest, res: Response) => {
         levelName: LEVEL_NAMES[level],
         xpProgress,
         nextLevelXp,
-        prevLevelXp
+        prevLevelXp,
       },
       stats: {
         totalPomodoroMin,
@@ -376,7 +377,7 @@ router.get('/leaderboard', async (req: AuthRequest, res: Response) => {
     const mode = (req.query.mode as string) || 'global'
     const limit = Math.min(parseInt(req.query.limit as string || '50'), 100)
 
-    let usersList: { id: number; name: string; xp: number; gold: number; level: number }[]
+    let usersList: { id: number; name: string; xp: number; gold: number; level: number, avatarBorder: string, profileBg: string }[]
 
     if (mode === 'friends') {
       const friendships = await prisma.friendship.findMany({
@@ -396,13 +397,13 @@ router.get('/leaderboard', async (req: AuthRequest, res: Response) => {
 
       usersList = await prisma.user.findMany({
         where: { id: { in: friendIds } },
-        select: { id: true, name: true, xp: true, gold: true, level: true },
+        select: { id: true, name: true, xp: true, gold: true, level: true, avatarBorder: true, profileBg: true  },
         orderBy: { xp: 'desc' },
         take: limit,
       })
     } else {
       usersList = await prisma.user.findMany({
-        select: { id: true, name: true, xp: true, gold: true, level: true },
+        select: { id: true, name: true, xp: true, gold: true, level: true, avatarBorder: true, profileBg: true },
         orderBy: { xp: 'desc' },
         take: limit,
       })
@@ -416,6 +417,8 @@ router.get('/leaderboard', async (req: AuthRequest, res: Response) => {
       xp: u.xp,
       gold: u.gold,
       level: u.level,
+      avatarBorder: u.avatarBorder,
+      profileBg: u.profileBg,
       levelName: LEVEL_NAMES[Math.min(u.level, LEVEL_NAMES.length - 1)],
       isCurrentUser: u.id === req.userId!,
     }))
@@ -486,22 +489,26 @@ router.patch('/friends/:id', async (req: AuthRequest, res: Response) => {
     const friendshipId = parseInt(req.params.id as string, 10)
     const { action } = req.body
 
-    const friendship = await prisma.friendship.findFirst({
+    const fs = await prisma.friendship.findFirst({
       where: { id: friendshipId, receiverId: req.userId! }
     })
-    if (!friendship) { res.status(404).json({ error: 'Заявка не найдена' }); return }
+    if (!fs) { res.status(404).json({ error: 'Заявка не найдена' }); return }
 
     if (action === 'accept') {
       await prisma.friendship.update({
         where: { id: friendshipId },
         data: { status: 'accepted' }
       })
+      // Проверяем достижения для обоих — fire and forget
+      checkAchievementsForUser(fs.senderId).catch(() => {})
+      checkAchievementsForUser(fs.receiverId).catch(() => {})
     } else {
       await prisma.friendship.delete({ where: { id: friendshipId } })
     }
+
     res.json({ success: true })
   } catch (error) {
-    res.status(500).json({ error: 'Внутренняя ошибка сервера' })
+    res.status(500).json({ error: 'Ошибка сервера' })
   }
 })
 
@@ -517,14 +524,14 @@ router.get('/friends', async (req: AuthRequest, res: Response) => {
           ]
         },
         include: {
-          sender: { select: { id: true, name: true, xp: true, level: true } },
-          receiver: { select: { id: true, name: true, xp: true, level: true } },
+          sender: { select: { id: true, name: true, xp: true, level: true, avatarBorder: true } },
+          receiver: { select: { id: true, name: true, xp: true, level: true, avatarBorder: true } },
         }
       }),
       prisma.friendship.findMany({
         where: { receiverId: req.userId!, status: 'pending' },
         include: {
-          sender: { select: { id: true, name: true, xp: true, level: true } }
+          sender: { select: { id: true, name: true, xp: true, level: true, avatarBorder: true } }
         }
       })
     ])
@@ -553,7 +560,7 @@ router.get('/:id/public', async (req: AuthRequest, res: Response) => {
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, name: true, xp: true, gold: true, level: true, createdAt: true, isProfilePublic: true }
+      select: { id: true, name: true, xp: true, gold: true, level: true, createdAt: true, isProfilePublic: true, avatarBorder: true, profileBg: true }
     })
     if (!user) { res.status(404).json({ error: 'Не найден' }); return }
 
@@ -565,7 +572,7 @@ router.get('/:id/public', async (req: AuthRequest, res: Response) => {
     const since7days = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
 
     const [achievements, habits, sessions, tasks, goals, rewards, inventory] = await Promise.all([
-      prisma.achievement.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }, take: 6 }),
+      prisma.achievement.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }}),
       prisma.habit.findMany({
         where: { userId, trackingType: 'discrete' },
         select: { title: true, currentStreak: true, bestStreak: true, timesPerDay: true },
@@ -615,7 +622,7 @@ router.get('/:id/public', async (req: AuthRequest, res: Response) => {
     }
 
     res.json({
-      user: { id: user.id, name: user.name, xp: user.xp, gold: user.gold, level: user.level, createdAt: user.createdAt, isPrivate: false },
+      user: { id: user.id, name: user.name, xp: user.xp, gold: user.gold, level: user.level, createdAt: user.createdAt, isPrivate: false, avatarBorder: user.avatarBorder, profileBg: user.profileBg, },
       achievements,
       topHabits: habits,
       totalPomodoroMin: allSessions._sum.actualDuration || 0,
@@ -653,7 +660,7 @@ router.get('/settings', async (req: AuthRequest, res: Response) => {
       where: { id: req.userId! },
       select: {
         id: true, name: true, email: true, level: true, xp: true, gold: true,
-        isProfilePublic: true, createdAt: true
+        isProfilePublic: true, createdAt: true, avatarBorder: true
       }
     })
     if (!user) { res.status(404).json({ error: 'Не найден' }); return }
@@ -700,7 +707,7 @@ router.patch('/settings', async (req: AuthRequest, res: Response) => {
     const updated = await prisma.user.update({
       where: { id: req.userId! },
       data: updateData,
-      select: { id: true, name: true, email: true, isProfilePublic: true }
+      select: { id: true, name: true, email: true, isProfilePublic: true, avatarBorder: true }
     })
 
     res.json({ user: updated })

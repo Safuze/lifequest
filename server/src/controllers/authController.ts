@@ -55,10 +55,9 @@ export const register = async (req: Request, res: Response) => {
         publicId: true,
         name: true,
         email: true,
-        level: false,
+        level: true,
         xp: true,
         gold: true,
-        characterClass: true,
         avatar: true,
         createdAt: true,
       }
@@ -101,7 +100,6 @@ export const login = async (req: Request, res: Response) => {
         level: user.level,
         xp: user.xp,
         gold: user.gold,
-        characterClass: user.characterClass,
         avatar: user.avatar,
       },
       ...tokens
@@ -159,8 +157,9 @@ export const getMe = async (req: Request, res: Response) => {
         level: true,
         xp: true,
         gold: true,
-        characterClass: true,
         avatar: true,
+        avatarBorder: true,
+        profileBg: true,
         theme: true,
         createdAt: true,
       }

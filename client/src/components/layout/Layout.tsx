@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import apiClient from '../../api/client'
+import AchievementToast from '../AchievementToast'
+import { RewardModalManager } from '../RewardModal'
+import { getAvatarBorderStyle, getAvatarBorderClass } from '../../utils/avatar'
 import {
   LayoutDashboard,
   Target,
@@ -18,6 +21,7 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  ShoppingBag
 } from 'lucide-react'
 
 const navItems = [
@@ -29,6 +33,7 @@ const navItems = [
   { to: '/lifescope',   icon: BarChart3,       label: 'LifeScope'    },
   { to: '/leaderboard', icon: Trophy,          label: 'Leaderboard'  },
   { to: '/friends',     icon: Users,           label: 'Friends'      },
+  { to: '/shop',        icon: ShoppingBag,     label: 'Shop'         },
 ]
 
 // Тип уведомления
@@ -153,11 +158,38 @@ export default function Layout() {
   const [collapsed, setCollapsed] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
+  const [pendingAchievements, setPendingAchievements] = useState<any[]>([])
+  const LEVEL_XP = [0, 1000, 3000, 6000, 10000, 15000]
 
+  function getXpProgress(xp: number) {
+    let level = 0
+
+    for (let i = LEVEL_XP.length - 1; i >= 0; i--) {
+      if (xp >= LEVEL_XP[i]) {
+        level = i
+        break
+      }
+    }
+
+    const nextLevelXp = LEVEL_XP[level + 1] || LEVEL_XP[level] + 5000
+    const prevLevelXp = LEVEL_XP[level]
+
+    return Math.round(((xp - prevLevelXp) / (nextLevelXp - prevLevelXp)) * 100)
+  }
   const handleLogout = () => {
     logout()
     navigate('/login')
   }
+
+  useEffect(() => {
+    const handler = (e: CustomEvent) => {
+      if (e.detail?.achievements?.length > 0) {
+        setPendingAchievements(prev => [...prev, ...e.detail.achievements])
+      }
+    }
+    window.addEventListener('achievements', handler as EventListener)
+    return () => window.removeEventListener('achievements', handler as EventListener)
+  }, [])
 
   // Загружаем счётчик непрочитанных
   useEffect(() => {
@@ -272,7 +304,7 @@ export default function Layout() {
               <div className="w-24 h-1.5 bg-slate-700 rounded-full overflow-hidden">
                 <div
                   className="h-full rounded-full bg-indigo-500"
-                  style={{ width: `${Math.min((user?.xp || 0) % 1000 / 10, 100)}%` }}
+                  style={{ width: `${getXpProgress(user?.xp || 0)}%` }}
                 />
               </div>
             </div>
@@ -307,8 +339,11 @@ export default function Layout() {
             {/* Аватар */}
             <button
               onClick={() => navigate('/profile')}
-              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold transition-opacity hover:opacity-80"
-              style={{ backgroundColor: '#4f46e5' }}
+              className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold ${getAvatarBorderClass(user?.avatarBorder)}`}
+              style={{
+                backgroundColor: '#4f46e5',
+                ...getAvatarBorderStyle(user?.avatarBorder || 'default'),
+              }}
             >
               {user?.name?.charAt(0).toUpperCase()}
             </button>
@@ -320,6 +355,13 @@ export default function Layout() {
           <Outlet />
         </main>
       </div>
+      {pendingAchievements.length > 0 && (
+        <AchievementToast
+          achievements={pendingAchievements}
+          onDismiss={() => setPendingAchievements(prev => prev.slice(1))}
+        />
+      )}
+      <RewardModalManager />
     </div>
   )
 }

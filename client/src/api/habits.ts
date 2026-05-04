@@ -1,5 +1,4 @@
 import apiClient from './client'
-
 export interface Habit {
   id: number
   title: string
@@ -23,6 +22,26 @@ export interface HabitTemplate {
   category: string
 }
 
+export interface AchievementItem {
+  type: string
+  title: string
+  description: string
+  icon: string
+  rarity: string
+}
+
+export interface LevelUp {
+  level: number
+  levelName: string
+}
+
+export interface HeatmapDay {
+  date: string
+  completedCount: number
+  totalCount: number
+  percent: number
+}
+
 export const habitsApi = {
   getAll: async (): Promise<{ habits: Habit[] }> => {
     const res = await apiClient.get('/habits')
@@ -43,9 +62,15 @@ export const habitsApi = {
     await apiClient.delete(`/habits/${id}`)
   },
   log: async (id: number): Promise<{
-    success: boolean; repetitionsDone: number; repetitionsTotal: number
-    isFullyCompleted: boolean; currentStreak: number
-    xpEarned: number; goldEarned: number; achievements: any[]
+    success: boolean
+    repetitionsDone: number
+    repetitionsTotal: number
+    isFullyCompleted: boolean
+    currentStreak: number
+    xpEarned: number
+    goldEarned: number
+    achievements: AchievementItem[]
+    levelUp?: LevelUp | null
   }> => {
     const res = await apiClient.post(`/habits/${id}/log`)
     return res.data

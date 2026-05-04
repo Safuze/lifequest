@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import { tasksApi } from '../api/tasks'
 import type { Task, CreateTaskData } from '../api/tasks'
 import { useAuth } from '../hooks/useAuth'
-
+import { dispatchRewards } from '../utils/dispatchRewards'
 import { goalsApi } from '../api/goals'
 import type { Goal } from '../api/goals'
+
 import {
   Plus, List, LayoutGrid, Search, Trash2, X,
   Clock, Flag, Pin, Star, Play, ChevronLeft,
@@ -611,7 +612,7 @@ function TaskCard({ task, onClick }: TaskCardProps) {
 
 // Добавь state для наград:
 
-// Компонент анимированного уведомления (добавь перед TasksPage):
+// Компонент анимированного уведомления
 function RewardToast({ xp, gold, onDone }: { xp: number; gold: number; onDone: () => void }) {
   useEffect(() => {
     const timer = setTimeout(onDone, 2500)
@@ -684,42 +685,47 @@ export default function TasksPage() {
     }
   }
 
-  const handleUpdate = useCallback(async (id: number, data: any) => {
-    try {
-      const prevTask = tasks.find(t => t.id === id)
-      const result = await tasksApi.update(id, data)
-      if ((result.achievements?.length ?? 0) > 0) {
-        window.dispatchEvent(
-          new CustomEvent('achievements', {
-            detail: { achievements: result.achievements! }
-          })
-        )
-      }
-      setTasks(prev => prev.map(t => t.id === id ? result.task : t))
-      setSelectedTask(prev => prev?.id === id ? result.task : prev)
+const handleUpdate = useCallback(async (id: number, data: any) => {
+  try {
+    const prevTask = tasks.find(t => t.id === id)
+    const result = await tasksApi.update(id, data)
 
-      // Показываем анимацию если задача завершена
-      if (data.status === 'done' && prevTask?.status !== 'done') {
-        const XP_MAP: Record<string, number> = { low: 15, medium: 30, high: 50, critical: 70 }
-        const GOLD_MAP: Record<string, number> = { low: 1, medium: 3, high: 5, critical: 8 }
-        const priority = prevTask?.priority || 'medium'
-        const hasPomo = (prevTask?.totalPomodoroMin || 0) > 0
+    // события достижений (если используешь)
+    if ((result.achievements?.length ?? 0) > 0) {
+      window.dispatchEvent(
+        new CustomEvent('achievements', {
+          detail: { achievements: result.achievements }
+        })
+      )
+    }
 
+    setTasks(prev => prev.map(t => t.id === id ? result.task : t))
+    setSelectedTask(prev => prev?.id === id ? result.task : prev)
+
+    // если задача завершена
+    if (data.status === 'done' && prevTask?.status !== 'done') {
+
+      // 💰 награда с бэка
+      if (result.reward) {
         setTaskReward({
           taskId: id,
-          xp: Math.round((XP_MAP[priority] || 15) * (hasPomo ? 1.2 : 1)),
-          gold: GOLD_MAP[priority] || 1,
+          xp: result.reward.xp || 0,
+          gold: result.reward.gold || 0,
         })
-
-        // Обновляем XP/gold в хедере
-        loadUser()
-        
       }
-      
-    } catch (error) {
-      console.error('Update error:', error)
+
+      // 🔥 единый диспетчер
+      if (result.achievements?.length || result.levelUp) {
+        dispatchRewards(result.achievements, result.levelUp)
+      }
+
+      loadUser()
     }
-  }, [tasks, loadUser])
+
+  } catch (error) {
+    console.error('Update error:', error)
+  }
+}, [tasks, loadUser])
 
   const handleDelete = useCallback(async (id: number) => {
     if (!confirm('Удалить задачу?')) return

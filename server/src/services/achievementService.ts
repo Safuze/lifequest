@@ -13,11 +13,14 @@ const ACHIEVEMENTS: AchievementDef[] = [
   { type: 'tasks_10',    title: 'Решатель',        description: 'Выполнено 10 задач',         icon: '✅', rarity: 'common'    },
   { type: 'tasks_50',    title: 'Продуктивист',     description: 'Выполнено 50 задач',         icon: '⚡', rarity: 'rare'      },
   { type: 'tasks_200',   title: 'Машина задач',     description: 'Выполнено 200 задач',        icon: '🤖', rarity: 'epic'      },
+  { type: 'tasks_1000',  title: 'Легенда задач',     description: 'Выполнено 1000 задач',        icon: '🏆', rarity: 'legendary'},
+
 
   // Фокус (помодоро)
   { type: 'focus_5h',    title: 'Сосредоточенный',  description: '5 часов в фокусе',           icon: '🎯', rarity: 'common'    },
   { type: 'focus_25h',   title: 'Весь в работе',    description: '25 часов в фокусе',          icon: '🔥', rarity: 'rare'      },
   { type: 'focus_100h',  title: 'Монах фокуса',     description: '100 часов в фокусе',         icon: '🧘', rarity: 'epic'      },
+  { type: 'focus_500h',  title: 'Хранитель времени', description: '500 часов в фокусе',          icon: '⌛', rarity: 'legendary'},
   { type: 'sessions_10', title: 'Первые сессии',    description: '10 помодоро-сессий',          icon: '⏱',  rarity: 'common'    },
   { type: 'sessions_50', title: 'Таймерщик',        description: '50 помодоро-сессий',          icon: '⏰', rarity: 'rare'      },
 
@@ -30,21 +33,27 @@ const ACHIEVEMENTS: AchievementDef[] = [
   // Социальное
   { type: 'friend_1',    title: 'Знакомый',         description: 'Первый друг',                icon: '🤝', rarity: 'common'    },
   { type: 'friend_5',    title: 'Компания',         description: '5 друзей',                   icon: '👥', rarity: 'rare'      },
+  { type: 'friend_25',   title: 'Популярный',       description: '25 друзей',                  icon: '🌟', rarity: 'epic',     },
+  { type: 'friend_100',  title: 'Легенда сети',     description: '100 друзей',                 icon: '🌐', rarity: 'legendary' },
 
   // Золото
   { type: 'gold_500',    title: 'Богатей',          description: 'Накоплено 500 монет',        icon: '🪙', rarity: 'rare'      },
   { type: 'gold_2000',   title: 'Казначей',         description: 'Накоплено 2000 монет',       icon: '💰', rarity: 'epic'      },
+  { type: 'gold_10000',  title: 'Меценат',           description: 'Накоплено 10000 монет за всё время', icon: '💎', rarity: 'epic',      },
+  { type: 'gold_25000',  title: 'Ротшильд',          description: 'Накоплено 25000 монет за всё время', icon: '🏦', rarity: 'legendary', },
 
   // Уровни
   { type: 'level_2',     title: 'Ученик',           description: 'Достигнут уровень Ученик',   icon: '📗', rarity: 'common'    },
-  { type: 'level_3',     title: 'Практик',          description: 'Достигнут уровень Практик',  icon: '📘', rarity: 'rare'      },
-  { type: 'level_4',     title: 'Эксперт',          description: 'Достигнут уровень Эксперт',  icon: '📙', rarity: 'epic'      },
+  { type: 'level_3',     title: 'Практик',          description: 'Достигнут уровень Практик',  icon: '📘', rarity: 'common'      },
+  { type: 'level_4',     title: 'Эксперт',          description: 'Достигнут уровень Эксперт',  icon: '📙', rarity: 'rare'      },
   { type: 'level_5',     title: 'Мастер',           description: 'Достигнут уровень Мастер',   icon: '📕', rarity: 'epic'      },
   { type: 'level_6',     title: 'Легенда',          description: 'Достигнут уровень Легенда',  icon: '🌟', rarity: 'legendary' },
 
   // Цели
   { type: 'goal_first',  title: 'Целеустремлённый', description: 'Первая завершённая цель',    icon: '🎯', rarity: 'common'    },
   { type: 'goal_5',      title: 'Многоцелевой',     description: '5 завершённых целей',        icon: '🏹', rarity: 'rare'      },
+  { type: 'goal_20',  title: 'Стратег', description: '20 завершённых целей',    icon: '🎯', rarity: 'epic'    },
+  { type: 'goal_50',      title: 'Архитектор жизни',     description: '50 завершённых целей',        icon: '🏹', rarity: 'legendary'      },
 ]
 
 // Главная функция — проверяет и выдаёт достижения пользователю
@@ -56,7 +65,7 @@ export async function checkAndAwardAchievements(
     sessionsCompleted?: number
     maxStreak?: number
     friendsCount?: number
-    currentGold?: number
+    totalGoldEarned?: number 
     currentLevel?: number
     goalsCompleted?: number
   }
@@ -68,11 +77,14 @@ export async function checkAndAwardAchievements(
     { type: 'tasks_10',    condition: (context.tasksCompleted ?? 0) >= 10 },
     { type: 'tasks_50',    condition: (context.tasksCompleted ?? 0) >= 50 },
     { type: 'tasks_200',   condition: (context.tasksCompleted ?? 0) >= 200 },
+    { type: 'tasks_1000',  condition: (context.tasksCompleted ?? 0) >= 1000 },
 
     // Фокус
     { type: 'focus_5h',    condition: (context.totalPomodoroMin ?? 0) >= 300 },
     { type: 'focus_25h',   condition: (context.totalPomodoroMin ?? 0) >= 1500 },
     { type: 'focus_100h',  condition: (context.totalPomodoroMin ?? 0) >= 6000 },
+    { type: 'focus_500h',  condition: (context.totalPomodoroMin ?? 0) >= 30000 },
+
     { type: 'sessions_10', condition: (context.sessionsCompleted ?? 0) >= 10 },
     { type: 'sessions_50', condition: (context.sessionsCompleted ?? 0) >= 50 },
 
@@ -85,10 +97,14 @@ export async function checkAndAwardAchievements(
     // Друзья
     { type: 'friend_1',    condition: (context.friendsCount ?? 0) >= 1 },
     { type: 'friend_5',    condition: (context.friendsCount ?? 0) >= 5 },
+    { type: 'friend_25',   condition: (context.friendsCount ?? 0) >= 25  },
+    { type: 'friend_100',  condition: (context.friendsCount ?? 0) >= 100 },
 
     // Золото
-    { type: 'gold_500',    condition: (context.currentGold ?? 0) >= 500 },
-    { type: 'gold_2000',   condition: (context.currentGold ?? 0) >= 2000 },
+    { type: 'gold_500',    condition: (context.totalGoldEarned ?? 0) >= 500 },
+    { type: 'gold_2000',   condition: (context.totalGoldEarned ?? 0) >= 2000 },
+    { type: 'gold_10000',  condition: (context.totalGoldEarned ?? 0) >= 10000 },
+    { type: 'gold_25000',  condition: (context.totalGoldEarned ?? 0) >= 25000 },
 
     // Уровни
     { type: 'level_2',     condition: (context.currentLevel ?? 0) >= 1 },
@@ -100,6 +116,8 @@ export async function checkAndAwardAchievements(
     // Цели
     { type: 'goal_first',  condition: (context.goalsCompleted ?? 0) >= 1 },
     { type: 'goal_5',      condition: (context.goalsCompleted ?? 0) >= 5 },
+    { type: 'goal_20',     condition: (context.goalsCompleted ?? 0) >= 20 },
+    { type: 'goal_50',     condition: (context.goalsCompleted ?? 0) >= 50 },
   ]
 
   for (const check of checks) {
@@ -108,15 +126,21 @@ export async function checkAndAwardAchievements(
     const def = ACHIEVEMENTS.find(a => a.type === check.type)
     if (!def) continue
 
-    // Проверяем не выдано ли уже
-    const exists = await prisma.achievement.findUnique({
-      where: { userId_type: { userId, type: check.type } }
+    const exists = await prisma.achievement.findFirst({
+      where: { userId, type: check.type }
     })
     if (exists) continue
 
     // Выдаём
     await prisma.achievement.create({
-      data: { userId, type: check.type, title: def.title, description: def.description, icon: def.icon, rarity: def.rarity }
+      data: {
+        userId,
+        type: check.type,
+        title: def.title,
+        description: def.description,
+        icon: def.icon,
+        rarity: def.rarity,
+      }
     })
     newAchievements.push(def)
   }
@@ -133,6 +157,7 @@ export async function checkAchievementsForUser(userId: number): Promise<Achievem
     friendships,
     user,
     goalsCompleted,
+    totalGoldEarned,
   ] = await Promise.all([
     prisma.task.count({ where: { userId, status: 'done' } }),
     prisma.pomodoroSession.aggregate({
@@ -140,13 +165,31 @@ export async function checkAchievementsForUser(userId: number): Promise<Achievem
       _sum: { actualDuration: true },
       _count: true,
     }),
-    prisma.habit.findMany({ where: { userId }, select: { currentStreak: true } }),
-    prisma.friendship.count({ where: { OR: [{ senderId: userId, status: 'accepted' }, { receiverId: userId, status: 'accepted' }] } }),
+    prisma.habit.findMany({ where: { userId }, select: { currentStreak: true, bestStreak: true } }),
+    prisma.friendship.count({
+      where: {
+        OR: [
+          { senderId: userId, status: 'accepted' },
+          { receiverId: userId, status: 'accepted' }
+        ]
+      }
+    }),
     prisma.user.findUnique({ where: { id: userId }, select: { gold: true, level: true } }),
     prisma.goal.count({ where: { userId, status: 'completed' } }),
+    // Суммарное заработанное золото из транзакций (не текущий баланс)
+    prisma.rewardTransaction.aggregate({
+      where: {
+        userId,
+        rewardType: 'gold',
+        amount: {
+          gt: 0,
+          lt: 100000, // защита от кривых транзакций
+        }
+      },
+      _sum: { amount: true }
+    }),
   ])
-
-  const maxStreak = habits.reduce((max, h) => Math.max(max, h.currentStreak), 0)
+  const maxStreak = habits.reduce((max, h) => Math.max(max, h.currentStreak, h.bestStreak), 0)
 
   return checkAndAwardAchievements(userId, {
     tasksCompleted,
@@ -154,7 +197,7 @@ export async function checkAchievementsForUser(userId: number): Promise<Achievem
     sessionsCompleted: pomodoroStats._count,
     maxStreak,
     friendsCount: friendships,
-    currentGold: user?.gold || 0,
+    totalGoldEarned: totalGoldEarned._sum.amount || 0,
     currentLevel: user?.level || 0,
     goalsCompleted,
   })

@@ -30,11 +30,29 @@ export interface CreateTaskData {
   parentId?: number
   dueDate?: string
 }
-export interface Achievement {
-  id: number
+export interface AchievementItem {
+  type: string
   title: string
   description: string
-  icon?: string
+  icon: string
+  rarity: 'common' | 'rare' | 'epic' | 'legendary'
+}
+
+export interface LevelUp {
+  level: number
+  levelName: string
+}
+
+export interface TaskReward {
+  xp: number | null
+  gold: number | null
+}
+
+export interface UpdateTaskResponse {
+  task: Task
+  reward?: { xp: number; gold: number }
+  levelUp?: LevelUp | null
+  achievements?: AchievementItem[]
 }
 
 export const tasksApi = {
@@ -55,7 +73,7 @@ export const tasksApi = {
     return res.data
   },
 
-  update: async (id: number, data: Partial<Task & { dueDate?: string | null }>): Promise<{ task: Task; achievements?: Achievement[] }> => {
+  update: async (id: number, data: Partial<Task>): Promise<UpdateTaskResponse> => {
     const res = await apiClient.patch(`/tasks/${id}`, data)
     return res.data
   },
