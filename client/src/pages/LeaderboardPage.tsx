@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import apiClient from '../api/client'
 import { useAuth } from '../hooks/useAuth'
 import { Search, UserPlus, Check, X, Trophy, Users, Crown } from 'lucide-react'
+import { getAvatarBorderStyle, getAvatarBorderClass } from '../utils/avatar'
 
 const LEVEL_NAMES = ['Новичок', 'Ученик', 'Практик', 'Эксперт', 'Мастер', 'Легенда']
 const LEVEL_COLORS = ['#64748b', '#22c55e', '#4f46e5', '#f59e0b', '#ef4444', '#a855f7']
@@ -16,6 +17,7 @@ interface LeaderboardEntry {
   level: number
   levelName: string
   isCurrentUser: boolean
+  avatarBorder?: string
 }
 
 interface Friend {
@@ -286,9 +288,12 @@ export default function LeaderboardPage() {
 
                 {/* Аватар */}
                 <div
-                  className="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 hover:ring-2 hover:ring-indigo-500 transition-all cursor-pointer"
-                  onClick={e => { e.stopPropagation(); navigate(`/profile/${entry.id}`) }}
-                  style={{ backgroundColor: `${levelColor}20`, color: levelColor }}>
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 ${getAvatarBorderClass(entry.avatarBorder)}`}
+                  style={{
+                    backgroundColor: `${levelColor}20`,
+                    color: levelColor,
+                    ...getAvatarBorderStyle(entry.avatarBorder || 'default'),
+                  }}>
                   {entry.name.charAt(0).toUpperCase()}
                 </div>
 

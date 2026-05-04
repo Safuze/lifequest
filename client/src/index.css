@@ -39,3 +39,24 @@ input:-webkit-autofill:focus {
   from { transform: translateX(100px); opacity: 0; }
   to   { transform: translateX(0); opacity: 1; }
 }
+
+/* Радужная обводка аватара */
+.rainbow-border {
+  position: relative;
+  z-index: 0;
+}
+.rainbow-border::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  background: linear-gradient(45deg, #ff0000, #ff7700, #ffff00, #00ff00, #0000ff, #8b00ff, #ff0000);
+  background-size: 300% 300%;
+  animation: rainbowSpin 3s linear infinite;
+  z-index: -1;
+}
+@keyframes rainbowSpin {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}

@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { prisma } from '../prisma'
 import { AuthRequest } from '../middleware/authMiddleware'
 import { checkAchievementsForUser } from '../services/achievementService'
+import { getLevelFromXp, getLevelName } from '../services/levelService'
 
 export const settingsSchema = z.object({
   workDuration:     z.number().min(1).max(120).optional(),
@@ -116,7 +117,7 @@ export const completeSession = async (req: AuthRequest, res: Response) => {
     if (!session) { res.status(404).json({ error: 'Сессия не найдена' }); return }
 
     if (session.status === 'completed') {
-      res.json({ session, reward: { xp: 0, gold: 0 }, cycleBonus: false, achievements: [] })
+      res.json({ session, reward: { xp: 0, gold: 0 }, cycleBonus: false, achievements: [], levelUp: null })
       return
     }
 
@@ -131,7 +132,7 @@ export const completeSession = async (req: AuthRequest, res: Response) => {
 
     // Сброс — ничего не начисляем
     if (!actualDuration || actualDuration <= 0) {
-      res.json({ session, reward: { xp: 0, gold: 0 }, cycleBonus: false, achievements: [] })
+      res.json({ session, reward: { xp: 0, gold: 0 }, cycleBonus: false, achievements: [], levelUp: null })
       return
     }
 
@@ -211,8 +212,10 @@ export const completeSession = async (req: AuthRequest, res: Response) => {
 
     const totalXp = xpForSession + cycleBonusXp
     const totalGold = goldForSession + cycleBonusGold
-
-    const LEVEL_XP = [0, 1000, 3000, 6000, 10000, 15000]
+    const userBefore = await prisma.user.findUnique({
+      where: { id: req.userId! },
+      select: { level: true }
+    })
 
     await prisma.$transaction(async (tx) => {
       const updatedUser = await tx.user.update({
@@ -221,10 +224,8 @@ export const completeSession = async (req: AuthRequest, res: Response) => {
       })
 
       // Автообновление уровня
-      let newLevel = 0
-      for (let i = LEVEL_XP.length - 1; i >= 0; i--) {
-        if (updatedUser.xp >= LEVEL_XP[i]) { newLevel = i; break }
-      }
+      const newLevel = getLevelFromXp(updatedUser.xp)
+
       if (newLevel !== updatedUser.level) {
         await tx.user.update({ where: { id: req.userId! }, data: { level: newLevel } })
       }
@@ -258,6 +259,20 @@ export const completeSession = async (req: AuthRequest, res: Response) => {
         })
       }
     })
+    const userAfter = await prisma.user.findUnique({
+      where: { id: req.userId! },
+      select: { level: true }
+    })
+
+    const levelUp =
+      userBefore?.level !== undefined &&
+      userAfter?.level !== undefined &&
+      userAfter.level > userBefore.level
+        ? {
+            level: userAfter.level,
+            levelName: getLevelName(userAfter.level)
+          }
+        : null
     const newAchievements = await checkAchievementsForUser(req.userId!)
 
 
@@ -266,6 +281,7 @@ export const completeSession = async (req: AuthRequest, res: Response) => {
       reward: { xp: totalXp, gold: totalGold },
       cycleBonus: isNewCycleCompleted ? { xp: cycleBonusXp, gold: cycleBonusGold } : null,
       achievements: newAchievements,
+      levelUp,
     })
   } catch (error) {
     console.error('completeSession error:', error)

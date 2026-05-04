@@ -12,6 +12,7 @@ import inventoryRouter from './routes/inventory'
 import lifescopeRouter from './routes/lifescope'
 import notificationsRouter from './routes/notifications'
 import { PrismaClient } from '@prisma/client'
+import shopRouter from './routes/shop'
 
 const prisma = new PrismaClient()
 dotenv.config()
@@ -39,6 +40,8 @@ app.use('/api/v1/habits', habitsRouter)
 app.use('/api/v1/inventory', inventoryRouter)
 app.use('/api/v1/lifescope', lifescopeRouter)
 app.use('/api/v1/notifications', notificationsRouter)
+app.use('/api/v1/shop', shopRouter)
+
 setInterval(async () => {
   try {
     const now = new Date()

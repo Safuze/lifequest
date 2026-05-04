@@ -15,6 +15,8 @@ import LeaderboardPage from './pages/LeaderboardPage'
 import PublicProfilePage from './pages/PublicProfilePage'
 import FriendsPage from './pages/FriendsPage'
 import SettingsPage from './pages/SettingsPage'
+import ShopPage from './pages/ShopPage'
+
 const PlaceholderPage = ({ title }: { title: string }) => (
   <div className="flex items-center justify-center h-64">
     <div className="text-center">
@@ -74,7 +76,7 @@ export default function App() {
           <Route path="profile" element={<ProfilePage />} />
           <Route path="profile/:userId" element={<PublicProfilePage />} />
           <Route path="settings" element={<SettingsPage />} />
-
+          <Route path="shop" element={<ShopPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

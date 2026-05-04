@@ -1,6 +1,7 @@
 import { useTimerStore } from '../stores/timerStore'
 import { pomodoroApi } from '../api/pomodoro'
 import { audioService } from './audioService'
+import { dispatchRewards } from '../utils/dispatchRewards'
 
 export type TimerMode = 'work' | 'shortBreak' | 'longBreak'
 
@@ -284,7 +285,9 @@ class TimerService {
         const durMin = this.getDur('work')
         const result = await pomodoroApi.completeSession(sid, durMin)
         store.setLastReward(result.reward)
-
+        if (result.achievements?.length || result.levelUp) {
+          dispatchRewards(result.achievements, result.levelUp)
+        }
         if (result.achievements && result.achievements.length > 0) {
           window.dispatchEvent(
             new CustomEvent('achievements', {

@@ -3,6 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom'
 import apiClient from '../api/client'
 import { useAuth } from '../hooks/useAuth'
 import { ArrowLeft, UserPlus, Check, Clock, CheckSquare, Flame, Lock, Trophy } from 'lucide-react'
+import { AchievementGrid } from '../components/AchievementGrid'
+import { getAvatarBorderStyle, getAvatarBorderClass, getProfileBgStyle } from '../utils/avatar'
+
 
 const LEVEL_NAMES = ['Новичок', 'Ученик', 'Практик', 'Эксперт', 'Мастер', 'Легенда']
 const LEVEL_COLORS = ['#64748b', '#22c55e', '#4f46e5', '#f59e0b', '#ef4444', '#a855f7']
@@ -128,12 +131,20 @@ export default function PublicProfilePage() {
   const isOwnProfile = currentUser?.id === user.id
   const levelColor = LEVEL_COLORS[Math.min(user.level, LEVEL_COLORS.length - 1)]
   const levelName = LEVEL_NAMES[Math.min(user.level, LEVEL_NAMES.length - 1)]
+  const profileBgStyle =
+  user.profileBg && user.profileBg !== 'default'
+    ? getProfileBgStyle(user.profileBg)
+    : { backgroundColor: '#0f172a' }
   const prevXp = LEVEL_XP[user.level] || 0
   const nextXp = LEVEL_XP[user.level + 1] || prevXp + 5000
   const xpProgress = Math.min(Math.round(((user.xp - prevXp) / (nextXp - prevXp)) * 100), 100)
   const daysInApp = Math.floor((Date.now() - new Date(user.createdAt || Date.now()).getTime()) / 86400000)
 
   return (
+    <div
+      className="min-h-screen"
+      style={profileBgStyle}
+    >
     <div className="max-w-lg mx-auto space-y-5">
       <button onClick={() => navigate(-1)}
         className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm">
@@ -142,13 +153,21 @@ export default function PublicProfilePage() {
 
       {/* RPG-карточка */}
       <div className="rounded-2xl p-5 relative overflow-hidden"
-        style={{ backgroundColor: '#1e293b', border: `1px solid ${levelColor}40` }}>
+        style={{
+          ...profileBgStyle,
+          border: `1px solid ${levelColor}40`,
+        }}>
         <div className="absolute inset-0 opacity-5"
           style={{ background: `radial-gradient(circle at top right, ${levelColor}, transparent 70%)` }} />
 
         <div className="flex items-start gap-4 relative">
-          <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-bold shrink-0"
-            style={{ backgroundColor: `${levelColor}20`, border: `2px solid ${levelColor}60`, color: levelColor }}>
+          <div
+            className={`w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-bold shrink-0 ${getAvatarBorderClass(user.avatarBorder)}`}
+            style={{
+              backgroundColor: `${levelColor}20`,
+              color: levelColor,
+              ...getAvatarBorderStyle(user.avatarBorder, 'lg'),
+            }}>
             {user.name.charAt(0).toUpperCase()}
           </div>
 
@@ -309,25 +328,15 @@ export default function PublicProfilePage() {
           )}
 
           {/* Достижения */}
-          {achievements && achievements.length > 0 && (
+          {achievements && achievements.length >= 0 && (
             <div className="rounded-2xl p-4" style={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}>
               <h3 className="text-white font-medium mb-3">🏅 Достижения</h3>
-              <div className="grid grid-cols-2 gap-2">
-                {achievements.map((ach: any) => (
-                  <div key={ach.id} className="p-3 rounded-xl"
-                    style={{ backgroundColor: '#0f172a', border: '1px solid rgba(99,102,241,0.3)' }}>
-                    <div className="text-2xl mb-1">🏅</div>
-                    <p className="text-white text-xs font-medium">{ach.title}</p>
-                    <p className="text-slate-500 text-xs mt-0.5">
-                      {new Date(ach.createdAt).toLocaleDateString('ru-RU')}
-                    </p>
-                  </div>
-                ))}
-              </div>
+              <AchievementGrid earned={achievements} showLocked={false} />
             </div>
           )}
         </>
       )}
+    </div>
     </div>
   )
 }

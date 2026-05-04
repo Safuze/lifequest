@@ -18,7 +18,8 @@ model User {
   oauthId        String?
   name           String
   avatar         String?
-  characterClass String   @default("warrior")
+  avatarBorder   String   @default("none")
+  profileBg      String   @default("default")
   level          Int      @default(0)
   xp             Int      @default(0)
   gold           Int      @default(0)

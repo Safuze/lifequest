@@ -6,6 +6,8 @@ export interface User {
   name: string
   email: string
   level: number
+  avatarBorder?: string 
+  profileBg?: string
   xp: number
   gold: number
   characterClass: string
