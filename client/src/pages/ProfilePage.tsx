@@ -182,7 +182,7 @@ export default function ProfilePage() {
   const levelColor = LEVEL_COLORS[user.level] || '#64748b'
   const profileBgStyle = user.profileBg && user.profileBg !== 'default'
     ? getProfileBgStyle(user.profileBg)
-    : { backgroundColor: '#1e293b' }
+    : { backgroundColor: '#0f172a' }
   const daysInApp = Math.floor((Date.now() - new Date(user.createdAt).getTime()) / 86400000)
   const statCards = [
     { icon: <Clock size={16} />,       label: 'Время в фокусе',        value: formatMinutes(stats.totalPomodoroMin), color: '#4f46e5', bg: 'rgba(79,70,229,0.15)'  },
@@ -197,13 +197,18 @@ export default function ProfilePage() {
   
 
   return (
+    <div
+      className="min-h-screen"
+      style={profileBgStyle}
+    >
     <div className="max-w-2xl mx-auto space-y-5">
 
       {/* RPG-карточка профиля */}
       <div className="rounded-2xl p-5 relative overflow-hidden"
         style={{
-          ...profileBgStyle,
-          border: `1px solid ${levelColor}40`,
+          backgroundColor: 'rgba(30, 41, 59, 0.9)',
+          backdropFilter: 'blur(10px)',
+          border: `1px solid ${levelColor}40`
         }}>
         {/* Фоновый градиент уровня */}
         <div className="absolute inset-0 opacity-5"
@@ -262,7 +267,7 @@ export default function ProfilePage() {
           <button key={tab.id} onClick={() => setActiveTab(tab.id)}
             className="flex-1 py-2.5 text-sm font-medium transition-all"
             style={{
-              backgroundColor: activeTab === tab.id ? '#4f46e5' : '#1e293b',
+              backgroundColor: activeTab === tab.id ? '#4f46e5' : 'rgba(30, 41, 59, 0.95)',
               color: activeTab === tab.id ? '#fff' : '#94a3b8',
             }}>
             {tab.label}
@@ -278,7 +283,7 @@ export default function ProfilePage() {
               <button key={p} onClick={() => setPeriod(p)}
                 className="px-4 py-2 text-sm font-medium transition-all"
                 style={{
-                  backgroundColor: period === p ? '#4f46e5' : '#1e293b',
+                  backgroundColor: period === p ? '#4f46e5' : 'rgba(30, 41, 59, 0.95)',
                   color: period === p ? '#fff' : '#94a3b8',
                 }}>
                 {p === 'day' ? 'День' : p === 'week' ? 'Неделя' : 'Месяц'}
@@ -290,7 +295,7 @@ export default function ProfilePage() {
           <div className="grid grid-cols-2 gap-3">
             {statCards.map(({ icon, label, value, color, bg }) => (
               <div key={label} className="p-4 rounded-2xl"
-                style={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}>
+                style={{ backgroundColor: 'rgba(30, 41, 59, 0.95)', border: '1px solid #334155' }}>
                 
                 <div className="p-1.5 rounded-lg w-fit mb-2" style={{ backgroundColor: bg, color }}>
                   {icon}
@@ -303,7 +308,7 @@ export default function ProfilePage() {
           </div>
 
           {/* Радар */}
-          <div className="rounded-2xl p-5" style={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}>
+          <div className="rounded-2xl p-5" style={{backgroundColor: 'rgba(30, 41, 59, 0.95)', border: '1px solid #334155' }}>
             <h3 className="text-white font-medium mb-4">🕸 Радар характеристик</h3>
             <RadarChart data={radar} />
             <div className="grid grid-cols-5 gap-1 mt-3">
@@ -331,7 +336,7 @@ export default function ProfilePage() {
       {activeTab === 'inventory' && (
         <div>
           {inventory.length === 0 ? (
-            <div className="rounded-2xl p-12 text-center" style={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}>
+            <div className="rounded-2xl p-12 text-center" style={{ backgroundColor: 'rgba(30, 41, 59, 0.95)', border: '1px solid #334155' }}>
               <div className="text-5xl mb-4">🎒</div>
               <h3 className="text-white font-semibold mb-2">Инвентарь пуст</h3>
               <p className="text-slate-400 text-sm">Покупайте фоны, звуки и стили таймера в Pomodoro</p>
@@ -343,7 +348,7 @@ export default function ProfilePage() {
                 const typeIcon = item.itemType === 'sound' ? '🔊' : item.itemType === 'background' ? '🎨' : '⏰'
                 return (
                   <div key={i} className="p-4 rounded-2xl"
-                    style={{ backgroundColor: '#1e293b', border: `1px solid ${rarityColor}30` }}>
+                    style={{ backgroundColor: 'rgba(30, 41, 59, 0.95)', border: `1px solid ${rarityColor}30` }}>
                     <div className="text-2xl mb-2">{typeIcon}</div>
                     <p className="text-white text-sm font-medium">{item.name}</p>
                     <div className="flex items-center gap-2 mt-1">
@@ -359,5 +364,6 @@ export default function ProfilePage() {
         </div>
       )}
     </div>
+  </div>
   )
 }

@@ -186,7 +186,7 @@ export function RewardModalManager() {
       setQueue(prev => [...prev, ...items])
     }
   }, [])
-
+  
   useEffect(() => {
     window.addEventListener('rewards', handleEvent as EventListener)
     return () => window.removeEventListener('rewards', handleEvent as EventListener)

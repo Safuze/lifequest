@@ -183,12 +183,15 @@ export default function Layout() {
 
   useEffect(() => {
     const handler = (e: CustomEvent) => {
-      if (e.detail?.achievements?.length > 0) {
-        setPendingAchievements(prev => [...prev, ...e.detail.achievements])
+      const { achievements } = e.detail || {}
+
+      if (achievements?.length > 0) {
+        setPendingAchievements(prev => [...prev, ...achievements])
       }
     }
-    window.addEventListener('achievements', handler as EventListener)
-    return () => window.removeEventListener('achievements', handler as EventListener)
+
+    window.addEventListener('rewards', handler as EventListener)
+    return () => window.removeEventListener('rewards', handler as EventListener)
   }, [])
 
   // Загружаем счётчик непрочитанных

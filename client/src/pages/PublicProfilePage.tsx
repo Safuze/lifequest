@@ -145,17 +145,19 @@ export default function PublicProfilePage() {
       className="min-h-screen"
       style={profileBgStyle}
     >
-    <div className="max-w-lg mx-auto space-y-5">
       <button onClick={() => navigate(-1)}
         className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm">
         <ArrowLeft size={16} /> Назад
       </button>
+    <div className="max-w-lg mx-auto space-y-5">
+      
 
       {/* RPG-карточка */}
       <div className="rounded-2xl p-5 relative overflow-hidden"
         style={{
-          ...profileBgStyle,
-          border: `1px solid ${levelColor}40`,
+          backgroundColor: 'rgba(30, 41, 59, 0.9)',
+          backdropFilter: 'blur(10px)',
+          border: `1px solid ${levelColor}40`
         }}>
         <div className="absolute inset-0 opacity-5"
           style={{ background: `radial-gradient(circle at top right, ${levelColor}, transparent 70%)` }} />
@@ -240,7 +242,7 @@ export default function PublicProfilePage() {
       {/* Закрытый профиль */}
       {user.isPrivate && !isOwnProfile ? (
         <div className="rounded-2xl p-8 text-center"
-          style={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}>
+          style={{ backgroundColor: 'rgba(30, 41, 59, 0.95)', border: '1px solid #334155' }}>
           <Lock size={40} className="mx-auto mb-3 text-slate-600" />
           <h3 className="text-white font-semibold mb-1">Профиль закрыт</h3>
           <p className="text-slate-400 text-sm">Пользователь скрыл свою статистику</p>
@@ -255,7 +257,7 @@ export default function PublicProfilePage() {
               { icon: <Trophy size={16} />, label: 'Сессий', value: totalSessions || 0, color: '#f59e0b', bg: 'rgba(245,158,11,0.15)' },
             ].map(({ icon, label, value, color, bg }) => (
               <div key={label} className="p-4 rounded-2xl text-center"
-                style={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}>
+                style={{ backgroundColor: 'rgba(30, 41, 59, 0.95)', border: '1px solid #334155' }}>
                 <div className="p-1.5 rounded-lg w-fit mx-auto mb-2" style={{ backgroundColor: bg, color }}>{icon}</div>
                 <div className="text-xl font-bold text-white">{value}</div>
                 <div className="text-xs text-slate-400">{label}</div>
@@ -265,7 +267,7 @@ export default function PublicProfilePage() {
 
           {/* Топ привычки */}
           {topHabits && topHabits.length > 0 && (
-            <div className="rounded-2xl p-4" style={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}>
+            <div className="rounded-2xl p-4" style={{ backgroundColor: 'rgba(30, 41, 59, 0.95)', border: '1px solid #334155' }}>
               <h3 className="text-white font-medium mb-3 flex items-center gap-2">
                 <Flame size={16} className="text-orange-400" /> Лучшие привычки
               </h3>
@@ -284,7 +286,7 @@ export default function PublicProfilePage() {
 
           {/* Радар */}
           {data.radar && (
-            <div className="rounded-2xl p-4" style={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}>
+            <div className="rounded-2xl p-4" style={{ backgroundColor: 'rgba(30, 41, 59, 0.95)', border: '1px solid #334155' }}>
               <h3 className="text-white font-medium mb-3">🕸 Радар характеристик (7 дней)</h3>
               <RadarChart data={data.radar} />
               <div className="grid grid-cols-5 gap-1 mt-2">
@@ -306,7 +308,7 @@ export default function PublicProfilePage() {
 
           {/* Инвентарь */}
           {data.inventory && data.inventory.length > 0 && (
-            <div className="rounded-2xl p-4" style={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}>
+            <div className="rounded-2xl p-4" style={{ backgroundColor: 'rgba(30, 41, 59, 0.95)', border: '1px solid #334155' }}>
               <h3 className="text-white font-medium mb-3">🎒 Инвентарь</h3>
               <div className="grid grid-cols-2 gap-2">
                 {data.inventory.map((item: any, i: number) => {
@@ -329,7 +331,7 @@ export default function PublicProfilePage() {
 
           {/* Достижения */}
           {achievements && achievements.length >= 0 && (
-            <div className="rounded-2xl p-4" style={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}>
+            <div className="rounded-2xl p-4" style={{ backgroundColor: 'rgba(30, 41, 59, 0.95)', border: '1px solid #334155' }}>
               <h3 className="text-white font-medium mb-3">🏅 Достижения</h3>
               <AchievementGrid earned={achievements} showLocked={false} />
             </div>

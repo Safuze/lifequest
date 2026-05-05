@@ -493,20 +493,25 @@ router.patch('/friends/:id', async (req: AuthRequest, res: Response) => {
       where: { id: friendshipId, receiverId: req.userId! }
     })
     if (!fs) { res.status(404).json({ error: 'Заявка не найдена' }); return }
-
+    let achievements: any[] = []
     if (action === 'accept') {
       await prisma.friendship.update({
         where: { id: friendshipId },
         data: { status: 'accepted' }
       })
-      // Проверяем достижения для обоих — fire and forget
-      checkAchievementsForUser(fs.senderId).catch(() => {})
-      checkAchievementsForUser(fs.receiverId).catch(() => {})
+    try {
+      const a1 = await checkAchievementsForUser(fs.senderId)
+      const a2 = await checkAchievementsForUser(fs.receiverId)
+
+      achievements = [...(a1 || []), ...(a2 || [])]
+      } catch (e) {
+        console.error('Achievement error:', e)
+      }
     } else {
       await prisma.friendship.delete({ where: { id: friendshipId } })
     }
 
-    res.json({ success: true })
+    res.json({ success: true, achievements })
   } catch (error) {
     res.status(500).json({ error: 'Ошибка сервера' })
   }

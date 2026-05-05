@@ -59,7 +59,7 @@ export const getHabits = async (req: AuthRequest, res: Response) => {
       }
 
       const now = new Date()
-
+      
       // Начало и конец сегодня
       const todayStart = new Date(now)
       todayStart.setHours(0, 0, 0, 0)
@@ -78,34 +78,23 @@ export const getHabits = async (req: AuthRequest, res: Response) => {
       const twoDaysAgoEnd = new Date(twoDaysAgoStart)
       twoDaysAgoEnd.setHours(23, 59, 59, 999)
 
-      const [todayLog, yesterdayLog, twoDaysAgoLog] = await Promise.all([
-        prisma.habitLog.findFirst({
+      const [todayLogs, yesterdayLogs, twoDaysAgoLogs] = await Promise.all([
+        prisma.habitLog.findMany({
           where: { habitId: habit.id, date: { gte: todayStart, lte: todayEnd } }
         }),
-        prisma.habitLog.findFirst({
+        prisma.habitLog.findMany({
           where: { habitId: habit.id, date: { gte: yesterdayStart, lte: yesterdayEnd } }
         }),
-        prisma.habitLog.findFirst({
+        prisma.habitLog.findMany({
           where: { habitId: habit.id, date: { gte: twoDaysAgoStart, lte: twoDaysAgoEnd } }
         }),
       ])
+      const isTodayCompleted = todayLogs.length >= habit.timesPerDay
+      const isYesterdayCompleted = yesterdayLogs.length >= habit.timesPerDay
+      const wasTwoDaysAgoCompleted = twoDaysAgoLogs.length >= habit.timesPerDay
 
       let currentStreak = habit.currentStreak
-      if (currentStreak > 0 && !todayLog && !yesterdayLog) {
-        // Проверяем было ли восстановление вчера
-        const restoredYesterday = habit.streakRestoredAt
-          ? new Date(habit.streakRestoredAt) >= yesterdayStart && new Date(habit.streakRestoredAt) <= yesterdayEnd
-          : false
-
-        if (!restoredYesterday) {
-          // Стрик прерван — обнуляем
-          currentStreak = 0
-          await prisma.habit.update({
-            where: { id: habit.id },
-            data: { currentStreak: 0 }
-          }).catch(() => { /* ignore */ })
-        }
-      }
+      
 
       // Логика:
       // - Сегодня уже отмечено → восстановление не нужно
@@ -116,12 +105,21 @@ export const getHabits = async (req: AuthRequest, res: Response) => {
         ? new Date(habit.streakRestoredAt) >= todayStart
         : false
 
-      const canRestore = currentStreak > 0
-        && !todayLog
-        && !yesterdayLog
-        && !!twoDaysAgoLog
-        && !alreadyRestoredToday
-
+      const canRestore =
+        currentStreak > 0 &&
+        !isTodayCompleted &&
+        !isYesterdayCompleted &&
+        wasTwoDaysAgoCompleted &&
+        !alreadyRestoredToday
+      
+      console.log({
+        habitId: habit.id,
+        isTodayCompleted,
+        isYesterdayCompleted,
+        wasTwoDaysAgoCompleted,
+        currentStreak,
+        alreadyRestoredToday
+      })
       return { ...habit, currentStreak, canRestoreStreak: canRestore }
     }))
 
@@ -177,6 +175,7 @@ export const deleteHabit = async (req: AuthRequest, res: Response) => {
 
 export const logHabit = async (req: AuthRequest, res: Response) => {
   try {
+    
     const habitId = parseInt(req.params.id as string, 10)
     const habit = await prisma.habit.findFirst({
       where: { id: habitId, userId: req.userId! }
@@ -201,6 +200,11 @@ export const logHabit = async (req: AuthRequest, res: Response) => {
     }
 
     const nextRep = todayLogs + 1
+    console.log('CREATING HABIT LOG', {
+      habitId: habit.id,
+      now: new Date().toISOString()
+    })
+    
     await prisma.habitLog.create({
       data: { habitId, date: new Date(), repetition: nextRep }
     })
@@ -244,7 +248,7 @@ export const logHabit = async (req: AuthRequest, res: Response) => {
       const baseXp = 15
       const streakBonus = newStreak >= 30 ? 10 : newStreak >= 7 ? 5 : 0
       xpEarned = baseXp + streakBonus
-      goldEarned = 2
+      goldEarned = 2  
 
       await prisma.$transaction(async (tx) => {
         await tx.habit.update({
@@ -317,6 +321,7 @@ export const logHabit = async (req: AuthRequest, res: Response) => {
       const extraAchievements = await checkAchievementsForUser(req.userId!)
       newAchievements.push(...extraAchievements)
     }
+    
 
     res.json({
       success: true,
@@ -329,6 +334,7 @@ export const logHabit = async (req: AuthRequest, res: Response) => {
       achievements: newAchievements,
       levelUp,
     })
+    
   } catch (error) {
     res.status(500).json({ error: 'Внутренняя ошибка сервера' })
   }
