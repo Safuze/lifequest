@@ -309,7 +309,7 @@ function getStreakBorderStyle(streak: number): { borderColor: string; boxShadow?
 function HabitCard({ habit, userGold, onLog, onBreak, onDelete, onRestoreStreak, lastReward, heatmapView, streakRestored  }: HabitCardProps) {
   const [expanded, setExpanded] = useState(false)
   const [timer, setTimer] = useState('')
-
+  console.log(habit.canRestoreStreak)
   const todayLogs = habit.logs.length
   const isCompleted = habit.trackingType === 'discrete' && todayLogs >= habit.timesPerDay
 
@@ -325,7 +325,7 @@ function HabitCard({ habit, userGold, onLog, onBreak, onDelete, onRestoreStreak,
     const interval = setInterval(update, 30000) // каждые 30 секунд
     return () => clearInterval(interval)
   }, [habit.trackingType, habit.startDate])
-
+  
   return (
     
     <div className="rounded-2xl overflow-hidden transition-all"
@@ -796,7 +796,7 @@ export default function HabitsPage() {
   useEffect(() => {
     Promise.all([loadHabits(), loadTemplates()])
   }, [])
-
+  
   const loadHabits = async () => {
     try {
       const data = await habitsApi.getAll()
@@ -893,6 +893,7 @@ export default function HabitsPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-5">
+      
       {/* Заголовок */}
       <div className="flex items-center justify-between">
         <div>
