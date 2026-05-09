@@ -2,16 +2,23 @@ import { Router, Response } from 'express'
 import { authMiddleware, AuthRequest } from '../middleware/authMiddleware'
 import { prisma } from '../prisma'
 import { SHOP_ITEMS, getShopItem } from '../data/shopItems'
-
+import { activateBooster, addPermanentPerk } from '../services/boosterService'
+import {
+  buyHabitSlot, buyTaskSlot,
+  habitNextPrice, taskNextPrice,
+  HABIT_SLOTS_MAX, TASK_SLOTS_MAX, DAILY_TASK_MAX,
+  habitUpgradeLevel, taskUpgradeLevel,
+} from '../services/qolService'
 const router = Router()
 router.use(authMiddleware)
 
 // Каталог магазина + что куплено
+const PERK_PRICES = [500, 600, 750, 950, 1200]
 router.get('/catalog', async (req: AuthRequest, res: Response) => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.userId! },
-      select: { gold: true, avatarBorder: true, profileBg: true }
+      select: { gold: true, avatarBorder: true, profileBg: true, permanentPerks: true, }
     })
 
     // Список купленных предметов из inventoryItem
@@ -20,14 +27,48 @@ router.get('/catalog', async (req: AuthRequest, res: Response) => {
       select: { name: true, itemType: true }
     })
     const purchasedIds = new Set(purchased.map(p => p.name))
+    const perksMap = new Map((user?.permanentPerks || []).map(perk => [perk.type,perk]))
 
-    const catalog = SHOP_ITEMS.map(item => ({
-      ...item,
-      owned: purchasedIds.has(item.id) || item.price === 0,
-      equipped: item.category === 'avatar_border'
-        ? user?.avatarBorder === item.id
-        : user?.profileBg === item.id,
-    }))
+    const catalog = SHOP_ITEMS.map(item => {
+      const perk = item.perkConfig
+        ? perksMap.get(item.perkConfig.type)
+        : null
+
+      const currentLevel = perk?.level || 0
+
+      return {
+        ...item,
+
+        owned:
+          purchasedIds.has(item.id) ||
+          item.category === 'perk_permanent',
+
+        equipped:
+          item.category === 'avatar_border'
+            ? user?.avatarBorder === item.id
+            : item.category === 'profile_bg'
+              ? user?.profileBg === item.id
+              : false,
+
+        // ДЛЯ FRONTEND
+        level: currentLevel,
+
+        maxLevel: 5,
+
+        bonusPercent:
+          perk?.bonusPercent ||
+          currentLevel * (item.perkConfig?.bonusPercent || 0),
+
+        perkActive: perk?.isActive || false,
+
+        nextPrice:
+          item.category === 'perk_permanent'
+            ? currentLevel >= 5
+              ? null
+              : PERK_PRICES[currentLevel]
+            : null,
+      }
+    })
 
     res.json({ catalog, gold: user?.gold || 0, equipped: { avatarBorder: user?.avatarBorder, profileBg: user?.profileBg } })
   } catch (error) {
@@ -39,36 +80,148 @@ router.get('/catalog', async (req: AuthRequest, res: Response) => {
 router.post('/buy', async (req: AuthRequest, res: Response) => {
   try {
     const { itemId } = req.body
+
     const item = getShopItem(itemId)
-    if (!item) { res.status(404).json({ error: 'Предмет не найден' }); return }
 
-    const user = await prisma.user.findUnique({ where: { id: req.userId! } })
-    if (!user) { res.status(404).json({ error: 'Пользователь не найден' }); return }
-
-    if (user.gold < item.price) {
-      res.status(400).json({ error: `Нужно ${item.price} 🪙, у вас ${user.gold}` })
+    if (!item) {
+      res.status(404).json({ error: 'Предмет не найден' })
       return
     }
 
-    // Проверяем не куплен ли уже
-    const existing = await prisma.inventoryItem.findFirst({
-      where: { userId: req.userId!, name: itemId }
+    const user = await prisma.user.findUnique({
+      where: { id: req.userId! }
     })
-    if (existing) { res.status(400).json({ error: 'Уже куплено' }); return }
+
+    if (!user) {
+      res.status(404).json({ error: 'Пользователь не найден' })
+      return
+    }
+
+    let finalPrice = item.price
+    let currentLevel = 0
+
+    // ===== ПЕРКИ =====
+
+    if (item.category === 'perk_permanent') {
+
+      const existing = await prisma.permanentPerk.findUnique({
+        where: {
+          userId_type: {
+            userId: req.userId!,
+            type: item.perkConfig!.type
+          }
+        }
+      })
+
+      currentLevel = existing?.level || 0
+
+      // максимум 5 уровней
+      if (currentLevel >= 5) {
+        res.status(400).json({
+          error: 'Перк уже максимального уровня'
+        })
+        return
+      }
+
+      finalPrice = PERK_PRICES[currentLevel]
+    }
+
+    // ===== ПРОВЕРКА ЗОЛОТА =====
+
+    if (user.gold < finalPrice) {
+      res.status(400).json({
+        error: `Нужно ${finalPrice} 🪙, у вас ${user.gold}`
+      })
+      return
+    }
+
+    // ===== РАСХОДУЕМЫЕ ПРЕДМЕТЫ =====
+
+    const isConsumable =
+      item.category === 'booster_temp' ||
+      item.category === 'perk_permanent'
+
+    // ===== КОСМЕТИКА =====
+
+    if (!isConsumable) {
+
+      const existing = await prisma.inventoryItem.findFirst({
+        where: {
+          userId: req.userId!,
+          name: itemId
+        }
+      })
+
+      if (existing) {
+        res.status(400).json({
+          error: 'Уже куплено'
+        })
+        return
+      }
+    }
+
+    // ===== ТРАНЗАКЦИЯ =====
 
     await prisma.$transaction(async (tx) => {
+
       await tx.user.update({
         where: { id: req.userId! },
-        data: { gold: { decrement: item.price } }
+        data: {
+          gold: {
+            decrement: finalPrice
+          }
+        }
       })
-      await tx.inventoryItem.create({
-        data: { userId: req.userId!, name: itemId, itemType: item.category, rarity: item.rarity }
-      })
+
+      // косметика сохраняется в inventory
+      if (!isConsumable) {
+
+        await tx.inventoryItem.create({
+          data: {
+            userId: req.userId!,
+            name: itemId,
+            itemType: item.category,
+            rarity: item.rarity,
+          }
+        })
+      }
     })
 
-    res.json({ success: true, itemId, goldSpent: item.price })
+    // ===== АКТИВАЦИЯ БУСТЕРОВ =====
+
+    if (item.boosterConfig) {
+
+      await activateBooster(
+        req.userId!,
+        item.boosterConfig.type,
+        item.boosterConfig.multiplier,
+        item.boosterConfig.durationMinutes,
+      )
+    }
+
+    // ===== ПЕРКИ =====
+
+    if (item.perkConfig) {
+
+      await addPermanentPerk(
+        req.userId!,
+        item.perkConfig.type
+      )
+    }
+
+    res.json({
+      success: true,
+      itemId,
+      goldSpent: finalPrice
+    })
+
   } catch (error) {
-    res.status(500).json({ error: 'Ошибка сервера' })
+
+    console.error('Shop buy error:', error)
+
+    res.status(500).json({
+      error: 'Ошибка покупки'
+    })
   }
 })
 
@@ -114,6 +267,59 @@ router.post('/unequip', async (req: AuthRequest, res: Response) => {
 
     await prisma.user.update({ where: { id: req.userId! }, data: updateData })
     res.json({ success: true })
+  } catch (error) {
+    res.status(500).json({ error: 'Ошибка сервера' })
+  }
+})
+
+// QoL-данные для каталога
+router.get('/qol', async (req: AuthRequest, res: Response) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.userId! },
+      select: { gold: true, habitSlots: true, taskSlots: true, dailyTaskLimit: true }
+    })
+    if (!user) { res.status(404).json({ error: 'Не найден' }); return }
+
+    res.json({
+      gold: user.gold,
+      habitSlot: {
+        current: user.habitSlots,
+        max: HABIT_SLOTS_MAX,
+        level: habitUpgradeLevel(user.habitSlots),
+        nextPrice: habitNextPrice(user.habitSlots),
+        isMaxed: user.habitSlots >= HABIT_SLOTS_MAX,
+      },
+      taskSlot: {
+        current: user.taskSlots,
+        dailyCurrent: user.dailyTaskLimit,
+        max: TASK_SLOTS_MAX,
+        dailyMax: DAILY_TASK_MAX,
+        level: taskUpgradeLevel(user.taskSlots),
+        nextPrice: taskNextPrice(user.taskSlots),
+        isMaxed: user.taskSlots >= TASK_SLOTS_MAX,
+      },
+    })
+  } catch (error) {
+    res.status(500).json({ error: 'Ошибка сервера' })
+  }
+})
+
+router.post('/qol/buy-habit-slot', async (req: AuthRequest, res: Response) => {
+  try {
+    const result = await buyHabitSlot(req.userId!)
+    if (result.error) { res.status(400).json({ error: result.error }); return }
+    res.json({ success: true, newLimit: result.newLimit })
+  } catch (error) {
+    res.status(500).json({ error: 'Ошибка сервера' })
+  }
+})
+
+router.post('/qol/buy-task-slot', async (req: AuthRequest, res: Response) => {
+  try {
+    const result = await buyTaskSlot(req.userId!)
+    if (result.error) { res.status(400).json({ error: result.error }); return }
+    res.json({ success: true, newLimit: result.newLimit })
   } catch (error) {
     res.status(500).json({ error: 'Ошибка сервера' })
   }

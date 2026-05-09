@@ -362,10 +362,29 @@ function TaskDetailModal({ task, goals, onClose, onUpdate, onDelete }: TaskDetai
 
         {/* Статусы и метаданные */}
         <div className="flex flex-wrap gap-2 mb-4">
-          <span className="text-xs px-2 py-1 rounded-full flex items-center gap-1"
-            style={{ backgroundColor: priority.bg, color: priority.color }}>
-            <Flag size={10} /> {priority.label}
-          </span>
+          <select
+            value={task.priority}
+            onChange={e => onUpdate(task.id, { priority: e.target.value })}
+            className="text-xs px-2 py-1 rounded-full outline-none cursor-pointer"
+            style={{
+              backgroundColor: priority.bg,
+              color: priority.color,
+              border: `1px solid ${priority.color}`,
+            }}
+          >
+            {Object.entries(PRIORITY_CONFIG).map(([key, cfg]) => (
+              <option
+                key={key}
+                value={key}
+                style={{
+                  backgroundColor: '#0f172a',
+                  color: '#fff',
+                }}
+              >
+                {cfg.label}
+              </option>
+            ))}
+          </select>
           {task.category && (
             <span className="text-xs px-2 py-1 rounded-full"
               style={{ backgroundColor: 'rgba(99,102,241,0.15)', color: '#a5b4fc' }}>
@@ -631,7 +650,7 @@ function RewardToast({ xp, gold, onDone }: { xp: number; gold: number; onDone: (
         <p className="text-white text-sm font-semibold">Задача выполнена!</p>
         <div className="flex items-center gap-3 mt-0.5">
           <span className="text-indigo-400 text-sm font-medium">+{xp} XP</span>
-          <span className="text-yellow-400 text-sm font-medium">+{gold} 🪙</span>
+          <span className="text-yellow-400 text-sm font-medium">+{Number(gold).toFixed(1).replace(/\.0$/, '')}🪙</span>
         </div>
       </div>
     </div>

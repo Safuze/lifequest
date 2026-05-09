@@ -22,10 +22,13 @@ model User {
   profileBg      String   @default("default")
   level          Int      @default(0)
   xp             Int      @default(0)
-  gold           Int      @default(0)
+  gold           Float    @default(0)
   theme          String   @default("dark")
   createdAt      DateTime @default(now())
   isProfilePublic Boolean @default(true)
+  habitSlots     Int @default(10)
+  taskSlots      Int @default(20)
+  dailyTaskLimit Int @default(10)
   
   goals          Goal[]
   projects       Project[]
@@ -40,6 +43,8 @@ model User {
   receivedRequests Friendship[]    @relation("receiver")
   pomodoroSettings PomodoroSettings?
   notifications Notification[]
+  activeBoosters  ActiveBooster[]
+  permanentPerks  PermanentPerk[]
 }
 
 model Goal {
@@ -195,7 +200,7 @@ model RewardTransaction {
   sourceType String
   sourceId   Int      @default(0)
   rewardType String
-  amount     Int
+  amount     Float
   createdAt  DateTime @default(now())
 
   user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -283,4 +288,32 @@ model Notification {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, isRead])
+}
+
+// Активные временные бустеры
+model ActiveBooster {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  type        String   // 'xp_boost' | 'gold_boost' | 'combo_boost'
+  multiplier  Float    @default(2.0)
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+}
+
+// Постоянные перки (накапливаются, не истекают)
+model PermanentPerk {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  type        String   // 'xp_bonus' | 'gold_bonus'
+  level       Int      @default(0)
+  bonusPercent Float   // 10.0 = +10%
+  isActive     Boolean @default(true)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type]) // один перк каждого типа на пользователя
+  @@index([userId])
 }

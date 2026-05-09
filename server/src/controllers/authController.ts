@@ -99,7 +99,7 @@ export const login = async (req: Request, res: Response) => {
         email: user.email,
         level: user.level,
         xp: user.xp,
-        gold: user.gold,
+        gold: Number(user.gold?.toFixed(1)),
         avatar: user.avatar,
       },
       ...tokens

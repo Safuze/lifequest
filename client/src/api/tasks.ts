@@ -76,18 +76,6 @@ export const tasksApi = {
   update: async (id: number, data: Partial<Task>): Promise<UpdateTaskResponse> => {
     const res = await apiClient.patch(`/tasks/${id}`, data)
     const response = res.data
-
-    if (response.achievements?.length > 0 || response.levelUp) {
-      window.dispatchEvent(
-        new CustomEvent('rewards', {
-          detail: {
-            achievements: response.achievements || [],
-            levelUp: response.levelUp || null
-          }
-        })
-      )
-    }
-
     return response
   },
 

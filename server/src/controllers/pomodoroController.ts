@@ -4,37 +4,24 @@ import { prisma } from '../prisma'
 import { AuthRequest } from '../middleware/authMiddleware'
 import { checkAchievementsForUser } from '../services/achievementService'
 import { getLevelFromXp, getLevelName } from '../services/levelService'
+import { applyBoosters } from '../services/boosterService'
 
 export const settingsSchema = z.object({
-  workDuration:     z.number().min(1).max(120).optional(),
+  workDuration:     z.number().min(5).max(120).optional(),
   shortBreak:       z.number().min(1).max(60).optional(),
   longBreak:        z.number().min(1).max(120).optional(),
-  cyclesBeforeLong: z.number().min(1).max(10).optional(),
+  cyclesBeforeLong: z.number().min(2).max(10).optional(),
 })
 
 export const createSessionSchema = z.object({
   taskId:          z.number().positive().optional(),
   goalId:          z.number().positive().optional(),
-  plannedDuration: z.number().positive(),
+  plannedDuration: z.number().min(5).max(120),
 })
 
 export const completeSessionSchema = z.object({
-  actualDuration: z.number().min(0),
+  actualDuration: z.number().min(0).max(120),
 })
-
-// Вычисление XP и золота
-function calculateReward(actualDuration: number, isFocusTask: boolean, cycleCompleted: boolean) {
-  const BASE_XP_PER_MIN = 2
-  const BASE_GOLD_PER_MIN = 0.4
-
-  let xp = Math.floor(actualDuration * BASE_XP_PER_MIN)
-  let gold = Math.floor(actualDuration * BASE_GOLD_PER_MIN)
-
-  if (isFocusTask) { xp = Math.floor(xp * 1.5); gold = Math.floor(gold * 1.5) }
-  if (cycleCompleted) { xp += 100; gold += 20 }
-
-  return { xp, gold }
-}
 
 export const getSettings = async (req: AuthRequest, res: Response) => {
   try {
@@ -131,7 +118,7 @@ export const completeSession = async (req: AuthRequest, res: Response) => {
     })
 
     // Сброс — ничего не начисляем
-    if (!actualDuration || actualDuration <= 0) {
+    if (!actualDuration || actualDuration < 5) {
       res.json({ session, reward: { xp: 0, gold: 0 }, cycleBonus: false, achievements: [], levelUp: null })
       return
     }
@@ -140,19 +127,29 @@ export const completeSession = async (req: AuthRequest, res: Response) => {
     const BASE_XP_PER_MIN = 2
     const BASE_GOLD_PER_MIN = 0.4
     let xpForSession = Math.max(1, Math.floor(actualDuration * BASE_XP_PER_MIN))
-    let goldForSession = Math.max(1, Math.floor(actualDuration * BASE_GOLD_PER_MIN))
-
+    let goldForSession = Math.max(0.1, actualDuration * BASE_GOLD_PER_MIN)
+    
     // Бонус за фокус-задачу (×1.5)
-    if (session.taskId) {
+    let hasFocusBonus = false
+
+    if (session.taskId !== null) {
       const task = await prisma.task.findUnique({
         where: { id: session.taskId },
         select: { isFocusToday: true }
       })
-      if (task?.isFocusToday) {
-        xpForSession = Math.floor(xpForSession * 1.5)
-        goldForSession = Math.floor(goldForSession * 1.5)
-      }
+
+      hasFocusBonus = task?.isFocusToday === true
     }
+    
+    const {
+      xp: boostedSessionXp,
+      gold: boostedSessionGold,
+    } = await applyBoosters({
+      userId: req.userId!,
+      baseXp: xpForSession,
+      baseGold: goldForSession,
+      hasFocusBonus,
+    })
 
     // Проверяем завершение цикла
     const settings = await prisma.pomodoroSettings.findUnique({
@@ -201,26 +198,28 @@ export const completeSession = async (req: AuthRequest, res: Response) => {
         .filter(r => r.rewardType === 'gold')
         .reduce((sum, r) => sum + r.amount, 0)
 
+
+      
       // Суммируем с текущей сессией
-      const totalCycleXp = prevCycleXp + xpForSession
-      const totalCycleGold = prevCycleGold + goldForSession
+      const totalCycleXp = prevCycleXp + boostedSessionXp
+      const totalCycleGold = prevCycleGold + boostedSessionGold
 
       // Делим на 4 (всегда на 4, как описано в алгоритме)
       cycleBonusXp = Math.max(1, Math.round(totalCycleXp / 4))
-      cycleBonusGold = Math.max(1, Math.round(totalCycleGold / 4))
+      cycleBonusGold = Math.max(0.1, totalCycleGold / 4)
     }
 
-    const totalXp = xpForSession + cycleBonusXp
-    const totalGold = goldForSession + cycleBonusGold
+    
     const userBefore = await prisma.user.findUnique({
       where: { id: req.userId! },
       select: { level: true }
     })
-
+    const finalXp = boostedSessionXp + cycleBonusXp
+    const finalGold = boostedSessionGold + cycleBonusGold
     await prisma.$transaction(async (tx) => {
       const updatedUser = await tx.user.update({
         where: { id: req.userId! },
-        data: { xp: { increment: totalXp }, gold: { increment: totalGold } }
+        data: { xp: { increment: finalXp  }, gold: { increment: finalGold } }
       })
 
       // Автообновление уровня
@@ -232,8 +231,8 @@ export const completeSession = async (req: AuthRequest, res: Response) => {
 
       // RewardTransaction
       const rewardRows: any[] = [
-        { userId: req.userId!, sessionId, sourceType: 'pomodoro', sourceId: sessionId, rewardType: 'xp', amount: xpForSession },
-        { userId: req.userId!, sessionId, sourceType: 'pomodoro', sourceId: sessionId, rewardType: 'gold', amount: goldForSession },
+        { userId: req.userId!, sessionId, sourceType: 'pomodoro', sourceId: sessionId, rewardType: 'xp', amount: boostedSessionXp  },
+        { userId: req.userId!, sessionId, sourceType: 'pomodoro', sourceId: sessionId, rewardType: 'gold', amount: boostedSessionGold  },
       ]
       if (isNewCycleCompleted) {
         rewardRows.push(
@@ -278,8 +277,11 @@ export const completeSession = async (req: AuthRequest, res: Response) => {
 
     res.json({
       session,
-      reward: { xp: totalXp, gold: totalGold },
-      cycleBonus: isNewCycleCompleted ? { xp: cycleBonusXp, gold: cycleBonusGold } : null,
+      reward: { xp: finalXp, gold: Number(finalGold.toFixed(1)) },
+      cycleBonus: isNewCycleCompleted ? {
+        xp: cycleBonusXp,
+        gold: Number(cycleBonusGold.toFixed(1))
+      } : null,
       achievements: newAchievements,
       levelUp,
     })
@@ -317,7 +319,15 @@ export const getTodayStats = async (req: AuthRequest, res: Response) => {
     })
 
     const totalMinutes = sessions.reduce((sum, s) => sum + s.actualDuration, 0)
-    const completedCycles = Math.floor(sessions.length / 4)
+    const settings = await prisma.pomodoroSettings.findUnique({
+      where: { userId: req.userId! }
+    })
+
+    const cyclesBeforeLong = settings?.cyclesBeforeLong || 4
+
+    const completedCycles = Math.floor(
+      sessions.length / cyclesBeforeLong
+    )
 
     res.json({ totalMinutes, sessionsCount: sessions.length, completedCycles })
   } catch (error) {
