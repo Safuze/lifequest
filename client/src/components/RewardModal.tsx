@@ -59,7 +59,6 @@ function AchievementModal({ item, onClose }: { item: AchievementItem; onClose: (
         {/* Звёздный ореол */}
         <div className="absolute top-4 left-1/2 -translate-x-1/2 text-xs"
           style={{ color, opacity: 0.6 }}>
-          ✦ ✦ ✦
         </div>
 
         <div className="relative">
@@ -87,7 +86,7 @@ function AchievementModal({ item, onClose }: { item: AchievementItem; onClose: (
             onClick={onClose}
             className="w-full py-3 rounded-xl text-white font-semibold transition-all hover:opacity-90 active:scale-95"
             style={{ backgroundColor: color }}>
-            Отлично! 🎉
+            Продолжить
           </button>
         </div>
       </div>

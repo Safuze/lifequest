@@ -5,6 +5,7 @@ import { AuthRequest } from '../middleware/authMiddleware'
 import { startOfDay, endOfDay, startOfWeek, subDays } from 'date-fns'
 import { checkAchievementsForUser } from '../services/achievementService'
 import { getLevelFromXp, getLevelName } from '../services/levelService'
+import { applyBoosters } from '../services/boosterService'
 
 export const createHabitSchema = z.object({
   title: z.string().min(1).max(100),
@@ -111,6 +112,25 @@ export const getHabits = async (req: AuthRequest, res: Response) => {
         !isYesterdayCompleted &&
         wasTwoDaysAgoCompleted &&
         !alreadyRestoredToday
+
+      // Если пользователь пропустил день и не восстановил стрик вовремя — обнуляем
+      const shouldResetStreak =
+        currentStreak > 0 &&
+        !isTodayCompleted &&
+        !isYesterdayCompleted &&
+        !wasTwoDaysAgoCompleted
+
+      if (shouldResetStreak) {
+        await prisma.habit.update({
+          where: { id: habit.id },
+          data: {
+            currentStreak: 0,
+            streakRestoredAt: null,
+          }
+        })
+
+        currentStreak = 0
+      }
       
       console.log({
         habitId: habit.id,
@@ -131,6 +151,19 @@ export const getHabits = async (req: AuthRequest, res: Response) => {
 
 export const createHabit = async (req: AuthRequest, res: Response) => {
   try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.userId! },
+      select: { habitSlots: true }
+    })
+    const maxSlots = user?.habitSlots ?? 10
+
+    const existing = await prisma.habit.count({ where: { userId: req.userId! } })
+    if (existing >= maxSlots) {
+      res.status(400).json({
+        error: `Достигнут лимит привычек (${maxSlots}). Купите дополнительный слот в магазине.`
+      })
+      return
+    }
     const data = req.body
 
     // Для непрерывных — startDate из запроса или сейчас
@@ -233,22 +266,29 @@ export const logHabit = async (req: AuthRequest, res: Response) => {
         ? new Date(habit.streakRestoredAt) >= yesterdayStart && new Date(habit.streakRestoredAt) <= yesterdayEnd
         : false
 
-      if (habit.currentStreak === 0) {
-        // Первая отметка или после обнуления
+      const hadValidYesterday =
+        !!yesterdayLog || restoredYesterday
+
+      if (!hadValidYesterday) {
         newStreak = 1
-      } else if (yesterdayLog || restoredYesterday) {
-        // Вчера был лог ИЛИ вчера восстанавливали — стрик продолжается
-        newStreak = habit.currentStreak + 1
       } else {
-        // Вчера не было ни лога ни восстановления — стрик прерван, начинаем с 1
-        // ← УБРАЛИ 50% правило, оно создавало баги
-        newStreak = 1
+        newStreak = habit.currentStreak + 1
       }
 
       const baseXp = 15
       const streakBonus = newStreak >= 30 ? 10 : newStreak >= 7 ? 5 : 0
-      xpEarned = baseXp + streakBonus
-      goldEarned = 2  
+
+      const rawXp = baseXp + streakBonus
+      const baseGold = 2
+
+      const boostedRewards = await applyBoosters({
+        userId: req.userId!,
+        baseXp: rawXp,
+        baseGold,
+      })
+
+      xpEarned = boostedRewards.xp
+      goldEarned = boostedRewards.gold
 
       await prisma.$transaction(async (tx) => {
         await tx.habit.update({
@@ -330,7 +370,7 @@ export const logHabit = async (req: AuthRequest, res: Response) => {
       isFullyCompleted: isCompleted,
       currentStreak: newStreak,
       xpEarned,
-      goldEarned,
+      goldEarned: Number(goldEarned.toFixed(1)),
       achievements: newAchievements,
       levelUp,
     })
@@ -364,7 +404,7 @@ export const breakContinuousHabit = async (req: AuthRequest, res: Response) => {
 export const restoreStreak = async (req: AuthRequest, res: Response) => {
   try {
     const habitId = parseInt(req.params.id as string, 10)
-    const COST = 50
+    const COST = 50.0
 
     const [habit, user] = await Promise.all([
       prisma.habit.findFirst({ where: { id: habitId, userId: req.userId! } }),
@@ -402,7 +442,7 @@ export const restoreStreak = async (req: AuthRequest, res: Response) => {
       })
     ])
 
-    res.json({ success: true, goldSpent: COST })
+    res.json({ success: true, goldSpent: Number(COST.toFixed(1)) })
   } catch (error) {
     res.status(500).json({ error: 'Внутренняя ошибка сервера' })
   }

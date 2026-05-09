@@ -315,7 +315,7 @@ export default function Layout() {
             {/* Золото */}
             <div className="hidden sm:flex items-center gap-1.5">
               <span className="text-yellow-400 text-sm">🪙</span>
-              <span className="text-yellow-400 text-sm font-medium">{user?.gold}</span>
+              <span className="text-yellow-400 text-sm font-medium">{Number(user?.gold).toFixed(1).replace(/\.0$/, '')}</span>
             </div>
 
             <div className="relative">
@@ -334,7 +334,7 @@ export default function Layout() {
               {showNotifications && (
                 <NotificationDropdown
                   onClose={() => setShowNotifications(false)}
-                  onUnreadCountChange={setUnreadCount} // ← добавь
+                  onUnreadCountChange={setUnreadCount} 
                 />
               )}
             </div>

@@ -13,6 +13,8 @@ import lifescopeRouter from './routes/lifescope'
 import notificationsRouter from './routes/notifications'
 import { PrismaClient } from '@prisma/client'
 import shopRouter from './routes/shop'
+import boostersRouter from './routes/boosters'
+import { cleanExpiredBoosters } from './services/boosterService'
 
 const prisma = new PrismaClient()
 dotenv.config()
@@ -41,6 +43,13 @@ app.use('/api/v1/inventory', inventoryRouter)
 app.use('/api/v1/lifescope', lifescopeRouter)
 app.use('/api/v1/notifications', notificationsRouter)
 app.use('/api/v1/shop', shopRouter)
+app.use('/api/v1/boosters', boostersRouter)
+
+// Каждые 5 минут чистим просроченные
+setInterval(async () => {
+  const count = await cleanExpiredBoosters()
+  if (count > 0) console.log(`Cleaned ${count} expired boosters`)
+}, 5 * 60 * 1000)
 
 setInterval(async () => {
   try {

@@ -4,6 +4,7 @@ import { prisma } from '../prisma'
 import { AuthRequest } from '../middleware/authMiddleware'
 import { checkAchievementsForUser } from '../services/achievementService'
 import { getLevelFromXp, getLevelName } from '../services/levelService'
+import { applyBoosters } from '../services/boosterService'
 
 export const createTaskSchema = z.object({
   title: z.string().min(1).max(200),
@@ -13,7 +14,7 @@ export const createTaskSchema = z.object({
   labels: z.array(z.string()).default([]),
   goalId: z.number().positive().optional(),
   parentId: z.number().positive().optional(),
-  dueDate: z.string().datetime().optional(),
+  dueDate: z.string().optional().nullable(),
 })
 
 export const updateTaskSchema = z.object({
@@ -117,22 +118,61 @@ export const getTasks = async (req: AuthRequest, res: Response) => {
 export const createTask = async (req: AuthRequest, res: Response) => {
   try {
     const data = req.body
+    let taskDueDate: Date | null = null
 
-    // Лимит 20 задач в сутки
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const tomorrow = new Date(today)
+    if (data.dueDate && data.dueDate.trim() !== '') {
+      taskDueDate = new Date(data.dueDate)
+    }
+    const user = await prisma.user.findUnique({
+      where: { id: req.userId! },
+      select: { taskSlots: true, dailyTaskLimit: true }
+    })
+    const maxTotal = user?.taskSlots     ?? 20
+    const maxDaily = user?.dailyTaskLimit ?? 10
+
+    // Проверка общего лимита
+    const totalActive = await prisma.task.count({
+      where: { userId: req.userId!, status: { not: 'done' }, parentId: null }
+    })
+    if (totalActive >= maxTotal) {
+      res.status(400).json({
+        error: `Достигнут лимит задач (${maxTotal}). Купите дополнительный слот в магазине.`
+      })
+      return
+    }
+
+    // Проверка дневного лимита
+    // Проверка дневного лимита
+    const todayStart = new Date()
+    todayStart.setHours(0, 0, 0, 0)
+
+    const tomorrow = new Date(todayStart)
     tomorrow.setDate(tomorrow.getDate() + 1)
+
+    // Дата, на которую создается задача
+    const limitDate = taskDueDate || new Date()
+    const targetDayStart = new Date(limitDate)
+    targetDayStart.setHours(0, 0, 0, 0)
+
+    const targetDayEnd = new Date(targetDayStart)
+    targetDayEnd.setDate(targetDayEnd.getDate() + 1)
 
     const todayCount = await prisma.task.count({
       where: {
         userId: req.userId!,
-        createdAt: { gte: today, lt: tomorrow }
+        parentId: null,
+        status: { not: 'done' },
+        dueDate: {
+          gte: targetDayStart,
+          lt: targetDayEnd,
+        },
       }
     })
 
-    if (todayCount >= 20) {
-      res.status(429).json({ error: 'Достигнут лимит задач на сегодня (20 задач)' })
+    if (todayCount >= maxDaily) {
+      res.status(400).json({
+        error: `Достигнут дневной лимит задач (${maxDaily}). Купите улучшение в магазине.`
+      })
       return
     }
 
@@ -150,12 +190,11 @@ export const createTask = async (req: AuthRequest, res: Response) => {
     const category = data.category || detectCategory(data.title)
 
     const isCritical = data.priority === 'critical'
-    const taskDueDate = data.dueDate ? new Date(data.dueDate) : null
 
     // Фокус только если критическая И срок сегодня (или срока нет)
     const shouldBeFocus =
       isCritical &&
-      (!taskDueDate || (taskDueDate >= today && taskDueDate < tomorrow))
+      (!limitDate || (limitDate >= todayStart && limitDate < tomorrow))
 
     if (shouldBeFocus) {
       await prisma.task.updateMany({
@@ -229,15 +268,27 @@ export const updateTask = async (req: AuthRequest, res: Response) => {
       const baseXp = XP_BY_PRIORITY[priority] ?? 15
       const baseGold = GOLD_BY_PRIORITY[priority] ?? 1
 
+      const isOverdue = existing.dueDate && existing.status !== 'done' && new Date(existing.dueDate).getTime() < Date.now()
+      const rewardMultiplier = isOverdue ? 0.8 : 1
+
       const pomodoroCount = await prisma.pomodoroSession.count({
         where: { taskId, status: 'completed' }
       })
 
       const bonusMultiplier = pomodoroCount > 0 ? 1.2 : 1
 
-      finalXp = Math.round(baseXp * bonusMultiplier)
-      finalGold = baseGold
+   
+      const rawXp = Math.round(baseXp * bonusMultiplier * rewardMultiplier)
+      const rawGold = Math.max(1,Math.round(baseGold * rewardMultiplier))
+      const boostedRewards = await applyBoosters({
+        userId: req.userId!,
+        baseXp: rawXp,
+        baseGold: rawGold,
+        hasFocusBonus: false,
+      })
 
+      finalXp = boostedRewards.xp
+      finalGold = boostedRewards.gold
       const updatedUser = await prisma.$transaction(async (tx) => {
         const user = await tx.user.update({
           where: { id: req.userId! },
@@ -303,7 +354,7 @@ export const updateTask = async (req: AuthRequest, res: Response) => {
         totalPomodoroMin: task.sessions.reduce((s, sess) => s + sess.actualDuration, 0)
       },
       reward: req.body.status === 'done' && existing.status !== 'done'
-        ? { xp: finalXp, gold: finalGold }
+        ? { xp: finalXp, gold: Number(finalGold?.toFixed(1)) }
         : null,
       levelUp,
       achievements: newAchievements

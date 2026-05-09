@@ -13,26 +13,76 @@ const RARITY_LABELS: Record<string, string> = {
 interface CatalogItem {
   id: string; category: string; name: string; description: string
   icon: string; price: number; rarity: string; preview?: string
-  owned: boolean; equipped: boolean
+  owned: boolean; equipped: boolean; 
+  level?: number; maxLevel?: number; bonusPercent?: number
+}
+
+interface QolData {
+  gold: number
+  habitSlot: {
+    current: number; max: number; level: number
+    nextPrice: number | null; isMaxed: boolean
+  }
+  taskSlot: {
+    current: number; dailyCurrent: number
+    max: number; dailyMax: number
+    level: number; nextPrice: number | null; isMaxed: boolean
+  }
 }
 
 export default function ShopPage() {
   const { user, loadUser } = useAuth()
   const [catalog, setCatalog] = useState<CatalogItem[]>([])
-  const [activeTab, setActiveTab] = useState<'avatar_border' | 'profile_bg'>('avatar_border')
+  const [activeTab, setActiveTab] = useState<'avatar_border' | 'profile_bg' | 'booster_temp' | 'perk_permanent' | 'qol_upgrade'>('avatar_border')
   const [isLoading, setIsLoading] = useState(true)
   const [buying, setBuying] = useState<string | null>(null)
   const [equipping, setEquipping] = useState<string | null>(null)
   const [error, setError] = useState('')
+  const [activeBoosters, setActiveBoosters] = useState<any[]>([])
+  const [activePerks, setActivePerks] = useState<any[]>([])
+  const [qolData, setQolData] = useState<QolData | null>(null)
+  const [buyingQol, setBuyingQol] = useState<string | null>(null)
+  const [qolError, setQolError] = useState('')
 
-  useEffect(() => { loadCatalog() }, [])
+  useEffect(() => {
+    loadCatalog()
+
+    const interval = setInterval(() => {
+      loadCatalog()
+    }, 60_000)
+
+    return () => clearInterval(interval)
+  }, [])
 
   const loadCatalog = async () => {
     try {
-      const res = await apiClient.get('/shop/catalog')
-      setCatalog(res.data.catalog)
+      const [catalogRes, boostersRes, qolRes] = await Promise.all([
+        apiClient.get('/shop/catalog'),
+        apiClient.get('/boosters/active'),
+        apiClient.get('/shop/qol'),
+      ])
+      setCatalog(catalogRes.data.catalog)
+      setActiveBoosters(boostersRes.data.boosters)
+      setActivePerks(boostersRes.data.perks)
+      setQolData(qolRes.data)
     } catch { /* ignore */ }
     finally { setIsLoading(false) }
+    
+  }
+
+  const handleBuyQol = async (type: 'habit' | 'task') => {
+    if (buyingQol) return
+    setBuyingQol(type)
+    setQolError('')
+    try {
+      await apiClient.post(`/shop/qol/buy-${type}-slot`)
+      await loadCatalog()
+      loadUser()
+    } catch (err: any) {
+      setQolError(err.response?.data?.error || 'Ошибка покупки')
+    } finally {
+      setBuyingQol(null)
+    }
   }
 
   const handleBuy = async (item: CatalogItem) => {
@@ -63,6 +113,7 @@ export default function ShopPage() {
       loadUser()
     } catch { /* ignore */ }
     finally { setEquipping(null) }
+    
   }
 
   const filtered = catalog.filter(i => i.category === activeTab)
@@ -91,7 +142,7 @@ export default function ShopPage() {
         </div>
         <div className="px-4 py-2 rounded-xl flex items-center gap-2"
           style={{ backgroundColor: '#1e293b', border: '1px solid rgba(245,158,11,0.3)' }}>
-          <span className="text-yellow-400 font-bold text-lg">{user?.gold || 0}</span>
+          <span className="text-yellow-400 font-bold text-lg">{Number(user?.gold || 0).toFixed(1)}</span>
           <span className="text-yellow-400">🪙</span>
         </div>
       </div>
@@ -103,11 +154,57 @@ export default function ShopPage() {
         </div>
       )}
 
+      {(activeBoosters.length > 0 || activePerks.length > 0) && (
+        <div className="rounded-2xl p-4" style={{ backgroundColor: '#1e293b', border: '1px solid rgba(99,102,241,0.3)' }}>
+          <h3 className="text-white font-medium mb-3 text-sm flex items-center gap-2">
+            <Zap size={16} className="text-indigo-400" /> Активные бонусы
+          </h3>
+          <div className="space-y-2">
+            {activeBoosters.map(b => (
+              <div key={b.id} className="flex items-center justify-between p-2 rounded-lg"
+                style={{ backgroundColor: '#0f172a' }}>
+                <div className="flex items-center gap-2">
+                  <span>{b.type === 'xp_boost' ? '⚡' : b.type === 'gold_boost' ? '💰' : '🚀'}</span>
+                  <span className="text-white text-sm">
+                    {b.type === 'xp_boost' ? 'XP' : b.type === 'gold_boost' ? 'Золото' : 'Комбо'} x{b.multiplier}
+                  </span>
+                </div>
+                <span className="text-slate-400 text-xs">
+                  {b.remainingMinutes > 60
+                    ? `${Math.floor(b.remainingMinutes / 60)}ч ${b.remainingMinutes % 60}м`
+                    : `${b.remainingMinutes}м`}
+                </span>
+              </div>
+            ))}
+            {activePerks.map(p => (
+              <div key={p.id} className="flex items-center justify-between p-2 rounded-lg"
+                style={{ backgroundColor: '#0f172a' }}>
+                <div className="flex items-center gap-2">
+                  <span>{p.type === 'xp_bonus' ? '📈' : '💎'}</span>
+                  <span className="text-white text-sm">
+                    {p.type === 'xp_bonus' ? 'XP' : 'Золото'} • {' '}Lv.{p.level} • +{p.bonusPercent}%
+                  </span>
+                  {p.level >= 5 && (
+                    <span className="text-yellow-400 text-xs font-bold">
+                      MAX
+                    </span>
+                  )}
+                </div>
+                <span className="text-green-400 text-xs">∞</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Табы */}
       <div className="flex rounded-xl overflow-hidden" style={{ border: '1px solid #334155' }}>
         {([
           { id: 'avatar_border', label: '🖼 Обводка аватара' },
           { id: 'profile_bg',    label: '🎨 Фон профиля' },
+          { id: 'booster_temp',    label: '⚡ Бустеры'  },
+          { id: 'perk_permanent',  label: '📈 Перки'    },
+          { id: 'qol_upgrade', label: '🧩 Улучшения' },
         ] as const).map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)}
             className="flex-1 py-2.5 text-sm font-medium transition-all"
@@ -121,15 +218,235 @@ export default function ShopPage() {
       </div>
 
       {/* Сетка предметов */}
-      <div className="grid grid-cols-2 gap-4">
-        {filtered.map(item => {
-          const color = RARITY_COLORS[item.rarity] || '#4f46e5'
-          const canAfford = (user?.gold || 0) >= item.price
-          const isBuying = buying === item.id
-          const isEquipping = equipping === item.id
+      {/* QoL улучшения */}
+      {activeTab === 'qol_upgrade' && qolData ? (
+        <div className="space-y-4">
 
-          return (
-            <div key={item.id} className="rounded-2xl p-4 flex flex-col gap-3"
+          {qolError && (
+            <div
+              className="p-3 rounded-xl text-red-400 text-sm"
+              style={{
+                backgroundColor: 'rgba(239,68,68,0.1)',
+                border: '1px solid rgba(239,68,68,0.3)',
+              }}
+            >
+              {qolError}
+            </div>
+          )}
+
+          {/* Слоты привычек */}
+          <div
+            className="rounded-2xl p-5"
+            style={{
+              backgroundColor: '#1e293b',
+              border: '1px solid #334155',
+            }}
+          >
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="text-white font-semibold flex items-center gap-2">
+                  🌱 Слоты привычек
+                </h3>
+
+                <p className="text-slate-400 text-sm mt-0.5">
+                  Увеличивает максимальное количество привычек
+                </p>
+              </div>
+
+              {qolData.habitSlot.isMaxed && (
+                <span
+                  className="text-xs px-2 py-1 rounded-full font-medium"
+                  style={{
+                    backgroundColor: 'rgba(245,158,11,0.2)',
+                    color: '#f59e0b',
+                  }}
+                >
+                  МАКС
+                </span>
+              )}
+            </div>
+
+            <div className="mb-4">
+              <div className="flex justify-between text-sm mb-1.5">
+                <span className="text-slate-400">Текущий лимит</span>
+
+                <span className="text-white font-bold">
+                  {qolData.habitSlot.current}
+                  <span className="text-slate-500 font-normal">
+                    {' '}
+                    / {qolData.habitSlot.max}
+                  </span>
+                </span>
+              </div>
+
+              <div className="h-2.5 bg-slate-700 rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{
+                    width: `${(qolData.habitSlot.current / qolData.habitSlot.max) * 100}%`,
+                    backgroundColor: qolData.habitSlot.isMaxed
+                      ? '#f59e0b'
+                      : '#4f46e5',
+                  }}
+                />
+              </div>
+            </div>
+
+            <button
+              onClick={() => handleBuyQol('habit')}
+              disabled={
+                qolData.habitSlot.isMaxed ||
+                buyingQol === 'habit' ||
+                qolData.gold < (qolData.habitSlot.nextPrice || 0)
+              }
+              className="w-full py-3 rounded-xl text-sm font-semibold transition-all"
+              style={{
+                backgroundColor: qolData.habitSlot.isMaxed
+                  ? 'rgba(71,85,105,0.3)'
+                  : qolData.gold >= (qolData.habitSlot.nextPrice || 0)
+                  ? '#4f46e5'
+                  : 'rgba(71,85,105,0.5)',
+
+                color:
+                  qolData.habitSlot.isMaxed ||
+                  qolData.gold < (qolData.habitSlot.nextPrice || 0)
+                    ? '#64748b'
+                    : '#fff',
+              }}
+            >
+              {qolData.habitSlot.isMaxed
+                ? '✓ Максимум достигнут'
+                : buyingQol === 'habit'
+                ? 'Покупка...'
+                : `+1 слот привычек — 🪙 ${qolData.habitSlot.nextPrice}`}
+            </button>
+          </div>
+
+          {/* Слоты задач */}
+          <div
+            className="rounded-2xl p-5"
+            style={{
+              backgroundColor: '#1e293b',
+              border: '1px solid #334155',
+            }}
+          >
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="text-white font-semibold flex items-center gap-2">
+                  ✅ Слоты задач
+                </h3>
+
+                <p className="text-slate-400 text-sm mt-0.5">
+                  Увеличивает общий и дневной лимит задач
+                </p>
+              </div>
+
+              {qolData.taskSlot.isMaxed && (
+                <span
+                  className="text-xs px-2 py-1 rounded-full font-medium"
+                  style={{
+                    backgroundColor: 'rgba(245,158,11,0.2)',
+                    color: '#f59e0b',
+                  }}
+                >
+                  МАКС
+                </span>
+              )}
+            </div>
+
+            <div className="space-y-3 mb-4">
+
+              <div>
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-slate-400">Всего задач</span>
+
+                  <span className="text-white font-bold">
+                    {qolData.taskSlot.current}
+                    <span className="text-slate-500 font-normal">
+                      {' '}
+                      / {qolData.taskSlot.max}
+                    </span>
+                  </span>
+                </div>
+
+                <div className="h-2.5 bg-slate-700 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{
+                      width: `${(qolData.taskSlot.current / qolData.taskSlot.max) * 100}%`,
+                      backgroundColor: '#22c55e',
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-slate-400">В день</span>
+
+                  <span className="text-white font-bold">
+                    {qolData.taskSlot.dailyCurrent}
+                    <span className="text-slate-500 font-normal">
+                      {' '}
+                      / {qolData.taskSlot.dailyMax}
+                    </span>
+                  </span>
+                </div>
+
+                <div className="h-2.5 bg-slate-700 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{
+                      width: `${(qolData.taskSlot.dailyCurrent / qolData.taskSlot.dailyMax) * 100}%`,
+                      backgroundColor: '#f59e0b',
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => handleBuyQol('task')}
+              disabled={
+                qolData.taskSlot.isMaxed ||
+                buyingQol === 'task' ||
+                qolData.gold < (qolData.taskSlot.nextPrice || 0)
+              }
+              className="w-full py-3 rounded-xl text-sm font-semibold transition-all"
+              style={{
+                backgroundColor: qolData.taskSlot.isMaxed
+                  ? 'rgba(71,85,105,0.3)'
+                  : qolData.gold >= (qolData.taskSlot.nextPrice || 0)
+                  ? '#22c55e'
+                  : 'rgba(71,85,105,0.5)',
+
+                color:
+                  qolData.taskSlot.isMaxed ||
+                  qolData.gold < (qolData.taskSlot.nextPrice || 0)
+                    ? '#64748b'
+                    : '#0f172a',
+              }}
+            >
+              {qolData.taskSlot.isMaxed
+                ? '✓ Максимум достигнут'
+                : buyingQol === 'task'
+                ? 'Покупка...'
+                : `+1 слот задач — 🪙 ${qolData.taskSlot.nextPrice}`}
+            </button>
+          </div>
+        </div>
+      ) : (
+        /* Обычный магазин */
+        <div className="grid grid-cols-2 gap-4">
+          {filtered.map(item => {
+            const color = RARITY_COLORS[item.rarity] || '#4f46e5'
+            const canAfford = (user?.gold || 0) >= item.price
+            const isBuying = buying === item.id
+            const isEquipping = equipping === item.id
+            const isBooster = item.category === 'booster_temp'
+            const isPerk = item.category === 'perk_permanent'
+            return (
+            <div key={item.id} className="rounded-2xl p-4 flex flex-col gap-3 transition-all hover:-translate-y-1"
               style={{
                 backgroundColor: '#1e293b',
                 border: item.equipped
@@ -184,10 +501,88 @@ export default function ShopPage() {
                   </span>
                 </div>
                 <p className="text-slate-500 text-xs">{item.description}</p>
+                {item.category === 'perk_permanent' && (
+                  <div className="mt-2 space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-400">
+                        Уровень {item.level || 0}/{item.maxLevel || 5}
+                      </span>
+
+                      <span className="text-indigo-400 font-medium">
+                        +{item.bonusPercent || 0}%
+                      </span>
+                    </div>
+
+                    <div
+                      className="h-1.5 rounded-full overflow-hidden"
+                      style={{ backgroundColor: '#0f172a' }}
+                    >
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{
+                          width: `${((item.level || 0) / (item.maxLevel || 5)) * 100}%`,
+                          backgroundColor: color,
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Действие */}
-              {item.owned ? (
+              {isBooster ? (
+                <button
+                  onClick={() => handleBuy(item)}
+                  disabled={!canAfford || isBuying}
+                  className="w-full py-2 rounded-xl text-sm font-medium"
+                  style={{
+                    backgroundColor: canAfford
+                      ? '#f59e0b'
+                      : 'rgba(71,85,105,0.5)',
+                    color: canAfford ? '#0f172a' : '#64748b',
+                  }}
+                >
+                  {isBuying
+                    ? 'Активация...'
+                    : canAfford
+                    ? `🪙 ${item.price}`
+                    : `Нужно ${item.price} 🪙`}
+                </button>
+              ) : isPerk ? (
+                <button
+                  onClick={() => handleBuy(item)}
+                  disabled={
+                    isBuying ||
+                    !canAfford ||
+                    (item.level || 0) >= (item.maxLevel || 5)
+                  }
+                  className="w-full py-2 rounded-xl text-sm font-medium transition-all"
+                  style={{
+                    backgroundColor:
+                      (item.level || 0) >= (item.maxLevel || 5)
+                        ? 'rgba(34,197,94,0.15)'
+                        : canAfford
+                        ? '#6366f1'
+                        : 'rgba(71,85,105,0.5)',
+
+                    color:
+                      (item.level || 0) >= (item.maxLevel || 5)
+                        ? '#22c55e'
+                        : canAfford
+                        ? '#fff'
+                        : '#64748b',
+                  }}
+                >
+                  {(item.level || 0) >= (item.maxLevel || 5)
+                    ? 'Максимум'
+                    : isBuying
+                    ? 'Улучшение...'
+                    : item.level
+                    ? `⬆ Улучшить (${item.level} → ${item.level + 1})`
+                    : `🪙 ${item.price}`}
+                </button>
+              ) : item.owned ? (
+
                 <button
                   onClick={() => handleEquip(item)}
                   disabled={isEquipping}
@@ -211,14 +606,15 @@ export default function ShopPage() {
                     cursor: canAfford ? 'pointer' : 'not-allowed',
                   }}>
                   {isBuying ? 'Покупка...' : canAfford
-                    ? `🪙 ${item.price}`
-                    : `Нужно ${item.price} 🪙`}
+                    ? `🪙 ${item.price}` 
+                    : `Нужно ${item.price}` }
                 </button>
               )}
             </div>
-          )
-        })}
-      </div>
+          )})}
+        </div>
+        )
+      }
     </div>
   )
 }

@@ -303,8 +303,9 @@ class TimerService {
         const statsData = await pomodoroApi.getTodayStats()
         store.setTodayStats(statsData.totalMinutes, statsData.sessionsCount, statsData.completedCycles)
 
-        const cyclesBeforeLong = this.settings?.cyclesBeforeLong || 4
-        const nextMode: TimerMode = newCount % cyclesBeforeLong === 0 ? 'longBreak' : 'shortBreak'
+        const cyclesBeforeLong = Math.max(2, this.settings?.cyclesBeforeLong || 4)
+
+        const nextMode: TimerMode = newCount % cyclesBeforeLong === 0 ? 'longBreak': 'shortBreak'
         const nextDurSec = this.getDur(nextMode) * 60
 
         store.setMode(nextMode)

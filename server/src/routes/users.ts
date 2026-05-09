@@ -627,7 +627,7 @@ router.get('/:id/public', async (req: AuthRequest, res: Response) => {
     }
 
     res.json({
-      user: { id: user.id, name: user.name, xp: user.xp, gold: user.gold, level: user.level, createdAt: user.createdAt, isPrivate: false, avatarBorder: user.avatarBorder, profileBg: user.profileBg, },
+      user: { id: user.id, name: user.name, xp: user.xp, gold: Number(user.gold.toFixed(1)), level: user.level, createdAt: user.createdAt, isPrivate: false, avatarBorder: user.avatarBorder, profileBg: user.profileBg, },
       achievements,
       topHabits: habits,
       totalPomodoroMin: allSessions._sum.actualDuration || 0,
