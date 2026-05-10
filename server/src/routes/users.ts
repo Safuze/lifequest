@@ -49,7 +49,7 @@ router.get('/dashboard', async (req: AuthRequest, res: Response) => {
     const [user, todayTasks, focusTask, pomodoroStats, habits, activeGoals] = await Promise.all([
       prisma.user.findUnique({
         where: { id: userId },
-        select: { id: true, name: true, xp: true, gold: true, level: true, avatarBorder: true }
+        select: { id: true, name: true, xp: true, gold: true, level: true, avatarBorder: true, activePetId: true }
       }),
       // Задачи на сегодня
       prisma.task.findMany({
@@ -197,7 +197,7 @@ router.get('/profile', async (req: AuthRequest, res: Response) => {
       
       prisma.user.findUnique({
         where: { id: userId },
-        select: { id: true, name: true, email: true, xp: true, gold: true, level: true, avatarBorder: true, profileBg: true, createdAt: true }
+        select: { id: true, name: true, email: true, xp: true, gold: true, level: true, avatarBorder: true, profileBg: true, activePetId: true, createdAt: true }
       }),
       prisma.achievement.findMany({ where: { userId }, orderBy: { createdAt: 'desc' } }),
       prisma.pomodoroSession.findMany({
@@ -341,6 +341,7 @@ router.get('/profile', async (req: AuthRequest, res: Response) => {
         xpProgress,
         nextLevelXp,
         prevLevelXp,
+        
       },
       stats: {
         totalPomodoroMin,
@@ -377,7 +378,7 @@ router.get('/leaderboard', async (req: AuthRequest, res: Response) => {
     const mode = (req.query.mode as string) || 'global'
     const limit = Math.min(parseInt(req.query.limit as string || '50'), 100)
 
-    let usersList: { id: number; name: string; xp: number; gold: number; level: number, avatarBorder: string, profileBg: string }[]
+    let usersList: { id: number; name: string; xp: number; gold: number; level: number, avatarBorder: string, profileBg: string, activePetId: string | null }[]
 
     if (mode === 'friends') {
       const friendships = await prisma.friendship.findMany({
@@ -397,13 +398,13 @@ router.get('/leaderboard', async (req: AuthRequest, res: Response) => {
 
       usersList = await prisma.user.findMany({
         where: { id: { in: friendIds } },
-        select: { id: true, name: true, xp: true, gold: true, level: true, avatarBorder: true, profileBg: true  },
+        select: { id: true, name: true, xp: true, gold: true, level: true, avatarBorder: true, profileBg: true, activePetId: true },
         orderBy: { xp: 'desc' },
         take: limit,
       })
     } else {
       usersList = await prisma.user.findMany({
-        select: { id: true, name: true, xp: true, gold: true, level: true, avatarBorder: true, profileBg: true },
+        select: { id: true, name: true, xp: true, gold: true, level: true, avatarBorder: true, profileBg: true, activePetId: true },
         orderBy: { xp: 'desc' },
         take: limit,
       })
@@ -420,6 +421,7 @@ router.get('/leaderboard', async (req: AuthRequest, res: Response) => {
       avatarBorder: u.avatarBorder,
       profileBg: u.profileBg,
       levelName: LEVEL_NAMES[Math.min(u.level, LEVEL_NAMES.length - 1)],
+      activePetId: u.activePetId,
       isCurrentUser: u.id === req.userId!,
     }))
 
@@ -565,7 +567,7 @@ router.get('/:id/public', async (req: AuthRequest, res: Response) => {
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, name: true, xp: true, gold: true, level: true, createdAt: true, isProfilePublic: true, avatarBorder: true, profileBg: true }
+      select: { id: true, name: true, xp: true, gold: true, level: true, createdAt: true, isProfilePublic: true, avatarBorder: true, profileBg: true, activePetId: true }
     })
     if (!user) { res.status(404).json({ error: 'Не найден' }); return }
 
@@ -627,7 +629,7 @@ router.get('/:id/public', async (req: AuthRequest, res: Response) => {
     }
 
     res.json({
-      user: { id: user.id, name: user.name, xp: user.xp, gold: Number(user.gold.toFixed(1)), level: user.level, createdAt: user.createdAt, isPrivate: false, avatarBorder: user.avatarBorder, profileBg: user.profileBg, },
+      user: { id: user.id, name: user.name, xp: user.xp, gold: Number(user.gold.toFixed(1)), level: user.level, createdAt: user.createdAt, isPrivate: false, avatarBorder: user.avatarBorder, profileBg: user.profileBg, activePetId: user.activePetId, },
       achievements,
       topHabits: habits,
       totalPomodoroMin: allSessions._sum.actualDuration || 0,
@@ -665,7 +667,7 @@ router.get('/settings', async (req: AuthRequest, res: Response) => {
       where: { id: req.userId! },
       select: {
         id: true, name: true, email: true, level: true, xp: true, gold: true,
-        isProfilePublic: true, createdAt: true, avatarBorder: true
+        isProfilePublic: true, createdAt: true, avatarBorder: true, activePetId: true
       }
     })
     if (!user) { res.status(404).json({ error: 'Не найден' }); return }
@@ -712,7 +714,7 @@ router.patch('/settings', async (req: AuthRequest, res: Response) => {
     const updated = await prisma.user.update({
       where: { id: req.userId! },
       data: updateData,
-      select: { id: true, name: true, email: true, isProfilePublic: true, avatarBorder: true }
+      select: { id: true, name: true, email: true, isProfilePublic: true, avatarBorder: true, activePetId: true }
     })
 
     res.json({ user: updated })

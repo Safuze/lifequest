@@ -4,6 +4,7 @@ import apiClient from '../api/client'
 import { useAuth } from '../hooks/useAuth'
 import { Search, UserPlus, Check, X, Trophy, Users, Crown } from 'lucide-react'
 import { getAvatarBorderStyle, getAvatarBorderClass } from '../utils/avatar'
+import { PETS_EMOJIS } from '../data/petsClient'
 
 const LEVEL_NAMES = ['Новичок', 'Ученик', 'Практик', 'Эксперт', 'Мастер', 'Легенда']
 const LEVEL_COLORS = ['#64748b', '#22c55e', '#4f46e5', '#f59e0b', '#ef4444', '#a855f7']
@@ -18,6 +19,7 @@ interface LeaderboardEntry {
   levelName: string
   isCurrentUser: boolean
   avatarBorder?: string
+  activePetId?: string
 }
 
 interface Friend {
@@ -300,10 +302,23 @@ export default function LeaderboardPage() {
                 {/* Имя и уровень */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-white text-sm font-medium truncate">
-                      {entry.name}
-                      {entry.isCurrentUser && <span className="text-indigo-400 text-xs ml-1">(Вы)</span>}
-                    </span>
+                    <div className="flex items-center gap-1 min-w-0">
+                      <span className="text-white text-sm font-medium truncate">
+                        {entry.name}
+                      </span>
+
+                      {entry.activePetId && (
+                        <span className="text-lg shrink-0" title="Активный питомец">
+                          {PETS_EMOJIS[entry.activePetId] || ''}
+                        </span>
+                      )}
+
+                      {entry.isCurrentUser && (
+                        <span className="text-indigo-400 text-xs shrink-0">
+                          (Вы)
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="flex items-center gap-2 mt-0.5">
                     <span className="text-xs" style={{ color: levelColor }}>
@@ -312,7 +327,6 @@ export default function LeaderboardPage() {
                     {entry.rank <= 3 && <Crown size={10} className="text-yellow-400" />}
                   </div>
                 </div>
-
                 {/* XP */}
                 <div className="text-right shrink-0">
                   <div className="text-white text-sm font-bold">{entry.xp.toLocaleString()}</div>

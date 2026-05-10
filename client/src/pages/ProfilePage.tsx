@@ -3,7 +3,7 @@ import apiClient from '../api/client'
 import { Trophy, Clock, CheckSquare, Flame, TrendingUp, Star, Package } from 'lucide-react'
 import { AchievementGrid } from '../components/AchievementGrid'
 import { getAvatarBorderStyle, getAvatarBorderClass, getProfileBgStyle } from '../utils/avatar'
-
+import { PETS_EMOJIS } from '../data/petsClient'
 type Period = 'day' | 'week' | 'month'
 
 const LEVEL_NAMES = ['Новичок', 'Ученик', 'Практик', 'Эксперт', 'Мастер', 'Легенда']
@@ -17,6 +17,7 @@ interface ProfileAchievement {
   rarity: 'common' | 'rare' | 'epic' | 'legendary'
   createdAt: string
 }
+
 
 const RARITY_COLORS: Record<string, string> = {
   common:    '#22c55e',
@@ -126,7 +127,8 @@ function RadarChart({ data }: RadarProps) {
 interface ProfileData {
   user: {
     id: number; name: string; email: string; xp: number; gold: number; avatarBorder: string; profileBg: string
-    level: number; levelName: string; xpProgress: number; nextLevelXp: number; prevLevelXp: number; createdAt: string
+    level: number; levelName: string; xpProgress: number; nextLevelXp: number; prevLevelXp: number; createdAt: string; 
+    activePetId: string
   }
   stats: {
     totalPomodoroMin: number
@@ -225,14 +227,21 @@ export default function ProfilePage() {
             }}>
             {user.name.charAt(0).toUpperCase()}
           </div>
-
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-white font-bold text-xl">{user.name}</h1>
+              <h1 className="text-white font-bold text-xl">{user.name}
+                {user.activePetId && (
+                  <span className="text-2xl ml-1" title="Активный питомец">
+                    {/* Найди emoji по activePetId */}
+                    {PETS_EMOJIS[user.activePetId] || ''}
+                  </span>
+                )}
+              </h1>
               <span className="text-xs px-2 py-0.5 rounded-full font-medium"
                 style={{ backgroundColor: `${levelColor}20`, color: levelColor }}>
                 {user.levelName}
               </span>
+              
             </div>
             <p className="text-slate-500 text-xs mt-0.5">ID: #{user.id} · Стаж пользования {daysInApp} дн.</p>
 
@@ -262,7 +271,7 @@ export default function ProfilePage() {
         {([
           { id: 'stats',        label: '📊 Статистика' },
           { id: 'achievements', label: '🏆 Достижения' },
-          { id: 'inventory',    label: '🎒 Инвентарь'  },
+          { id: 'inventory',    label: '🐾 Коллекция'  },
         ] as const).map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)}
             className="flex-1 py-2.5 text-sm font-medium transition-all"
@@ -334,34 +343,67 @@ export default function ProfilePage() {
       )}
 
       {activeTab === 'inventory' && (
-        <div>
-          {inventory.length === 0 ? (
-            <div className="rounded-2xl p-12 text-center" style={{ backgroundColor: 'rgba(30, 41, 59, 0.95)', border: '1px solid #334155' }}>
-              <div className="text-5xl mb-4">🎒</div>
-              <h3 className="text-white font-semibold mb-2">Инвентарь пуст</h3>
-              <p className="text-slate-400 text-sm">Покупайте фоны, звуки и стили таймера в Pomodoro</p>
+         <div className="space-y-4">
+            {/* Питомцы */}
+            <div className="rounded-2xl p-4" style={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}>
+              <h3 className="text-white font-medium mb-3">🐾 Питомцы</h3>
+              {inventory.filter(i => i.itemType === 'pet').length === 0 ? (
+                <div className="text-center py-6">
+                  <p className="text-5xl mb-2">🔒</p>
+                  <p className="text-slate-400 text-sm">Нет питомцев. Купи первого в магазине!</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-3">
+                  {inventory.filter(i => i.itemType === 'pet').map((item: any) => {
+                    const emoji = PETS_EMOJIS[item.name] || '❓'
+                    const isActive = user.activePetId === item.name
+                    const rarityColors: Record<string, string> = {
+                      common: '#22c55e', rare: '#4f46e5', epic: '#a855f7', legendary: '#f59e0b'
+                    }
+                    const color = rarityColors[item.rarity] || '#4f46e5'
+                    return (
+                      <div key={item.name}
+                        className="p-3 rounded-xl text-center transition-all"
+                        style={{
+                          backgroundColor: '#0f172a',
+                          border: isActive ? `2px solid ${color}` : `1px solid ${color}30`,
+                          boxShadow: isActive ? `0 0 16px ${color}40` : 'none',
+                        }}>
+                        <div className="text-3xl mb-1">{emoji}</div>
+                        {isActive && <div className="text-xs font-medium" style={{ color }}>★ Активен</div>}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-3">
-              {inventory.map((item, i) => {
-                const rarityColor = item.rarity === 'epic' ? '#a855f7' : item.rarity === 'rare' ? '#4f46e5' : '#22c55e'
-                const typeIcon = item.itemType === 'sound' ? '🔊' : item.itemType === 'background' ? '🎨' : '⏰'
-                return (
-                  <div key={i} className="p-4 rounded-2xl"
-                    style={{ backgroundColor: 'rgba(30, 41, 59, 0.95)', border: `1px solid ${rarityColor}30` }}>
-                    <div className="text-2xl mb-2">{typeIcon}</div>
-                    <p className="text-white text-sm font-medium">{item.name}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-xs" style={{ color: rarityColor }}>
-                        {item.rarity === 'epic' ? '⚡ Эпик' : item.rarity === 'rare' ? '💎 Редкий' : '✨ Обычный'}
-                      </span>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
+
+            {/* Косметика — обводки и фоны */}
+            {inventory.filter(i => i.itemType !== 'pet').length > 0 && (
+              <div className="rounded-2xl p-4" style={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}>
+                <h3 className="text-white font-medium mb-3">🎨 Косметика</h3>
+                <div className="grid grid-cols-2 gap-2">
+                  {inventory.filter(i => i.itemType !== 'pet').map((item: any, idx: number) => {
+                    const typeIcon = item.itemType === 'avatar_border' ? '🖼' : item.itemType === 'profile_bg' ? '🎨' : '⏰'
+                    const rarityColors: Record<string, string> = {
+                      common: '#22c55e', rare: '#4f46e5', epic: '#a855f7', legendary: '#f59e0b'
+                    }
+                    const color = rarityColors[item.rarity] || '#4f46e5'
+                    return (
+                      <div key={idx} className="p-3 rounded-xl"
+                        style={{ backgroundColor: '#0f172a', border: `1px solid ${color}30` }}>
+                        <div className="text-xl mb-1">{typeIcon}</div>
+                        <p className="text-white text-xs font-medium">{item.name}</p>
+                        <span className="text-xs" style={{ color }}>
+                          {item.rarity === 'epic' ? '⚡ Эпик' : item.rarity === 'rare' ? '💎 Редкий' : item.rarity === 'legendary' ? '👑 Легенда' : '✨ Обычный'}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
       )}
     </div>
   </div>

@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth'
 import { ArrowLeft, UserPlus, Check, Clock, CheckSquare, Flame, Lock, Trophy } from 'lucide-react'
 import { AchievementGrid } from '../components/AchievementGrid'
 import { getAvatarBorderStyle, getAvatarBorderClass, getProfileBgStyle } from '../utils/avatar'
+import { PETS_EMOJIS } from '../data/petsClient'
 
 
 const LEVEL_NAMES = ['Новичок', 'Ученик', 'Практик', 'Эксперт', 'Мастер', 'Легенда']
@@ -176,7 +177,14 @@ export default function PublicProfilePage() {
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2">
               <div>
-                <h1 className="text-white font-bold text-xl">{user.name}</h1>
+                <h1 className="text-white font-bold text-xl">{user.name}
+                  {user.activePetId && (
+                    <span className="text-2xl ml-1" title="Активный питомец">
+                      {/* Найди emoji по activePetId */}
+                      {PETS_EMOJIS[user.activePetId] || ''}
+                    </span>
+                  )}
+                </h1>
                 <div className="flex items-center gap-2 mt-1 flex-wrap">
                   <span className="text-xs px-2 py-0.5 rounded-full font-medium"
                     style={{ backgroundColor: `${levelColor}20`, color: levelColor }}>
@@ -308,24 +316,143 @@ export default function PublicProfilePage() {
 
           {/* Инвентарь */}
           {data.inventory && data.inventory.length > 0 && (
-            <div className="rounded-2xl p-4" style={{ backgroundColor: 'rgba(30, 41, 59, 0.95)', border: '1px solid #334155' }}>
-              <h3 className="text-white font-medium mb-3">🎒 Инвентарь</h3>
-              <div className="grid grid-cols-2 gap-2">
-                {data.inventory.map((item: any, i: number) => {
-                  const rarityColor = item.rarity === 'epic' ? '#a855f7' : item.rarity === 'rare' ? '#4f46e5' : '#22c55e'
-                  const typeIcon = item.itemType === 'sound' ? '🔊' : item.itemType === 'background' ? '🎨' : '⏰'
-                  return (
-                    <div key={i} className="p-3 rounded-xl"
-                      style={{ backgroundColor: '#0f172a', border: `1px solid ${rarityColor}30` }}>
-                      <div className="text-xl mb-1">{typeIcon}</div>
-                      <p className="text-white text-xs font-medium">{item.name}</p>
-                      <span className="text-xs" style={{ color: rarityColor }}>
-                        {item.rarity === 'epic' ? '⚡ Эпик' : item.rarity === 'rare' ? '💎 Редкий' : '✨ Обычный'}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
+            <div className="space-y-4">
+
+              {/* Питомцы */}
+              {data.inventory.filter((i: any) => i.itemType === 'pet').length > 0 && (
+                <div
+                  className="rounded-2xl p-4"
+                  style={{
+                    backgroundColor: 'rgba(30, 41, 59, 0.95)',
+                    border: '1px solid #334155'
+                  }}
+                >
+                  <h3 className="text-white font-medium mb-3">🐾 Питомцы</h3>
+
+                  <div className="grid grid-cols-3 gap-3">
+                    {data.inventory
+                      .filter((i: any) => i.itemType === 'pet')
+                      .map((item: any) => {
+
+                        const emoji = PETS_EMOJIS[item.name] || '❓'
+
+                        const isActive =
+                          data.user.activePetId === item.name
+
+                        const rarityColors: Record<string, string> = {
+                          common: '#22c55e',
+                          rare: '#4f46e5',
+                          epic: '#a855f7',
+                          legendary: '#f59e0b'
+                        }
+
+                        const color =
+                          rarityColors[item.rarity] || '#4f46e5'
+
+                        return (
+                          <div
+                            key={item.name}
+                            className="p-3 rounded-xl text-center"
+                            style={{
+                              backgroundColor: '#0f172a',
+                              border: isActive
+                                ? `2px solid ${color}`
+                                : `1px solid ${color}30`,
+                              boxShadow: isActive
+                                ? `0 0 16px ${color}40`
+                                : 'none',
+                            }}
+                          >
+                            <div className="text-3xl mb-1">
+                              {emoji}
+                            </div>
+
+                            {isActive && (
+                              <div
+                                className="text-xs font-medium"
+                                style={{ color }}
+                              >
+                                ★ Активен
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                  </div>
+                </div>
+              )}
+
+              {/* Косметика */}
+              {data.inventory.filter((i: any) => i.itemType !== 'pet').length > 0 && (
+                <div
+                  className="rounded-2xl p-4"
+                  style={{
+                    backgroundColor: 'rgba(30, 41, 59, 0.95)',
+                    border: '1px solid #334155'
+                  }}
+                >
+                  <h3 className="text-white font-medium mb-3">
+                    🎨 Косметика
+                  </h3>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    {data.inventory
+                      .filter((i: any) => i.itemType !== 'pet')
+                      .map((item: any, idx: number) => {
+
+                        const rarityColors: Record<string, string> = {
+                          common: '#22c55e',
+                          rare: '#4f46e5',
+                          epic: '#a855f7',
+                          legendary: '#f59e0b'
+                        }
+
+                        const color =
+                          rarityColors[item.rarity] || '#4f46e5'
+
+                        const typeIcon =
+                          item.itemType === 'avatar_border'
+                            ? '🖼'
+                            : item.itemType === 'profile_bg'
+                            ? '🎨'
+                            : '✨'
+
+                        return (
+                          <div
+                            key={idx}
+                            className="p-3 rounded-xl"
+                            style={{
+                              backgroundColor: '#0f172a',
+                              border: `1px solid ${color}30`
+                            }}
+                          >
+                            <div className="text-xl mb-1">
+                              {typeIcon}
+                            </div>
+
+                            <p className="text-white text-xs font-medium">
+                              {item.name}
+                            </p>
+
+                            <span
+                              className="text-xs"
+                              style={{ color }}
+                            >
+                              {item.rarity === 'epic'
+                                ? '⚡ Эпик'
+                                : item.rarity === 'rare'
+                                ? '💎 Редкий'
+                                : item.rarity === 'legendary'
+                                ? '👑 Легенда'
+                                : '✨ Обычный'}
+                            </span>
+                          </div>
+                        )
+                      })}
+                  </div>
+                </div>
+              )}
+
             </div>
           )}
 
