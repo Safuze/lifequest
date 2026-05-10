@@ -13,6 +13,7 @@ export interface User {
   characterClass: string
   avatar: string | null
   theme: string
+  activePetId?: string | null
 }
 
 export interface AuthResponse {

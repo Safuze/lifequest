@@ -29,7 +29,8 @@ model User {
   habitSlots     Int @default(10)
   taskSlots      Int @default(20)
   dailyTaskLimit Int @default(10)
-  
+  activePetId    String?  
+
   goals          Goal[]
   projects       Project[]
   tasks          Task[]

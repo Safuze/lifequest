@@ -33,7 +33,7 @@ interface QolData {
 export default function ShopPage() {
   const { user, loadUser } = useAuth()
   const [catalog, setCatalog] = useState<CatalogItem[]>([])
-  const [activeTab, setActiveTab] = useState<'avatar_border' | 'profile_bg' | 'booster_temp' | 'perk_permanent' | 'qol_upgrade'>('avatar_border')
+  const [activeTab, setActiveTab] = useState<'avatar_border' | 'profile_bg' | 'booster_temp' | 'perk_permanent' | 'qol_upgrade' | 'pets'>('avatar_border')
   const [isLoading, setIsLoading] = useState(true)
   const [buying, setBuying] = useState<string | null>(null)
   const [equipping, setEquipping] = useState<string | null>(null)
@@ -43,6 +43,9 @@ export default function ShopPage() {
   const [qolData, setQolData] = useState<QolData | null>(null)
   const [buyingQol, setBuyingQol] = useState<string | null>(null)
   const [qolError, setQolError] = useState('')
+  const [petCatalog, setPetCatalog] = useState<any[]>([])
+  const [activatingPet, setActivatingPet] = useState<string | null>(null)
+  const [buyingPet, setBuyingPet] = useState<string | null>(null)
 
   useEffect(() => {
     loadCatalog()
@@ -56,18 +59,44 @@ export default function ShopPage() {
 
   const loadCatalog = async () => {
     try {
-      const [catalogRes, boostersRes, qolRes] = await Promise.all([
+      const [catalogRes, boostersRes, qolRes, petsRes] = await Promise.all([
         apiClient.get('/shop/catalog'),
         apiClient.get('/boosters/active'),
         apiClient.get('/shop/qol'),
+        apiClient.get('/shop/pets'),
       ])
       setCatalog(catalogRes.data.catalog)
       setActiveBoosters(boostersRes.data.boosters)
       setActivePerks(boostersRes.data.perks)
       setQolData(qolRes.data)
+      setPetCatalog(petsRes.data.catalog)
     } catch { /* ignore */ }
     finally { setIsLoading(false) }
     
+  }
+
+  const handleBuyPet = async (petId: string) => {
+    if (buyingPet) return
+    setBuyingPet(petId)
+    setError('')
+    try {
+      await apiClient.post('/shop/pets/buy', { petId })
+      await loadCatalog()
+      loadUser()
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Ошибка покупки')
+    } finally { setBuyingPet(null) }
+  }
+
+  const handleActivatePet = async (petId: string, isActive: boolean) => {
+    if (activatingPet) return
+    setActivatingPet(petId)
+    try {
+      await apiClient.post('/shop/pets/activate', { petId: isActive ? null : petId })
+      await loadCatalog()
+      loadUser()
+    } catch { /* ignore */ }
+    finally { setActivatingPet(null) }
   }
 
   const handleBuyQol = async (type: 'habit' | 'task') => {
@@ -205,6 +234,7 @@ export default function ShopPage() {
           { id: 'booster_temp',    label: '⚡ Бустеры'  },
           { id: 'perk_permanent',  label: '📈 Перки'    },
           { id: 'qol_upgrade', label: '🧩 Улучшения' },
+          { id: 'pets', label: '🐾 Питомцы' },
         ] as const).map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)}
             className="flex-1 py-2.5 text-sm font-medium transition-all"
@@ -435,6 +465,121 @@ export default function ShopPage() {
             </button>
           </div>
         </div>
+      ) : activeTab === 'pets' ? (
+            <div className="space-y-4">
+            {/* Статистика коллекции */}
+            <div className="grid grid-cols-4 gap-3">
+              {(['common', 'rare', 'epic', 'legendary'] as const).map(rarity => {
+                const total  = petCatalog.filter(p => p.rarity === rarity).length
+                const owned  = petCatalog.filter(p => p.rarity === rarity && p.owned).length
+                const color  = { common: '#22c55e', rare: '#4f46e5', epic: '#a855f7', legendary: '#f59e0b' }[rarity]
+                const labels = { common: 'Обычные', rare: 'Редкие', epic: 'Эпические', legendary: 'Легенд.' }
+                return (
+                  <div key={rarity} className="p-3 rounded-xl text-center"
+                    style={{ backgroundColor: '#1e293b', border: `1px solid ${color}30` }}>
+                    <div className="text-lg font-bold" style={{ color }}>{owned}/{total}</div>
+                    <div className="text-xs text-slate-500 mt-0.5">{labels[rarity]}</div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Сетка питомцев */}
+            <div className="grid grid-cols-2 gap-4">
+              {petCatalog.map(pet => {
+                const color  = { common: '#22c55e', rare: '#4f46e5', epic: '#a855f7', legendary: '#f59e0b' }[pet.rarity as string] || '#4f46e5'
+                const labels = { common: 'Обычный', rare: 'Редкий', epic: 'Эпический', legendary: 'Легендарный' }
+                const canAfford = (user?.gold || 0) >= pet.price
+                const isBuying  = buyingPet === pet.id
+                const isActivating = activatingPet === pet.id
+
+                return (
+                  <div key={pet.id}
+                    className="rounded-2xl p-4 flex flex-col gap-3 transition-all"
+                    style={{
+                      backgroundColor: '#1e293b',
+                      border: pet.active
+                        ? `2px solid ${color}`
+                        : pet.owned
+                          ? `1px solid ${color}40`
+                          : '1px solid #334155',
+                      boxShadow: pet.active ? `0 0 20px ${color}40, 0 0 40px ${color}20` : 'none',
+                      opacity: pet.owned ? 1 : 0.6,
+                      transition: 'all 0.3s ease',
+                    }}>
+
+                    {/* Эмодзи питомца */}
+                    <div className="relative">
+                      <div
+                        className="text-5xl text-center py-3 rounded-xl transition-all"
+                        style={{
+                          backgroundColor: `${color}10`,
+                          filter: pet.owned ? 'none' : 'grayscale(100%)',
+                        }}>
+                        {pet.emoji}
+                      </div>
+
+                      {/* Активный бейдж */}
+                      {pet.active && (
+                        <div className="absolute -top-1 -right-1 px-2 py-0.5 rounded-full text-xs font-bold"
+                          style={{ backgroundColor: color, color: '#000' }}>
+                          ★
+                        </div>
+                      )}
+
+                      {/* Замок для некупленных */}
+                      {!pet.owned && (
+                        <div className="absolute inset-0 flex items-center justify-center rounded-xl"
+                          style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                          <span className="text-2xl">🔒</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Инфо */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="text-white text-sm font-bold">{pet.name}</h3>
+                        <span className="text-xs px-1.5 py-0.5 rounded-full font-medium"
+                          style={{ backgroundColor: `${color}20`, color }}>
+                          {(labels as any)[pet.rarity]}
+                        </span>
+                      </div>
+                      <p className="text-slate-500 text-xs leading-relaxed">{pet.description}</p>
+                    </div>
+
+                    {/* Кнопка */}
+                    {pet.owned ? (
+                      <button
+                        onClick={() => handleActivatePet(pet.id, pet.active)}
+                        disabled={isActivating}
+                        className="w-full py-2.5 rounded-xl text-sm font-semibold transition-all"
+                        style={{
+                          backgroundColor: pet.active ? 'rgba(239,68,68,0.15)' : `${color}20`,
+                          color: pet.active ? '#ef4444' : color,
+                          border: `1px solid ${pet.active ? 'rgba(239,68,68,0.4)' : color + '50'}`,
+                        }}>
+                        {isActivating ? '...' : pet.active ? '✕ Снять' : '✓ Сделать активным'}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleBuyPet(pet.id)}
+                        disabled={!canAfford || isBuying}
+                        className="w-full py-2.5 rounded-xl text-sm font-semibold transition-all"
+                        style={{
+                          backgroundColor: canAfford ? '#f59e0b' : 'rgba(71,85,105,0.3)',
+                          color: canAfford ? '#0f172a' : '#64748b',
+                          cursor: canAfford ? 'pointer' : 'not-allowed',
+                          opacity: isBuying ? 0.7 : 1,
+                        }}>
+                        {isBuying ? 'Покупка...' : `🪙 ${pet.price.toLocaleString()}`}
+                      </button>
+                    )}
+                  </div>
+            )
+          })}
+        </div>
+      </div>
       ) : (
         /* Обычный магазин */
         <div className="grid grid-cols-2 gap-4">
@@ -613,8 +758,7 @@ export default function ShopPage() {
             </div>
           )})}
         </div>
-        )
-      }
+        )}
     </div>
   )
 }

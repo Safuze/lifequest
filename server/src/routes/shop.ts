@@ -9,6 +9,9 @@ import {
   HABIT_SLOTS_MAX, TASK_SLOTS_MAX, DAILY_TASK_MAX,
   habitUpgradeLevel, taskUpgradeLevel,
 } from '../services/qolService'
+import { PETS, getPet } from '../data/pets'
+
+
 const router = Router()
 router.use(authMiddleware)
 
@@ -320,6 +323,94 @@ router.post('/qol/buy-task-slot', async (req: AuthRequest, res: Response) => {
     const result = await buyTaskSlot(req.userId!)
     if (result.error) { res.status(400).json({ error: result.error }); return }
     res.json({ success: true, newLimit: result.newLimit })
+  } catch (error) {
+    res.status(500).json({ error: 'Ошибка сервера' })
+  }
+})
+
+// Каталог питомцев
+router.get('/pets', async (req: AuthRequest, res: Response) => {
+  try {
+    const [user, purchased] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: req.userId! },
+        select: { gold: true, activePetId: true }
+      }),
+      prisma.inventoryItem.findMany({
+        where: { userId: req.userId!, itemType: 'pet' },
+        select: { name: true }
+      })
+    ])
+
+    const ownedIds = new Set(purchased.map(p => p.name))
+
+    const catalog = PETS.map(pet => ({
+      ...pet,
+      owned: ownedIds.has(pet.id),
+      active: user?.activePetId === pet.id,
+    }))
+
+    res.json({ catalog, gold: user?.gold || 0, activePetId: user?.activePetId })
+  } catch (error) {
+    res.status(500).json({ error: 'Ошибка сервера' })
+  }
+})
+
+// Купить питомца
+router.post('/pets/buy', async (req: AuthRequest, res: Response) => {
+  try {
+    const { petId } = req.body
+    const pet = getPet(petId)
+    if (!pet) { res.status(404).json({ error: 'Питомец не найден' }); return }
+
+    const user = await prisma.user.findUnique({
+      where: { id: req.userId! },
+      select: { gold: true }
+    })
+    if (!user) { res.status(404).json({ error: 'Не найден' }); return }
+    if (user.gold < pet.price) {
+      res.status(400).json({ error: `Нужно ${pet.price} 🪙, у вас ${user.gold}` })
+      return
+    }
+
+    const existing = await prisma.inventoryItem.findFirst({
+      where: { userId: req.userId!, name: petId, itemType: 'pet' }
+    })
+    if (existing) { res.status(400).json({ error: 'Питомец уже в коллекции' }); return }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: req.userId! },
+        data: { gold: { decrement: pet.price } }
+      })
+      await tx.inventoryItem.create({
+        data: { userId: req.userId!, name: petId, itemType: 'pet', rarity: pet.rarity }
+      })
+    })
+
+    res.json({ success: true, petId, goldSpent: pet.price })
+  } catch (error) {
+    res.status(500).json({ error: 'Ошибка сервера' })
+  }
+})
+
+// Установить активного питомца
+router.post('/pets/activate', async (req: AuthRequest, res: Response) => {
+  try {
+    const { petId } = req.body
+
+    if (petId) {
+      const owned = await prisma.inventoryItem.findFirst({
+        where: { userId: req.userId!, name: petId, itemType: 'pet' }
+      })
+      if (!owned) { res.status(403).json({ error: 'Питомец не куплен' }); return }
+    }
+
+    await prisma.user.update({
+      where: { id: req.userId! },
+      data: { activePetId: petId || null }
+    })
+    res.json({ success: true, activePetId: petId || null })
   } catch (error) {
     res.status(500).json({ error: 'Ошибка сервера' })
   }
