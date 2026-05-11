@@ -515,11 +515,13 @@ function TaskDetailModal({ task, goals, onClose, onUpdate, onDelete }: TaskDetai
         </div>
 
         {/* Кнопка помодоро */}
+        {task.status !== 'done' && (
         <button onClick={startPomodoro}
           className="w-full py-3 rounded-xl text-white font-semibold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
           style={{ backgroundColor: '#4f46e5' }}>
           <Play size={16} /> Запустить Pomodoro
         </button>
+        )}
       </div>
     </div>
   )

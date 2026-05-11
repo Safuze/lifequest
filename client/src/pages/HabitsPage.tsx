@@ -334,6 +334,7 @@ function HabitCard({ habit, userGold, onLog, onBreak, onDelete, onRestoreStreak,
         border: `1px solid ${isCompleted ? 'rgba(34,197,94,0.4)' : streakStyle.borderColor}`,
         boxShadow: !isCompleted && streakStyle.boxShadow ? streakStyle.boxShadow : 'none',
         transition: 'border-color 0.3s ease, box-shadow 0.3s ease',
+        marginTop: '10px',
       }}>
       <div className="p-4">
         {/* Заголовок */}
@@ -407,7 +408,7 @@ function HabitCard({ habit, userGold, onLog, onBreak, onDelete, onRestoreStreak,
                 border: '1px solid rgba(245,158,11,0.3)'
               }}>
               <RotateCcw size={14} />
-              Восстановить стрик за 50 🪙
+              Восстановить стрик за<strong>50</strong>кредитов
             </button>
           ) : (
             // ОБЫЧНЫЕ КНОПКИ
@@ -457,7 +458,7 @@ function HabitCard({ habit, userGold, onLog, onBreak, onDelete, onRestoreStreak,
               color: '#ef4444',
               border: '1px solid rgba(239,68,68,0.3)',
             }}>
-            💔 Нарушил
+            Нарушил
           </button>
         )}
 
@@ -465,7 +466,7 @@ function HabitCard({ habit, userGold, onLog, onBreak, onDelete, onRestoreStreak,
         {lastReward && (lastReward.xp > 0 || lastReward.gold > 0) && (
           <div className="mt-2 flex items-center gap-3 text-xs">
             {lastReward.xp > 0 && <span className="text-indigo-400">+{lastReward.xp} XP</span>}
-            {lastReward.gold > 0 && <span className="text-yellow-400">+{lastReward.gold} 🪙</span>}
+            {lastReward.gold > 0 && <span className="text-yellow-400">+{lastReward.gold} Сredits</span>}
           </div>
         )}
       </div>
@@ -861,7 +862,7 @@ export default function HabitsPage() {
 
   const handleRestoreStreak = async (id: number) => {
     if (restoringStreakIds.has(id)) return // уже восстанавливается
-    if (!confirm('Восстановить стрик за 50 🪙?')) return
+    if (!confirm('Восстановить стрик за 50 кредитов?')) return
     
     // Немедленно блокируем кнопку
     setRestoringStreakIds(prev => new Set([...prev, id]))

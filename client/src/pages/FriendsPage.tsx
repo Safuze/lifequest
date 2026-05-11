@@ -2,9 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import apiClient from '../api/client'
 import { Search, UserPlus, Check, X, Users, Trophy, UserMinus } from 'lucide-react'
-
-const LEVEL_NAMES = ['Новичок', 'Ученик', 'Практик', 'Эксперт', 'Мастер', 'Легенда']
-const LEVEL_COLORS = ['#64748b', '#22c55e', '#4f46e5', '#f59e0b', '#ef4444', '#a855f7']
+import { LEVEL_NAMES, LEVEL_COLORS } from '../data/levelData'
 
 interface Friend {
   id: number

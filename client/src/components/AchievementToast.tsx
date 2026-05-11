@@ -21,9 +21,8 @@ interface AchievementToastProps {
 }
 
 export default function AchievementToast({ achievements, onDismiss }: AchievementToastProps) {
-  const [visible, setVisible] = useState(true)
   const ach = achievements[0]
-  if (!ach || !visible) return null
+  if (!ach) return null
 
   const color = RARITY_COLORS[ach.rarity] || '#4f46e5'
 
@@ -53,7 +52,7 @@ export default function AchievementToast({ achievements, onDismiss }: Achievemen
         <p style={{ color }} className="font-bold text-base">{ach.title}</p>
         <p className="text-slate-400 text-xs mt-0.5">{ach.description}</p>
       </div>
-      <button onClick={() => { setVisible(false); onDismiss() }} className="text-slate-500 hover:text-white shrink-0">
+      <button onClick={onDismiss} className="text-slate-500 hover:text-white shrink-0">
         ✕
       </button>
 

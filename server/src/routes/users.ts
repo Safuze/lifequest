@@ -7,7 +7,7 @@ import bcrypt from 'bcryptjs'
 import { Hash } from 'node:crypto'
 import { createNotification } from './notifications'
 import { checkAchievementsForUser } from '../services/achievementService'
-
+import { LEVEL_NAMES, LEVEL_XP } from '../services/levelService'
 
 const router = Router()
 router.use(authMiddleware)
@@ -318,9 +318,6 @@ router.get('/profile', async (req: AuthRequest, res: Response) => {
     const goldNorm = period === 'day' ? 50 : period === 'week' ? 200 : 800
     const radarGold = Math.min(Math.round((earnedGold / goldNorm) * 100), 100)
 
-    const LEVEL_XP = [0, 1000, 3000, 6000, 10000, 15000]
-    const LEVEL_NAMES = ['Новичок', 'Ученик', 'Практик', 'Эксперт', 'Мастер', 'Легенда']
-
     let level = 0
     for (let i = LEVEL_XP.length - 1; i >= 0; i--) {
       if (user.xp >= LEVEL_XP[i]) {
@@ -329,7 +326,7 @@ router.get('/profile', async (req: AuthRequest, res: Response) => {
       }
     }
 
-    const nextLevelXp = LEVEL_XP[level + 1] || LEVEL_XP[level] + 5000
+    const nextLevelXp = LEVEL_XP[level + 1] || LEVEL_XP[level] + 10000
     const prevLevelXp = LEVEL_XP[level]
     const xpProgress = Math.round(((user.xp - prevLevelXp) / (nextLevelXp - prevLevelXp)) * 100)
 
@@ -410,7 +407,6 @@ router.get('/leaderboard', async (req: AuthRequest, res: Response) => {
       })
     }
 
-    const LEVEL_NAMES = ['Новичок', 'Ученик', 'Практик', 'Эксперт', 'Мастер', 'Легенда']
     const leaderboard = usersList.map((u, i) => ({
       rank: i + 1,
       id: u.id,

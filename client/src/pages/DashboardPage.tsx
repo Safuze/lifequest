@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth'
 import apiClient from '../api/client'
 import { tasksApi } from '../api/tasks'
 import { Play, Target, Flame, Clock, CheckSquare, TrendingUp, ChevronRight, Star } from 'lucide-react'
+import { LEVEL_NAMES, LEVEL_XP } from '../data/levelData'
 
 const PRIORITY_CONFIG = {
   low:      { label: 'Низкий',      color: '#22c55e', bg: 'rgba(34,197,94,0.15)'    },
@@ -12,20 +13,15 @@ const PRIORITY_CONFIG = {
   critical: { label: 'Критический', color: '#a855f7', bg: 'rgba(168,85,247,0.15)'   },
 }
 
-const LEVEL_NAMES = [
-  'Новичок', 'Ученик', 'Практик', 'Эксперт', 'Мастер', 'Легенда'
-]
-const LEVEL_XP = [0, 1000, 3000, 6000, 10000, 15000]
-
 function getLevelProgress(xp: number) {
   let level = 0
   for (let i = LEVEL_XP.length - 1; i >= 0; i--) {
     if (xp >= LEVEL_XP[i]) { level = i; break }
   }
   const currentLevelXp = LEVEL_XP[level]
-  const nextLevelXp = LEVEL_XP[level + 1] || LEVEL_XP[level] + 5000
+  const nextLevelXp = LEVEL_XP[level + 1] || LEVEL_XP[level] + 10000
   const progress = ((xp - currentLevelXp) / (nextLevelXp - currentLevelXp)) * 100
-  return { level, levelName: LEVEL_NAMES[level] || 'Легенда', progress: Math.min(progress, 100), nextLevelXp, currentLevelXp }
+  return { level, levelName: LEVEL_NAMES[level] || 'Грандмастер', progress: Math.min(progress, 100), nextLevelXp, currentLevelXp }
 }
 
 function formatDuration(startDate: string): string {
@@ -59,7 +55,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const h = new Date().getHours()
-    if (h < 12) setGreeting('Доброе утро')
+    if (h > 4 && h < 12) setGreeting('Доброе утро')
     else if (h < 17) setGreeting('Добрый день')
     else setGreeting('Добрый вечер')
 
@@ -102,7 +98,7 @@ export default function DashboardPage() {
       {/* Приветствие */}
       <div>
         <h1 className="text-2xl font-bold text-white">
-          {greeting}, {data.user.name}! 👋
+          {greeting}, {data.user.name}! 
         </h1>
         <p className="text-slate-400 text-sm mt-1">
           {new Date().toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })}
@@ -169,7 +165,7 @@ export default function DashboardPage() {
           </div>
           <div className="flex items-center gap-3 text-sm">
             <span className="text-indigo-400 font-medium">{data.user.xp} XP</span>
-            <span className="text-yellow-400 font-medium">{Number(data.user.gold).toFixed(1)} 🪙</span>
+            <span className="text-yellow-400 font-medium">{Number(data.user.gold).toFixed(1).replace(/\.0$/, '')} Credits</span>
           </div>
         </div>
         <div className="h-2.5 bg-slate-700 rounded-full overflow-hidden">
@@ -214,7 +210,7 @@ export default function DashboardPage() {
                     {data.focusTask.title}
                   </p>
                   {data.focusTask.goal && (
-                    <p className="text-slate-500 text-xs mt-1">🎯 {data.focusTask.goal.title}</p>
+                    <p className="text-slate-500 text-xs mt-1">{data.focusTask.goal.title}</p>
                   )}
                 </div>
               </div>
@@ -360,7 +356,7 @@ export default function DashboardPage() {
                       </span>
                     </div>
                     {task.goal && (
-                      <p className="text-xs text-slate-500 mt-0.5">🎯 {task.goal.title}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">{task.goal.title}</p>
                     )}
                   </div>
 
@@ -407,7 +403,7 @@ export default function DashboardPage() {
                 </div>
                 {goal.deadline && (
                   <span className="text-xs text-slate-400 shrink-0">
-                    📅 {new Date(goal.deadline).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}
+                    ДО {new Date(goal.deadline).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}
                   </span>
                 )}
               </div>

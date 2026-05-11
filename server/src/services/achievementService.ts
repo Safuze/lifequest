@@ -37,17 +37,22 @@ const ACHIEVEMENTS: AchievementDef[] = [
   { type: 'friend_100',  title: 'Легенда сети',     description: '100 друзей',                 icon: '🌐', rarity: 'legendary' },
 
   // Золото
-  { type: 'gold_500',    title: 'Богатей',          description: 'Накоплено 500 монет',        icon: '🪙', rarity: 'rare'      },
-  { type: 'gold_2000',   title: 'Казначей',         description: 'Накоплено 2000 монет',       icon: '💰', rarity: 'epic'      },
-  { type: 'gold_10000',  title: 'Меценат',           description: 'Накоплено 10000 монет за всё время', icon: '💎', rarity: 'epic',      },
-  { type: 'gold_25000',  title: 'Ротшильд',          description: 'Накоплено 25000 монет за всё время', icon: '🏦', rarity: 'legendary', },
+  { type: 'gold_500',    title: 'Богатей',          description: 'Накоплено 500 кредитов за всё время',        icon: '🪙', rarity: 'rare'      },
+  { type: 'gold_2000',   title: 'Казначей',         description: 'Накоплено 2000 кредитов за всё время',       icon: '💰', rarity: 'epic'      },
+  { type: 'gold_10000',  title: 'Меценат',           description: 'Накоплено 10000 кредитов за всё время', icon: '💎', rarity: 'epic',      },
+  { type: 'gold_25000',  title: 'Ротшильд',          description: 'Накоплено 25000 кредитов за всё время', icon: '🏦', rarity: 'legendary', },
 
   // Уровни
-  { type: 'level_2',     title: 'Ученик',           description: 'Достигнут уровень Ученик',   icon: '📗', rarity: 'common'    },
-  { type: 'level_3',     title: 'Практик',          description: 'Достигнут уровень Практик',  icon: '📘', rarity: 'common'      },
-  { type: 'level_4',     title: 'Эксперт',          description: 'Достигнут уровень Эксперт',  icon: '📙', rarity: 'rare'      },
-  { type: 'level_5',     title: 'Мастер',           description: 'Достигнут уровень Мастер',   icon: '📕', rarity: 'epic'      },
-  { type: 'level_6',     title: 'Легенда',          description: 'Достигнут уровень Легенда',  icon: '🌟', rarity: 'legendary' },
+  { type: 'level_2',     title: 'Бронза II',           description: 'Достигнут уровень Бронза II',   icon: '🔶🔶', rarity: 'common'    },
+  { type: 'level_3',     title: 'Серебро I',          description: 'Достигнут уровень Серебро I',  icon: '⚪', rarity: 'common'      },
+  { type: 'level_4',     title: 'Серебро II',          description: 'Достигнут уровень Серебро II',  icon: '⚪⚪', rarity: 'common'      },
+  { type: 'level_5',     title: 'Золото I',           description: 'Достигнут уровень Золото I',   icon: '🟡', rarity: 'rare'      },
+  { type: 'level_6',     title: 'Золото II',          description: 'Достигнут уровень Золото II',  icon: '🟡🟡', rarity: 'rare' },
+  { type: 'level_7',     title: 'Платина I',           description: 'Достигнут уровень Платина I',   icon: '🪨', rarity: 'rare'    },
+  { type: 'level_8',     title: 'Платина II',          description: 'Достигнут уровень Платина II',  icon: '🪨🪨', rarity: 'epic'      },
+  { type: 'level_9',     title: 'Алмаз I',          description: 'Достигнут уровень Алмаз I',  icon: '💎', rarity: 'epic'      },
+  { type: 'level_10',     title: 'Алмаз II',           description: 'Достигнут уровень Алмаз II',   icon: '💎💎', rarity: 'epic'      },
+  { type: 'level_11',     title: 'Грандмастер',          description: 'Достигнут уровень Грандмастер',  icon: '⚜️', rarity: 'legendary' },
 
   // Цели
   { type: 'goal_first',  title: 'Целеустремлённый', description: 'Первая завершённая цель',    icon: '🎯', rarity: 'common'    },
@@ -112,6 +117,11 @@ export async function checkAndAwardAchievements(
     { type: 'level_4',     condition: (context.currentLevel ?? 0) >= 3 },
     { type: 'level_5',     condition: (context.currentLevel ?? 0) >= 4 },
     { type: 'level_6',     condition: (context.currentLevel ?? 0) >= 5 },
+    { type: 'level_7',     condition: (context.currentLevel ?? 0) >= 6 },
+    { type: 'level_8',     condition: (context.currentLevel ?? 0) >= 7 },
+    { type: 'level_9',     condition: (context.currentLevel ?? 0) >= 8 },
+    { type: 'level_10',     condition: (context.currentLevel ?? 0) >= 9 },
+    { type: 'level_11',     condition: (context.currentLevel ?? 0) >= 10 },
 
     // Цели
     { type: 'goal_first',  condition: (context.goalsCompleted ?? 0) >= 1 },

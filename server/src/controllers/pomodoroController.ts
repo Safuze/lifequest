@@ -58,15 +58,35 @@ export const startSession = async (req: AuthRequest, res: Response) => {
 
     if (taskId) {
       const task = await prisma.task.findFirst({
-        where: { id: taskId, userId: req.userId! }
+        where: {
+          id: taskId,
+          userId: req.userId!,
+        },
+        select: {
+          id: true,
+          status: true,
+        }
       })
-      if (!task) { res.status(404).json({ error: 'Задача не найдена' }); return }
+
+      if (!task) {
+        res.status(404).json({ error: 'Задача не найдена' })
+        return
+      }
+
+      if (task.status === 'done') {
+        res.status(400).json({
+          error: 'Нельзя запускать Pomodoro для выполненной задачи'
+        })
+        return
+      }
     }
 
     await prisma.pomodoroSession.updateMany({
       where: { userId: req.userId!, status: 'active' },
       data: { status: 'cancelled' }
     })
+
+    
 
     let resolvedGoalId = goalId || null
     if (taskId && !resolvedGoalId) {
@@ -108,17 +128,8 @@ export const completeSession = async (req: AuthRequest, res: Response) => {
       return
     }
 
-    await prisma.pomodoroSession.update({
-      where: { id: sessionId },
-      data: {
-        status: actualDuration > 0 ? 'completed' : 'cancelled',
-        actualDuration,
-        completedAt: new Date(),
-      }
-    })
-
     // Сброс — ничего не начисляем
-    if (!actualDuration || actualDuration < 5) {
+    if (!actualDuration || actualDuration <= 0) {
       res.json({ session, reward: { xp: 0, gold: 0 }, cycleBonus: false, achievements: [], levelUp: null })
       return
     }
@@ -151,6 +162,19 @@ export const completeSession = async (req: AuthRequest, res: Response) => {
       hasFocusBonus,
     })
 
+    await prisma.pomodoroSession.update({
+      where: { id: sessionId },
+      data: {
+        status: actualDuration > 0 ? 'completed' : 'cancelled',
+        actualDuration,
+        completedAt: new Date(),
+
+        // сохраняем реальные награды сессии
+        earnedXp: boostedSessionXp,
+        earnedGold: boostedSessionGold,
+      }
+    })
+
     // Проверяем завершение цикла
     const settings = await prisma.pomodoroSettings.findUnique({
       where: { userId: req.userId! }
@@ -177,36 +201,40 @@ export const completeSession = async (req: AuthRequest, res: Response) => {
     if (isNewCycleCompleted) {
       // Алгоритм: бонус = сумма XP всех сессий текущего цикла / 4
       // Берём XP последних cyclesBeforeLong сессий из RewardTransaction
-      const cycleRewards = await prisma.rewardTransaction.findMany({
-        where: {
-          userId: req.userId!,
-          sourceType: 'pomodoro',
-          createdAt: { gte: todayStart },
-        },
-        orderBy: { createdAt: 'desc' },
-        // Берём только сессии текущего цикла
-        // Каждая сессия = 2 записи (xp + gold), берём cyclesBeforeLong * 2
-        // Но текущая сессия ещё не записана → берём (cyclesBeforeLong - 1) * 2 + текущая
-        take: (cyclesBeforeLong - 1) * 2,
-      })
+      const recentSessions = await prisma.pomodoroSession.findMany({
+  where: {
+    userId: req.userId!,
+    status: 'completed',
+    completedAt: { gte: todayStart },
+  },
+  orderBy: {
+    completedAt: 'desc'
+  },
 
-      const prevCycleXp = cycleRewards
-        .filter(r => r.rewardType === 'xp')
-        .reduce((sum, r) => sum + r.amount, 0)
+  // текущая сессия уже сохранена,
+  // поэтому берём весь цикл
+  take: cyclesBeforeLong,
+        })
 
-      const prevCycleGold = cycleRewards
-        .filter(r => r.rewardType === 'gold')
-        .reduce((sum, r) => sum + r.amount, 0)
+        const totalCycleXp = recentSessions.reduce(
+          (sum, s) => sum + s.earnedXp,
+          0
+        )
 
+        const totalCycleGold = recentSessions.reduce(
+          (sum, s) => sum + s.earnedGold,
+          0
+        )
 
-      
-      // Суммируем с текущей сессией
-      const totalCycleXp = prevCycleXp + boostedSessionXp
-      const totalCycleGold = prevCycleGold + boostedSessionGold
+        cycleBonusXp = Math.max(
+          1,
+          Math.round(totalCycleXp / 4)
+        )
 
-      // Делим на 4 (всегда на 4, как описано в алгоритме)
-      cycleBonusXp = Math.max(1, Math.round(totalCycleXp / 4))
-      cycleBonusGold = Math.max(0.1, totalCycleGold / 4)
+        cycleBonusGold = Math.max(
+          0.1,
+          totalCycleGold / 4
+        )
     }
 
     

@@ -5,9 +5,8 @@ import { useAuth } from '../hooks/useAuth'
 import { Search, UserPlus, Check, X, Trophy, Users, Crown } from 'lucide-react'
 import { getAvatarBorderStyle, getAvatarBorderClass } from '../utils/avatar'
 import { PETS_EMOJIS } from '../data/petsClient'
+import { LEVEL_NAMES, LEVEL_COLORS } from '../data/levelData'
 
-const LEVEL_NAMES = ['Новичок', 'Ученик', 'Практик', 'Эксперт', 'Мастер', 'Легенда']
-const LEVEL_COLORS = ['#64748b', '#22c55e', '#4f46e5', '#f59e0b', '#ef4444', '#a855f7']
 
 interface LeaderboardEntry {
   rank: number

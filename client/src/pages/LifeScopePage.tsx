@@ -185,7 +185,7 @@ export default function LifeScopePage() {
             </div>
           </div>
           <div>
-            <p className="text-slate-400 text-xs mb-1">Золото 🪙</p>
+            <p className="text-slate-400 text-xs mb-1">Кредиты</p>
             <div className="flex items-center gap-2">
               <span className="text-white font-semibold">{report.weekGold}</span>
               <DeltaBadge delta={report.goldDelta} />

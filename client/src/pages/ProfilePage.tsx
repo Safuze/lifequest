@@ -3,11 +3,11 @@ import apiClient from '../api/client'
 import { Trophy, Clock, CheckSquare, Flame, TrendingUp, Star, Package } from 'lucide-react'
 import { AchievementGrid } from '../components/AchievementGrid'
 import { getAvatarBorderStyle, getAvatarBorderClass, getProfileBgStyle } from '../utils/avatar'
+import { InventoryCard } from '../components/InventoryCard'
 import { PETS_EMOJIS } from '../data/petsClient'
 type Period = 'day' | 'week' | 'month'
+import { LEVEL_NAMES, LEVEL_COLORS } from '../data/levelData'
 
-const LEVEL_NAMES = ['Новичок', 'Ученик', 'Практик', 'Эксперт', 'Мастер', 'Легенда']
-const LEVEL_COLORS = ['#64748b', '#22c55e', '#4f46e5', '#f59e0b', '#ef4444', '#a855f7']
 interface ProfileAchievement {
   id: number
   type: string
@@ -342,69 +342,110 @@ export default function ProfilePage() {
         <AchievementGrid earned={achievements} showLocked={true} />
       )}
 
-      {activeTab === 'inventory' && (
-         <div className="space-y-4">
+      {/* Коллекции */}
+      {(() => {
+        const pets = inventory.filter((i: any) => i.itemType === 'pet')
+
+        const pomodoroItems = inventory.filter((i: any) =>
+          ['timer', 'background', 'sound'].includes(i.itemType)
+        )
+
+        const profileItems = inventory.filter((i: any) =>
+          ['avatar_border', 'profile_bg'].includes(i.itemType)
+        )
+
+        const sections = [
+          {
+            key: 'profile',
+            title: '👤 Оформление профиля',
+            items: profileItems,
+          },
+          {
+            key: 'pomodoro',
+            title: '⏱ Оформление Pomodoro',
+            items: pomodoroItems,
+          },
+        ].filter(section => section.items.length > 0)
+
+        return (
+          <div className="space-y-5">
+
             {/* Питомцы */}
-            <div className="rounded-2xl p-4" style={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}>
-              <h3 className="text-white font-medium mb-3">🐾 Питомцы</h3>
-              {inventory.filter(i => i.itemType === 'pet').length === 0 ? (
+            <div
+              className="rounded-2xl p-4"
+              style={{
+                backgroundColor: '#1e293b',
+                border: '1px solid #334155',
+              }}
+            >
+              <h3 className="text-white font-medium mb-3 flex items-center gap-2">
+                🐾 Питомцы
+                <span className="text-slate-500 text-sm font-normal">
+                  ({pets.length})
+                </span>
+              </h3>
+
+              {pets.length === 0 ? (
                 <div className="text-center py-6">
-                  <p className="text-5xl mb-2">🔒</p>
-                  <p className="text-slate-400 text-sm">Нет питомцев. Купи первого в магазине!</p>
+                  <p className="text-3xl mb-2">🔒</p>
+                  <p className="text-slate-400 text-sm">Нет питомцев</p>
+                  <p className="text-slate-600 text-xs mt-1">
+                    Купи первого в магазине
+                  </p>
                 </div>
               ) : (
                 <div className="grid grid-cols-3 gap-3">
-                  {inventory.filter(i => i.itemType === 'pet').map((item: any) => {
-                    const emoji = PETS_EMOJIS[item.name] || '❓'
-                    const isActive = user.activePetId === item.name
-                    const rarityColors: Record<string, string> = {
-                      common: '#22c55e', rare: '#4f46e5', epic: '#a855f7', legendary: '#f59e0b'
-                    }
-                    const color = rarityColors[item.rarity] || '#4f46e5'
-                    return (
-                      <div key={item.name}
-                        className="p-3 rounded-xl text-center transition-all"
-                        style={{
-                          backgroundColor: '#0f172a',
-                          border: isActive ? `2px solid ${color}` : `1px solid ${color}30`,
-                          boxShadow: isActive ? `0 0 16px ${color}40` : 'none',
-                        }}>
-                        <div className="text-3xl mb-1">{emoji}</div>
-                        {isActive && <div className="text-xs font-medium" style={{ color }}>★ Активен</div>}
-                      </div>
-                    )
-                  })}
+                  {pets.map((item: any) => (
+                    <InventoryCard key={item.name} item={item} />
+                  ))}
                 </div>
               )}
             </div>
 
-            {/* Косметика — обводки и фоны */}
-            {inventory.filter(i => i.itemType !== 'pet').length > 0 && (
-              <div className="rounded-2xl p-4" style={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}>
-                <h3 className="text-white font-medium mb-3">🎨 Косметика</h3>
-                <div className="grid grid-cols-2 gap-2">
-                  {inventory.filter(i => i.itemType !== 'pet').map((item: any, idx: number) => {
-                    const typeIcon = item.itemType === 'avatar_border' ? '🖼' : item.itemType === 'profile_bg' ? '🎨' : '⏰'
-                    const rarityColors: Record<string, string> = {
-                      common: '#22c55e', rare: '#4f46e5', epic: '#a855f7', legendary: '#f59e0b'
-                    }
-                    const color = rarityColors[item.rarity] || '#4f46e5'
-                    return (
-                      <div key={idx} className="p-3 rounded-xl"
-                        style={{ backgroundColor: '#0f172a', border: `1px solid ${color}30` }}>
-                        <div className="text-xl mb-1">{typeIcon}</div>
-                        <p className="text-white text-xs font-medium">{item.name}</p>
-                        <span className="text-xs" style={{ color }}>
-                          {item.rarity === 'epic' ? '⚡ Эпик' : item.rarity === 'rare' ? '💎 Редкий' : item.rarity === 'legendary' ? '👑 Легенда' : '✨ Обычный'}
-                        </span>
-                      </div>
-                    )
-                  })}
-                </div>
+            {/* Остальные коллекции */}
+            {sections.length === 0 ? (
+              <div
+                className="rounded-2xl p-8 text-center"
+                style={{
+                  backgroundColor: '#1e293b',
+                  border: '1px solid #334155',
+                }}
+              >
+                <p className="text-3xl mb-2">🎒</p>
+                <p className="text-slate-400 text-sm">
+                  Косметика не куплена
+                </p>
               </div>
+            ) : (
+              sections.map(section => (
+                <div
+                  key={section.key}
+                  className="rounded-2xl p-4"
+                  style={{
+                    backgroundColor: '#1e293b',
+                    border: '1px solid #334155',
+                  }}
+                >
+                  <h3 className="text-white font-medium mb-3 flex items-center gap-2">
+                    {section.title}
+                    <span className="text-slate-500 text-sm font-normal">
+                      ({section.items.length})
+                    </span>
+                  </h3>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    {section.items.map((item: any) => (
+                      <InventoryCard key={item.name} item={item} />
+                    ))}
+                  </div>
+                </div>
+              ))
             )}
           </div>
-      )}
+        )
+      })()}
+
+      
     </div>
   </div>
   )
