@@ -122,6 +122,8 @@ model PomodoroSession {
   cycleNumber     Int       @default(1)
   startedAt       DateTime  @default(now())
   completedAt     DateTime?
+  earnedXp        Int   @default(0)
+  earnedGold      Float @default(0)
 
   user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   task            Task?     @relation(fields: [taskId], references: [id], onDelete: Cascade)

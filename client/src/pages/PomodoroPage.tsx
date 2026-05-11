@@ -693,6 +693,13 @@ export default function PomodoroPage() {
   }
 
   const handlePause = () => timerService.pause()
+    const handleFinish = async () => {
+    try {
+      await timerService.finishEarly()
+    } catch (err) {
+      console.error('Finish session error:', err)
+    }
+  }
   const handleReset = () => timerService.reset()
   const handleModeChange = (m: TimerMode) => {
     if (pomodoroSettings) timerService.changeMode(m, pomodoroSettings)
@@ -813,18 +820,51 @@ export default function PomodoroPage() {
           </button>
 
           {/* Управление */}
-          <div className="flex items-center justify-center gap-6">
-            <button onClick={handleReset}
+          <div className="flex items-center justify-center gap-4">
+            {/* Сброс */}
+            <button
+              onClick={handleReset}
               className="w-12 h-12 rounded-full flex items-center justify-center transition-all hover:scale-105"
-              style={{ backgroundColor: 'rgba(30,41,59,0.9)', border: '1px solid #334155', color: '#94a3b8' }}>
+              style={{
+                backgroundColor: 'rgba(30,41,59,0.9)',
+                border: '1px solid #334155',
+                color: '#94a3b8'
+              }}
+            >
               <RotateCcw size={18} />
             </button>
-            <button onClick={isRunning ? handlePause : handleStart}
+
+            {/* Старт / пауза */}
+            <button
+              onClick={isRunning ? handlePause : handleStart}
               className="w-20 h-20 rounded-full flex items-center justify-center text-white transition-all hover:scale-105 active:scale-95"
-              style={{ backgroundColor: '#4f46e5', boxShadow: isRunning ? '0 0 40px rgba(79,70,229,0.6)' : '0 0 20px rgba(79,70,229,0.3)' }}>
-              {isRunning ? <Pause size={28} /> : <Play size={28} className="ml-1" />}
+              style={{
+                backgroundColor: '#4f46e5',
+                boxShadow: isRunning
+                  ? '0 0 40px rgba(79,70,229,0.6)'
+                  : '0 0 20px rgba(79,70,229,0.3)'
+              }}
+            >
+              {isRunning
+                ? <Pause size={28} />
+                : <Play size={28} className="ml-1" />}
             </button>
-            <div className="w-12 h-12" />
+
+            {/* Досрочное завершение */}
+            <button
+              onClick={handleFinish}
+              disabled={!sessionId}
+              className="px-4 h-12 rounded-xl text-sm font-medium transition-all"
+              style={{
+                backgroundColor: sessionId ? 'rgba(30,41,59,0.9)' : '#334155',
+                color: sessionId ? '#fff' : '#64748b',
+                opacity: sessionId ? 1 : 0.6,
+                cursor: sessionId ? 'pointer' : 'not-allowed',
+                border: '1px solid rgba(255,255,255,0.06)'
+              }}
+            >
+              Завершить
+            </button>
           </div>
 
           {autoSwitch && (

@@ -286,6 +286,8 @@ class TimerService {
         const result = await pomodoroApi.completeSession(sid, durMin)
         store.setLastReward(result.reward)
         if (result.achievements?.length || result.levelUp) {
+          console.log('LEVEL UP:', result.levelUp)
+          console.log('ACHIEVEMENTS:', result.achievements)
           dispatchRewards(result.achievements, result.levelUp)
         }
         if (result.achievements && result.achievements.length > 0) {
@@ -408,6 +410,87 @@ class TimerService {
           }
         }, 1200)
       }
+    }
+  }
+
+  async finishEarly() {
+    const store = useTimerStore.getState()
+    const saved = load()
+
+    const sid = saved.sessionId ?? store.sessionId
+
+    if (!sid) return
+
+    try {
+      this.stopTick()
+      audioService.pause()
+
+      // Сколько минут реально прошло
+      const elapsedSeconds =
+        (saved.modeDuration || store.modeDuration) - store.timeLeft
+
+      const actualMinutes = Math.floor(elapsedSeconds / 60)
+
+      // Меньше минуты — просто сброс
+      if (actualMinutes <= 0) {
+        await this.reset()
+        return
+      }
+
+      const result = await pomodoroApi.completeSession(
+        sid,
+        actualMinutes
+      )
+
+      store.setLastReward(result.reward)
+
+      if (result.achievements?.length || result.levelUp) {
+        dispatchRewards(result.achievements, result.levelUp)
+      }
+
+      if (result.achievements && result.achievements.length > 0) {
+        window.dispatchEvent(
+          new CustomEvent('achievements', {
+            detail: { achievements: result.achievements }
+          })
+        )
+      }
+
+      this.loadUserFn?.()
+
+      // Обновляем статистику
+      const statsData = await pomodoroApi.getTodayStats()
+
+      store.setTodayStats(
+        statsData.totalMinutes,
+        statsData.sessionsCount,
+        statsData.completedCycles
+      )
+
+      // Полностью очищаем текущую сессию
+      store.setSessionId(null)
+      store.setIsRunning(false)
+      store.setActiveSecondsToday(0)
+
+      // Переводим в shortBreak
+      const nextMode: TimerMode = 'shortBreak'
+      const nextDurSec = this.getDur(nextMode) * 60
+
+      store.setMode(nextMode)
+      store.setTimeLeft(nextDurSec)
+      store.setModeDuration(nextDurSec)
+
+      save({
+        mode: nextMode,
+        isRunning: false,
+        sessionId: null,
+        endEpoch: 0,
+        pausedTimeLeft: nextDurSec,
+        modeDuration: nextDurSec,
+        sessionCount: store.sessionCount + 1,
+      })
+    } catch (err) {
+      console.error('finishEarly error:', err)
     }
   }
 

@@ -327,8 +327,12 @@ export const updateTask = async (req: AuthRequest, res: Response) => {
     }
     
     const newAchievements = await checkAchievementsForUser(req.userId!)
-    if (req.body.status !== 'done' && existing.status === 'done') {
-      updateData.completedAt = null
+    
+    if (existing.status === 'done' && req.body.status && req.body.status !== 'done') {
+      res.status(400).json({
+        error: 'Нельзя изменить статус выполненной задачи'
+      })
+      return
     }
 
     if (req.body.isFocusToday === true) {

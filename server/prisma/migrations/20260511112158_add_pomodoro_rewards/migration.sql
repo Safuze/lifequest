@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "PomodoroSession" ADD COLUMN     "earnedGold" DOUBLE PRECISION NOT NULL DEFAULT 0,
+ADD COLUMN     "earnedXp" INTEGER NOT NULL DEFAULT 0;

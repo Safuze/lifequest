@@ -5,6 +5,7 @@ import apiClient from '../../api/client'
 import AchievementToast from '../AchievementToast'
 import { RewardModalManager } from '../RewardModal'
 import { getAvatarBorderStyle, getAvatarBorderClass } from '../../utils/avatar'
+import { LEVEL_XP } from '../../data/levelData'
 import {
   LayoutDashboard,
   Target,
@@ -159,7 +160,7 @@ export default function Layout() {
   const [showNotifications, setShowNotifications] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
   const [pendingAchievements, setPendingAchievements] = useState<any[]>([])
-  const LEVEL_XP = [0, 1000, 3000, 6000, 10000, 15000]
+
 
   function getXpProgress(xp: number) {
     let level = 0
@@ -171,7 +172,7 @@ export default function Layout() {
       }
     }
 
-    const nextLevelXp = LEVEL_XP[level + 1] || LEVEL_XP[level] + 5000
+    const nextLevelXp = LEVEL_XP[level + 1] || LEVEL_XP[level] + 10000
     const prevLevelXp = LEVEL_XP[level]
 
     return Math.round(((xp - prevLevelXp) / (nextLevelXp - prevLevelXp)) * 100)
@@ -314,7 +315,7 @@ export default function Layout() {
 
             {/* Золото */}
             <div className="hidden sm:flex items-center gap-1.5">
-              <span className="text-yellow-400 text-sm">🪙</span>
+              <span className="text-yellow-400 text-sm">Credits: </span>
               <span className="text-yellow-400 text-sm font-medium">{Number(user?.gold).toFixed(1).replace(/\.0$/, '')}</span>
             </div>
 

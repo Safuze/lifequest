@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-
+import { LEVEL_ICONS, LEVEL_COLORS } from '../data/levelData'
 interface AchievementItem {
   type: string
   title: string
@@ -31,7 +31,6 @@ const RARITY_LABELS: Record<string, string> = {
   legendary: 'Легендарное',
 }
 
-const LEVEL_COLORS = ['#64748b', '#22c55e', '#4f46e5', '#f59e0b', '#ef4444', '#a855f7']
 
 interface RewardModalProps {
   queue: ModalItem[]
@@ -105,7 +104,6 @@ function AchievementModal({ item, onClose }: { item: AchievementItem; onClose: (
 function LevelUpModal({ item, onClose }: { item: LevelUpItem; onClose: () => void }) {
   const color = LEVEL_COLORS[Math.min(item.level, LEVEL_COLORS.length - 1)]
 
-  const LEVEL_ICONS = ['🌱', '📗', '📘', '📙', '📕', '🌟']
   const icon = LEVEL_ICONS[Math.min(item.level, LEVEL_ICONS.length - 1)]
 
   return (
@@ -124,7 +122,6 @@ function LevelUpModal({ item, onClose }: { item: LevelUpItem; onClose: () => voi
 
         <div className="absolute top-4 left-1/2 -translate-x-1/2 text-sm"
           style={{ color, opacity: 0.7 }}>
-          ★ ★ ★
         </div>
 
         <div className="relative">
@@ -148,7 +145,7 @@ function LevelUpModal({ item, onClose }: { item: LevelUpItem; onClose: () => voi
             onClick={onClose}
             className="w-full py-3 rounded-xl text-white font-semibold transition-all hover:opacity-90 active:scale-95"
             style={{ backgroundColor: color }}>
-            Вперёд! 🚀
+            Продолжить
           </button>
         </div>
       </div>
@@ -175,8 +172,9 @@ export function RewardModalManager() {
     if (levelUp) {
       items.push({ kind: 'levelup', data: levelUp })
     }
-    if (achievements?.length) {
-      achievements.forEach((a: AchievementItem) => {
+    const filteredAchievements = (achievements || []).filter((a: AchievementItem) => a.type !== 'level_up')
+    if (filteredAchievements.length) {
+      filteredAchievements.forEach((a: AchievementItem) => {
         items.push({ kind: 'achievement', data: a })
       })
     }

@@ -260,14 +260,15 @@ export const logHabit = async (req: AuthRequest, res: Response) => {
       const yesterdayLog = await prisma.habitLog.findFirst({
         where: { habitId, date: { gte: yesterdayStart, lte: yesterdayEnd } }
       })
-
+      const todayStart = startOfDay(new Date())
+      const todayEnd = endOfDay(new Date())
       // Проверяем было ли восстановление вчера (тогда стрик не прерван)
-      const restoredYesterday = habit.streakRestoredAt
-        ? new Date(habit.streakRestoredAt) >= yesterdayStart && new Date(habit.streakRestoredAt) <= yesterdayEnd
+      const restoredToday = habit.streakRestoredAt
+        ? new Date(habit.streakRestoredAt) >= today &&
+          new Date(habit.streakRestoredAt) <= todayEnd
         : false
 
-      const hadValidYesterday =
-        !!yesterdayLog || restoredYesterday
+      const hadValidYesterday = !!yesterdayLog || restoredToday
 
       if (!hadValidYesterday) {
         newStreak = 1
