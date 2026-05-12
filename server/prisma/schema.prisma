@@ -46,6 +46,7 @@ model User {
   notifications Notification[]
   activeBoosters  ActiveBooster[]
   permanentPerks  PermanentPerk[]
+  challenges      UserChallenge[]
 }
 
 model Goal {
@@ -319,4 +320,38 @@ model PermanentPerk {
 
   @@unique([userId, type]) // один перк каждого типа на пользователя
   @@index([userId])
+}
+
+model Challenge {
+  id            Int      @id @default(autoincrement())
+  title         String
+  description   String
+  type          String   // 'pomodoro_daily' | 'tasks_daily' | 'habit_streak' | 'combined'
+  targetValue   Int      // целевое значение (например, 240 минут или 5 задач)
+  durationDays  Int      // длительность испытания в днях
+  entryFee      Int      // стоимость участия в кредитах
+  rewardXp      Int
+  rewardCredits Int
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  participants  UserChallenge[]
+}
+
+model UserChallenge {
+  id            Int       @id @default(autoincrement())
+  userId        Int
+  challengeId   Int
+  status        String    @default("active") // 'active' | 'completed' | 'failed'
+  progress      Float     @default(0)        // текущий прогресс (0..100 процент)
+  progressData  Json?     // детальные данные прогресса {dailyLogs: [...]}
+  startedAt     DateTime  @default(now())
+  completedAt   DateTime?
+  expiresAt     DateTime  // startedAt + durationDays
+
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  challenge     Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, challengeId]) // нельзя участвовать дважды в одном испытании
+  @@index([userId, status])
 }

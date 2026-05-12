@@ -14,6 +14,7 @@ import notificationsRouter from './routes/notifications'
 import { PrismaClient } from '@prisma/client'
 import shopRouter from './routes/shop'
 import boostersRouter from './routes/boosters'
+import challengesRouter from './routes/challenges'
 import { cleanExpiredBoosters } from './services/boosterService'
 
 const prisma = new PrismaClient()
@@ -44,6 +45,7 @@ app.use('/api/v1/lifescope', lifescopeRouter)
 app.use('/api/v1/notifications', notificationsRouter)
 app.use('/api/v1/shop', shopRouter)
 app.use('/api/v1/boosters', boostersRouter)
+app.use('/api/v1/challenges', challengesRouter)
 
 // Каждые 5 минут чистим просроченные
 setInterval(async () => {
