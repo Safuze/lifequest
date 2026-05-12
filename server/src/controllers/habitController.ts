@@ -6,6 +6,7 @@ import { startOfDay, endOfDay, startOfWeek, subDays } from 'date-fns'
 import { checkAchievementsForUser } from '../services/achievementService'
 import { getLevelFromXp, getLevelName } from '../services/levelService'
 import { applyBoosters } from '../services/boosterService'
+import { updateUserChallenges } from '../services/challengeService'
 
 export const createHabitSchema = z.object({
   title: z.string().min(1).max(100),
@@ -304,7 +305,6 @@ export const logHabit = async (req: AuthRequest, res: Response) => {
           data: { xp: { increment: xpEarned }, gold: { increment: goldEarned } }
         })
 
-        const LEVEL_XP = [0, 1000, 3000, 6000, 10000, 15000]
         const newLevel = getLevelFromXp(updatedUser.xp)
 
         if (newLevel !== updatedUser.level) {
@@ -375,6 +375,10 @@ export const logHabit = async (req: AuthRequest, res: Response) => {
       achievements: newAchievements,
       levelUp,
     })
+
+    void updateUserChallenges(req.userId!).catch(error => {
+      console.error('updateUserChallenges error:', error)
+    })  
     
   } catch (error) {
     res.status(500).json({ error: 'Внутренняя ошибка сервера' })

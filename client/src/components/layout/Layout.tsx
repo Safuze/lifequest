@@ -19,22 +19,26 @@ import {
   LogOut,
   Bell,
   X,
-  Check,
   ChevronLeft,
   ChevronRight,
-  ShoppingBag
+  ShoppingBag,
+  Swords
 } from 'lucide-react'
 
 const navItems = [
-  { to: '/dashboard',   icon: LayoutDashboard, label: 'Dashboard'    },
-  { to: '/goals',       icon: Target,          label: 'Goals'        },
-  { to: '/tasks',       icon: CheckSquare,     label: 'Tasks'        },
+  { to: '/dashboard',   icon: LayoutDashboard, label: 'Главная'    },
+  { to: '/goals',       icon: Target,          label: 'Цели'        },
+  { to: '/tasks',       icon: CheckSquare,     label: 'Задачи'        },
   { to: '/pomodoro',    icon: Timer,           label: 'Pomodoro'     },
-  { to: '/habits',      icon: Repeat,          label: 'Habits'       },
+  { to: '/habits',      icon: Repeat,          label: 'Привычки'       },
   { to: '/lifescope',   icon: BarChart3,       label: 'LifeScope'    },
   { to: '/leaderboard', icon: Trophy,          label: 'Leaderboard'  },
-  { to: '/friends',     icon: Users,           label: 'Friends'      },
-  { to: '/shop',        icon: ShoppingBag,     label: 'Shop'         },
+  { to: '/friends',     icon: Users,           label: 'Друзья'      },
+  { to: '/challenges',  icon: Swords,     label: 'Испытания'},
+  { to: '/shop',        icon: ShoppingBag,     label: 'Магазин'         },
+  
+
+  
 ]
 
 // Тип уведомления

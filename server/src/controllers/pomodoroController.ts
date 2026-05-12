@@ -5,6 +5,7 @@ import { AuthRequest } from '../middleware/authMiddleware'
 import { checkAchievementsForUser } from '../services/achievementService'
 import { getLevelFromXp, getLevelName } from '../services/levelService'
 import { applyBoosters } from '../services/boosterService'
+import { updateUserChallenges } from '../services/challengeService'
 
 export const settingsSchema = z.object({
   workDuration:     z.number().min(5).max(120).optional(),
@@ -125,7 +126,6 @@ export const completeSession = async (req: AuthRequest, res: Response) => {
 
     if (session.status === 'completed') {
       res.json({ session, reward: { xp: 0, gold: 0 }, cycleBonus: false, achievements: [], levelUp: null })
-      return
     }
 
     // Сброс — ничего не начисляем
@@ -313,6 +313,9 @@ export const completeSession = async (req: AuthRequest, res: Response) => {
       achievements: newAchievements,
       levelUp,
     })
+    void updateUserChallenges(req.userId!).catch(error => {
+      console.error('updateUserChallenges error:', error)
+    })    
   } catch (error) {
     console.error('completeSession error:', error)
     res.status(500).json({ error: 'Внутренняя ошибка сервера' })

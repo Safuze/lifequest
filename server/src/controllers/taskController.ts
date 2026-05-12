@@ -5,6 +5,7 @@ import { AuthRequest } from '../middleware/authMiddleware'
 import { checkAchievementsForUser } from '../services/achievementService'
 import { getLevelFromXp, getLevelName } from '../services/levelService'
 import { applyBoosters } from '../services/boosterService'
+import { updateUserChallenges } from '../services/challengeService'
 
 export const createTaskSchema = z.object({
   title: z.string().min(1).max(200),
@@ -363,6 +364,11 @@ export const updateTask = async (req: AuthRequest, res: Response) => {
       levelUp,
       achievements: newAchievements
     })
+
+    void updateUserChallenges(req.userId!).catch(error => {
+      console.error('updateUserChallenges error:', error)
+    })  
+
   } catch (error) {
     console.error('updateTask error:', error)
     res.status(500).json({ error: 'Внутренняя ошибка сервера' })
