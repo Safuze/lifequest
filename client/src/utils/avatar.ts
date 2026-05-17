@@ -1,3 +1,5 @@
+import { SHOP_ITEMS } from '../../../server/src/data/shopItems'
+
 export type AvatarBorder = string // id из SHOP_ITEMS
 
 // Возвращает CSS border для аватара
@@ -37,15 +39,55 @@ export function getAvatarBorderClass(borderId: string): string {
 }
 
 // Стиль фона профиля
+// export function getProfileBgStyle(bgId: string): React.CSSProperties {
+//   const bgs: Record<string, React.CSSProperties> = {
+//     default:     { backgroundColor: '#0f172a' },
+//     bg_midnight: { background: 'linear-gradient(135deg, #0f0c29, #302b63, #24243e)' },
+//     bg_forest:   { background: 'linear-gradient(135deg, #1a2f1a, #2d4a2d, #0f172a)' },
+//     bg_sunset:   { background: 'linear-gradient(135deg, #f093fb, #f5576c, #4facfe)' },
+//     bg_ocean:    { background: 'linear-gradient(135deg, #43b89c, #0c1a2e, #1a5276)' },
+//     bg_aurora:   { background: 'linear-gradient(135deg, #a8edea, #fed6e3, #d299c2)' },
+//     bg_galaxy:   { background: 'linear-gradient(135deg, #0a0a1a, #1a0a2e, #2d1b69, #0a0a1a)' },
+//   }
+//   return bgs[bgId] || bgs.default
+// }
+
+export function getProfileBgData(bgId: string) {
+  if (!bgId || bgId === 'default') return null
+
+  const item = SHOP_ITEMS.find(
+    i => i.category === 'profile_bg' && i.id === bgId
+  )
+
+  return item?.background || null
+}
+
 export function getProfileBgStyle(bgId: string): React.CSSProperties {
-  const bgs: Record<string, React.CSSProperties> = {
-    default:     { backgroundColor: '#0f172a' },
-    bg_midnight: { background: 'linear-gradient(135deg, #0f0c29, #302b63, #24243e)' },
-    bg_forest:   { background: 'linear-gradient(135deg, #1a2f1a, #2d4a2d, #0f172a)' },
-    bg_sunset:   { background: 'linear-gradient(135deg, #f093fb, #f5576c, #4facfe)' },
-    bg_ocean:    { background: 'linear-gradient(135deg, #43b89c, #0c1a2e, #1a5276)' },
-    bg_aurora:   { background: 'linear-gradient(135deg, #a8edea, #fed6e3, #d299c2)' },
-    bg_galaxy:   { background: 'linear-gradient(135deg, #0a0a1a, #1a0a2e, #2d1b69, #0a0a1a)' },
+  const bg = getProfileBgData(bgId)
+
+  if (!bg) {
+    return {
+      backgroundColor: '#0f172a',
+    }
   }
-  return bgs[bgId] || bgs.default
+
+  if (bg.type === 'gradient') {
+    return {
+      background: bg.value,
+    }
+  }
+
+  if (bg.type === 'image') {
+    return {
+      backgroundImage: `url(${bg.value})`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+      backgroundRepeat: 'no-repeat',
+      backgroundAttachment: 'fixed',
+    }
+  }
+
+  return {
+    backgroundColor: '#0f172a',
+  }
 }

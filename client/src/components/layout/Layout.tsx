@@ -319,7 +319,7 @@ export default function Layout() {
 
             {/* Золото */}
             <div className="hidden sm:flex items-center gap-1.5">
-              <span className="text-yellow-400 text-sm">Credits: </span>
+              <span className="text-yellow-400 text-sm">Баллы: </span>
               <span className="text-yellow-400 text-sm font-medium">{Number(user?.gold).toFixed(1).replace(/\.0$/, '')}</span>
             </div>
 

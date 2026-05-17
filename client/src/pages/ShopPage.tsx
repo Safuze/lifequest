@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import apiClient from '../api/client'
 import { useAuth } from '../hooks/useAuth'
 import { ShoppingBag, Check, Zap } from 'lucide-react'
-
 const RARITY_COLORS: Record<string, string> = {
   common: '#22c55e', rare: '#4f46e5', epic: '#a855f7', legendary: '#f59e0b'
 }
@@ -46,7 +45,6 @@ export default function ShopPage() {
   const [petCatalog, setPetCatalog] = useState<any[]>([])
   const [activatingPet, setActivatingPet] = useState<string | null>(null)
   const [buyingPet, setBuyingPet] = useState<string | null>(null)
-
   useEffect(() => {
     loadCatalog()
 
@@ -147,11 +145,53 @@ export default function ShopPage() {
 
   const filtered = catalog.filter(i => i.category === activeTab)
 
-  const getPreviewStyle = (item: CatalogItem): React.CSSProperties => {
-    if (!item.preview) return {}
-    if (item.preview === 'rainbow') return { background: 'linear-gradient(45deg, #ff0000, #ff7700, #ffff00, #00ff00, #0000ff, #8b00ff)' }
-    if (item.preview.startsWith('#')) return { backgroundColor: item.preview }
-    return { background: item.preview }
+  const getPreviewStyle = (item: any): React.CSSProperties => {
+    if (item.category !== 'profile_bg' || !item.background) {
+      if (!item.preview) return {}
+
+      if (item.preview === 'rainbow') {
+        return {
+          background:
+            'linear-gradient(45deg, #ff0000, #ff7700, #ffff00, #00ff00, #0000ff, #8b00ff)'
+        }
+      }
+
+      if (item.preview.startsWith('#')) {
+        return {
+          backgroundColor: item.preview
+        }
+      }
+
+      return {
+        background: item.preview
+      }
+    }
+
+    const bg = item.background
+
+    if (bg.type === 'gradient') {
+      return {
+        background: bg.value
+      }
+    }
+
+    if (bg.type === 'image') {
+      return {
+        backgroundImage: `url(${bg.value})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }
+    }
+
+    if (bg.type === 'video') {
+      return {
+        backgroundImage: `url(${bg.poster || ''})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }
+    }
+
+    return {}
   }
 
   if (isLoading) return (
@@ -172,7 +212,6 @@ export default function ShopPage() {
         <div className="px-4 py-2 rounded-xl flex items-center gap-2"
           style={{ backgroundColor: '#1e293b', border: '1px solid rgba(245,158,11,0.3)' }}>
           <span className="text-yellow-400 font-bold text-lg">{Number(user?.gold || 0).toFixed(1)}</span>
-          <span className="text-yellow-400">🪙</span>
         </div>
       </div>
 
@@ -195,7 +234,7 @@ export default function ShopPage() {
                 <div className="flex items-center gap-2">
                   <span>{b.type === 'xp_boost' ? '⚡' : b.type === 'gold_boost' ? '💰' : '🚀'}</span>
                   <span className="text-white text-sm">
-                    {b.type === 'xp_boost' ? 'XP' : b.type === 'gold_boost' ? 'Золото' : 'Комбо'} x{b.multiplier}
+                    {b.type === 'xp_boost' ? 'XP' : b.type === 'gold_boost' ? 'Баллы' : 'Комбо'} x{b.multiplier}
                   </span>
                 </div>
                 <span className="text-slate-400 text-xs">
@@ -209,9 +248,8 @@ export default function ShopPage() {
               <div key={p.id} className="flex items-center justify-between p-2 rounded-lg"
                 style={{ backgroundColor: '#0f172a' }}>
                 <div className="flex items-center gap-2">
-                  <span>{p.type === 'xp_bonus' ? '📈' : '💎'}</span>
                   <span className="text-white text-sm">
-                    {p.type === 'xp_bonus' ? 'XP' : 'Золото'} • {' '}Lv.{p.level} • +{p.bonusPercent}%
+                    {p.type === 'xp_bonus' ? 'XP' : 'Баллы'} • {' '}Lv.{p.level} • +{p.bonusPercent}%
                   </span>
                   {p.level >= 5 && (
                     <span className="text-yellow-400 text-xs font-bold">
@@ -275,7 +313,7 @@ export default function ShopPage() {
             <div className="flex items-start justify-between mb-4">
               <div>
                 <h3 className="text-white font-semibold flex items-center gap-2">
-                  🌱 Слоты привычек
+                  Слоты привычек
                 </h3>
 
                 <p className="text-slate-400 text-sm mt-0.5">
@@ -348,7 +386,7 @@ export default function ShopPage() {
                 ? '✓ Максимум достигнут'
                 : buyingQol === 'habit'
                 ? 'Покупка...'
-                : `+1 слот привычек — 🪙 ${qolData.habitSlot.nextPrice}`}
+                : `+1 слот привычек — ${qolData.habitSlot.nextPrice} Баллов`}
             </button>
           </div>
 
@@ -363,7 +401,7 @@ export default function ShopPage() {
             <div className="flex items-start justify-between mb-4">
               <div>
                 <h3 className="text-white font-semibold flex items-center gap-2">
-                  ✅ Слоты задач
+                  Слоты задач
                 </h3>
 
                 <p className="text-slate-400 text-sm mt-0.5">
@@ -461,7 +499,7 @@ export default function ShopPage() {
                 ? '✓ Максимум достигнут'
                 : buyingQol === 'task'
                 ? 'Покупка...'
-                : `+1 слот задач — 🪙 ${qolData.taskSlot.nextPrice}`}
+                : `+1 слот задач — ${qolData.taskSlot.nextPrice} Баллов`}
             </button>
           </div>
         </div>
@@ -511,14 +549,19 @@ export default function ShopPage() {
                     {/* Эмодзи питомца */}
                     <div className="relative">
                       <div
-                        className="text-5xl text-center py-3 rounded-xl transition-all"
+                        className="flex items-center justify-center py-3 rounded-xl"
                         style={{
                           backgroundColor: `${color}10`,
                           filter: pet.owned ? 'none' : 'grayscale(100%)',
-                        }}>
-                        {pet.emoji}
+                        }}
+                      >
+                        <img
+                          src={pet.image}
+                          alt={pet.name}
+                          className="w-20 h-20 object-contain"
+                          draggable={false}
+                        />
                       </div>
-
                       {/* Активный бейдж */}
                       {pet.active && (
                         <div className="absolute -top-1 -right-1 px-2 py-0.5 rounded-full text-xs font-bold"
@@ -572,7 +615,7 @@ export default function ShopPage() {
                           cursor: canAfford ? 'pointer' : 'not-allowed',
                           opacity: isBuying ? 0.7 : 1,
                         }}>
-                        {isBuying ? 'Покупка...' : `🪙 ${pet.price.toLocaleString()}`}
+                        {isBuying ? 'Покупка...' : `${pet.price.toLocaleString()} Баллов`}
                       </button>
                     )}
                   </div>
@@ -690,8 +733,8 @@ export default function ShopPage() {
                   {isBuying
                     ? 'Активация...'
                     : canAfford
-                    ? `🪙 ${item.price}`
-                    : `Нужно ${item.price} 🪙`}
+                    ? `${item.price}`
+                    : `${item.price} Баллов`}
                 </button>
               ) : isPerk ? (
                 <button
@@ -724,7 +767,7 @@ export default function ShopPage() {
                     ? 'Улучшение...'
                     : item.level
                     ? `⬆ Улучшить (${item.level} → ${item.level + 1})`
-                    : `🪙 ${item.price}`}
+                    : `${item.price} Баллов`}
                 </button>
               ) : item.owned ? (
 
@@ -751,8 +794,8 @@ export default function ShopPage() {
                     cursor: canAfford ? 'pointer' : 'not-allowed',
                   }}>
                   {isBuying ? 'Покупка...' : canAfford
-                    ? `🪙 ${item.price}` 
-                    : `Нужно ${item.price}` }
+                    ? `${item.price} Баллов` 
+                    : `${item.price} Баллов` }
                 </button>
               )}
             </div>

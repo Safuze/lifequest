@@ -65,7 +65,7 @@ const BG_CONFIG: BgConfig[] = [
     label: 'Лес',
     price: 150,
     type: 'video',
-    videoSrc: '/video/minecraft-fireflies-forest-moewalls-com.mp4',  // ← вставь URL или путь
+    videoSrc: '/video/minecraft.mp4',  // ← вставь URL или путь
     style: { background: 'linear-gradient(135deg, #1a2f1a 0%, #0f172a 100%)' }, // fallback
     animated: true,
   },
@@ -304,8 +304,8 @@ function PurchaseModal({ item, userGold, onConfirm, onClose }: {
         style={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}>
         <div className="text-5xl mb-3">{item.icon}</div>
         <h3 className="text-white font-semibold text-lg mb-1">{item.label}</h3>
-        <p className="text-slate-400 text-sm mb-2">Стоимость: <span className="text-yellow-400 font-bold">{item.price} 🪙</span></p>
-        <p className="text-slate-500 text-sm mb-4">Баланс: <span className={canAfford ? 'text-yellow-400' : 'text-red-400'}>{userGold} 🪙</span></p>
+        <p className="text-slate-400 text-sm mb-2">Стоимость: <span className="text-yellow-400 font-bold">{item.price} Баллов</span></p>
+        <p className="text-slate-500 text-sm mb-4">Баланс: <span className={canAfford ? 'text-yellow-400' : 'text-red-400'}>{userGold}</span></p>
         {!canAfford && <p className="text-red-400 text-xs mb-4">Недостаточно золота</p>}
         <div className="flex gap-3">
           <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-slate-400"
@@ -331,17 +331,21 @@ interface SettingsPanelProps {
   onSelectTimerStyle: (id: TimerStyle) => void; onToggleAutoSwitch: () => void
   onPurchase: (type: 'sound' | 'bg' | 'timer', id: string, label: string, icon: string, price: number) => Promise<void>
   onClose: () => void
+  volume: number
+  onVolumeChange: (v: number) => void
 }
 
 function SettingsPanel({
   settings, userGold, unlockedSounds, unlockedBgs, unlockedTimerStyles,
   selectedSound, selectedBg, selectedTimerStyle, autoSwitch,
   onSaveTimer, onSelectSound, onSelectBg, onSelectTimerStyle, onToggleAutoSwitch, onPurchase, onClose,
+  volume, onVolumeChange,
 }: SettingsPanelProps) {
   const [work, setWork] = useState(settings.workDuration)
   const [shortB, setShortB] = useState(settings.shortBreak)
   const [longB, setLongB] = useState(settings.longBreak)
   const [cycles, setCycles] = useState(settings.cyclesBeforeLong)
+  const [timeError, setTimeError] = useState('')
   const [purchaseItem, setPurchaseItem] = useState<{ id: string; label: string; price: number; icon: string; type: 'sound' | 'bg' | 'timer' } | null>(null)
 
   const inputStyle = { backgroundColor: '#0f172a', border: '1px solid #334155', color: '#fff' }
@@ -380,15 +384,36 @@ function SettingsPanel({
               <div key={label} className="flex items-center justify-between gap-3">
                 <label className="text-slate-300 text-sm flex-1">{label}</label>
                 <input type="number" value={value}
-                  onChange={e => (setter as (v: number) => void)(Number(e.target.value))}
+                  onChange={e => {
+                    const val = Number(e.target.value)
+
+                    ;(setter as (v: number) => void)(val)
+
+                    if (label.includes('Рабочая')) {
+                      if (val < 5) {
+                        setTimeError('Рабочая сессия не может быть меньше 5 минут')
+                      } else if (val > 120) {
+                        setTimeError('Рабочая сессия не может быть больше 120 минут')
+                      } else {
+                        setTimeError('')
+                      }
+                    }
+                  }}
                   min={min} max={max}
                   className="w-20 rounded-lg px-3 py-2 outline-none text-center text-sm focus:ring-2 focus:ring-indigo-500"
                   style={inputStyle} />
               </div>
             ))}
-            <button onClick={() => onSaveTimer({ workDuration: work, shortBreak: shortB, longBreak: longB, cyclesBeforeLong: cycles })}
+            {timeError && (
+              <div
+                className="text-red-400 text-xs px-1"
+              >
+                {timeError}
+              </div>
+            )}
+            <button disabled={!!timeError} onClick={() => onSaveTimer({ workDuration: work, shortBreak: shortB, longBreak: longB, cyclesBeforeLong: cycles })}
               className="w-full py-2.5 rounded-xl text-white text-sm font-medium"
-              style={{ backgroundColor: '#4f46e5' }}>
+              style={{ opacity: timeError ? 0.6 : 1, cursor: timeError ? 'not-allowed' : 'pointer', backgroundColor: '#4f46e5' }}>
               Сохранить
             </button>
           </div>
@@ -412,7 +437,7 @@ function SettingsPanel({
           <div className="mb-5">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-slate-400 text-xs font-medium uppercase tracking-wide">🎮 Стиль таймера</h3>
-              <span className="text-yellow-400 text-sm">🪙 {userGold}</span>
+              <span className="text-yellow-400 text-sm">Баллы: {userGold}</span>
             </div>
             <div className="grid grid-cols-2 gap-2">
               {TIMER_STYLES.map(ts => {
@@ -425,7 +450,7 @@ function SettingsPanel({
                     <span className="text-2xl shrink-0">{ts.icon}</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-white text-sm">{ts.label}</p>
-                      {!isUnlocked ? <p className="text-yellow-400 text-xs flex items-center gap-1"><Lock size={10} /> {ts.price} 🪙</p>
+                      {!isUnlocked ? <p className="text-yellow-400 text-xs flex items-center gap-1"><Lock size={10} /> {ts.price} Баллов</p>
                         : isSelected ? <p className="text-indigo-400 text-xs">✓ Активен</p>
                         : <p className="text-slate-500 text-xs">Разблокирован</p>}
                     </div>
@@ -471,7 +496,7 @@ function SettingsPanel({
                         <p className="text-indigo-400 text-xs"></p>
                       )}
                       {!isUnlocked
-                        ? <p className="text-yellow-400 text-xs flex items-center gap-1"><Lock size={10} /> {bg.price} 🪙</p>
+                        ? <p className="text-yellow-400 text-xs flex items-center gap-1"><Lock size={10} /> {bg.price} Баллов</p>
                         : isSelected
                           ? <p className="text-indigo-400 text-xs">Активен</p>
                           : bgConf?.animated ? null : <p className="text-slate-500 text-xs">Разблокирован</p>}
@@ -485,6 +510,33 @@ function SettingsPanel({
           {/* Звуки */}
           <div>
             <h3 className="text-slate-400 text-xs font-medium uppercase tracking-wide mb-3">🔊 Звук</h3>
+            <div
+              className="mb-4 p-3 rounded-xl"
+              style={{
+                backgroundColor: '#0f172a',
+                border: '1px solid #334155'
+              }}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-slate-300 text-sm">
+                  Громкость
+                </span>
+
+                <span className="text-indigo-400 text-sm font-medium">
+                  {Math.round(volume * 100)}%
+                </span>
+              </div>
+
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.01}
+                value={volume}
+                onChange={e => onVolumeChange(Number(e.target.value))}
+                className="w-full accent-indigo-500"
+              />
+            </div>
             <div className="grid grid-cols-2 gap-2">
               {SOUNDS.map(sound => {
                 const isUnlocked = sound.price === 0 || unlockedSounds.includes(sound.id)
@@ -496,7 +548,7 @@ function SettingsPanel({
                     <span className="text-xl shrink-0">{sound.icon}</span>
                     <div className="flex-1 text-left min-w-0">
                       <p className="text-white text-sm truncate">{sound.label}</p>
-                      {!isUnlocked ? <p className="text-yellow-400 text-xs flex items-center gap-1"><Lock size={10} /> {sound.price} 🪙</p>
+                      {!isUnlocked ? <p className="text-yellow-400 text-xs flex items-center gap-1"><Lock size={10} /> {sound.price} Баллов</p>
                         : isSelected ? <p className="text-indigo-400 text-xs">Активен</p>
                         : <p className="text-slate-500 text-xs">Разблокирован</p>}
                     </div>
@@ -536,6 +588,9 @@ export default function PomodoroPage() {
   const [selectedSound, setSelectedSound] = useState(() =>
     localStorage.getItem('lifequest_sound') || 'none'
   )
+  const [volume, setVolume] = useState(() =>
+    Number(localStorage.getItem('lifequest_volume') || 0.5)
+  )
   const [selectedBg, setSelectedBg] = useState(() =>
     localStorage.getItem('lifequest_bg') || 'dark'
   )
@@ -562,6 +617,12 @@ export default function PomodoroPage() {
     localStorage.setItem('lifequest_sound', selectedSound)
     audioService.changeSound(selectedSound, isRunning)
   }, [selectedSound, isRunning])
+
+
+  useEffect(() => {
+    localStorage.setItem('lifequest_volume', String(volume))
+    audioService.setVolume(volume)
+  }, [volume])
 
   // При изменении isRunning
   useEffect(() => {
@@ -797,7 +858,7 @@ export default function PomodoroPage() {
               <div className="flex items-center gap-4 px-5 py-2.5 rounded-xl"
                 style={{ backgroundColor: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.4)' }}>
                 <span className="text-indigo-300 font-semibold">+{lastReward.xp} XP</span>
-                <span className="text-yellow-400 font-semibold">+{lastReward.gold} 🪙</span>
+                <span className="text-yellow-400 font-semibold">+{lastReward.gold} Баллов</span>
               </div>
             )}
           </div>
@@ -962,6 +1023,8 @@ export default function PomodoroPage() {
           onToggleAutoSwitch={() => setAutoSwitch(!autoSwitch)}
           onPurchase={handlePurchase}
           onClose={() => setShowSettings(false)}
+          volume={volume}
+          onVolumeChange={setVolume}
         />
       )}
     </div>

@@ -1,7 +1,6 @@
 import { getInventoryMeta, RARITY_COLORS, RARITY_LABELS } from '../data/inventoryMeta'
 import { InventoryPreview } from './InventoryPreview'
-import { PETS_EMOJIS } from '../data/petsClient'
-
+import { PETS } from '../../../server/src/data/pets'
 interface RawInventoryItem {
   name: string
   itemType: string
@@ -22,29 +21,50 @@ export function InventoryCard({ item }: Props) {
 
   // Если питомец — специальный случай
   if (item.itemType === 'pet') {
-    const emoji = PETS_EMOJIS[item.name] || '❓'
-    const petName = item.name
-      .replace('pet_', '')
-      .replace(/_/g, ' ')
-      .replace(/\b\w/g, c => c.toUpperCase())
+    const pet = PETS.find(p => p.id === item.name)
+
+    if (!pet) return null
 
     return (
-      <div className="p-3 rounded-xl flex flex-col gap-2 transition-all hover:scale-[1.02]"
+      <div
+        className="p-3 rounded-xl flex flex-col gap-2 transition-all hover:scale-[1.02]"
         style={{
           backgroundColor: '#0f172a',
           border: `1px solid ${color}40`,
           boxShadow: `0 2px 8px ${color}15`,
-        }}>
-        <div className="h-14 flex items-center justify-center text-3xl"
-          style={{ backgroundColor: `${color}10`, borderRadius: '8px' }}>
-          {emoji}
+        }}
+      >
+        <div
+          className="h-20 flex items-center justify-center rounded-xl overflow-hidden"
+          style={{
+            backgroundColor: `${color}10`,
+          }}
+        >
+          <img
+            src={pet.image}
+            alt={pet.name}
+            className="w-16 h-16 object-contain"
+            draggable={false}
+          />
         </div>
+
         <div>
-          <p className="text-white text-xs font-semibold truncate">{petName}</p>
-          <p className="text-slate-500 text-xs">Питомец</p>
+          <p className="text-white text-xs font-semibold truncate">
+            {pet.name}
+          </p>
+
+          <p className="text-slate-500 text-xs">
+            Питомец
+          </p>
         </div>
-        <span className="text-xs px-1.5 py-0.5 rounded self-start"
-          style={{ backgroundColor: `${color}20`, color }}>
+
+        <span
+          className="text-xs px-1.5 py-0.5 rounded self-start"
+          style={{
+            backgroundColor: `${color}20`,
+            color,
+          }}
+        >
           {RARITY_LABELS[rarity] || rarity}
         </span>
       </div>

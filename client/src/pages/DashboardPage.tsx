@@ -165,7 +165,7 @@ export default function DashboardPage() {
           </div>
           <div className="flex items-center gap-3 text-sm">
             <span className="text-indigo-400 font-medium">{data.user.xp} XP</span>
-            <span className="text-yellow-400 font-medium">{Number(data.user.gold).toFixed(1).replace(/\.0$/, '')} Credits</span>
+            <span className="text-yellow-400 font-medium">{Number(data.user.gold).toFixed(1).replace(/\.0$/, '')} Баллов</span>
           </div>
         </div>
         <div className="h-2.5 bg-slate-700 rounded-full overflow-hidden">

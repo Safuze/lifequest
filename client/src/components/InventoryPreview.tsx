@@ -37,6 +37,7 @@ export function InventoryPreview({ preview, size = 'md' }: Props) {
         style={{ background: preview.gradient }} />
     )
   }
+  
 
   if (preview.kind === 'pomodoro_bg') {
     return (

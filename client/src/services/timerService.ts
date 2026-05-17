@@ -66,7 +66,9 @@ class TimerService {
   private loadUserFn: (() => void) | null = null
   private settings: any = null
   private lastTaskId: number | null = null
-
+  private isCompleting = false
+  private isFinishingEarly = false
+  private isStarting = false
   setLastTaskId(taskId: number | null) {
     this.lastTaskId = taskId
   }
@@ -127,69 +129,77 @@ class TimerService {
     } else {
       this.store.setTimeLeft(remaining)
       this.store.setIsRunning(true)
-      if (!this.intervalId) this.startTick()
+      this.startTick()
     }
   }
 
   async start(taskId: number | null, settings: any) {
-    this.settings = settings
-    this.lastTaskId = taskId
-    const store = this.store
-    const saved = load()
-
-    // Возобновление после паузы
-    if (saved.sessionId !== null && saved.sessionId !== undefined && !saved.isRunning) {
-      const pausedLeft = saved.pausedTimeLeft || store.timeLeft
-      const endEpoch = Date.now() + pausedLeft * 1000
-
-      store.setIsRunning(true)
-      store.setTimeLeft(pausedLeft)
-
-      save({ isRunning: true, endEpoch, pausedTimeLeft: 0 })
-      audioService.resume()
-      this.startTick()
-      return
-    }
-
-    // Новая сессия
-    if (saved.isRunning) return // уже запущен
+    if (this.isStarting) return
+    this.isStarting = true
 
     try {
-      const durMin = this.getDur('work')
-      const durSec = durMin * 60
-      let newSessionId: number
+      this.settings = settings
+      this.lastTaskId = taskId
+      const store = this.store
+      const saved = load()
 
-      if (taskId !== null) {
-        const res = await pomodoroApi.startSession({ taskId, plannedDuration: durMin } as any)
-        newSessionId = res.session.id
-      } else {
-        const res = await pomodoroApi.startSession({ plannedDuration: durMin } as any)
-        newSessionId = res.session.id
+      // Возобновление после паузы
+      if (saved.sessionId !== null && saved.sessionId !== undefined && !saved.isRunning) {
+        const pausedLeft = saved.pausedTimeLeft || store.timeLeft
+        const endEpoch = Date.now() + pausedLeft * 1000
+
+        store.setIsRunning(true)
+        store.setTimeLeft(pausedLeft)
+
+        save({ isRunning: true, endEpoch, pausedTimeLeft: 0 })
+        audioService.resume()
+        this.startTick()
+        return
       }
 
-      const endEpoch = Date.now() + durSec * 1000
+      // Новая сессия
+      if (saved.isRunning) return // уже запущен
 
-      store.setSessionId(newSessionId)
-      store.setIsRunning(true)
-      store.setTimeLeft(durSec)
-      store.setModeDuration(durSec)
-      store.setLastReward(null)
+      try {
+        const currentMode = store.mode
+        const durMin = this.getDur(currentMode)
+        const durSec = durMin * 60
+        let newSessionId: number | null = null
+        
+        if (currentMode === 'work') {
+          const res = await pomodoroApi.startSession({ taskId, plannedDuration: durMin } as any)
+          newSessionId = res.session.id
+        } else {
+          const res = await pomodoroApi.startSession({ plannedDuration: durMin } as any)
+          newSessionId = res.session.id
+        }
 
-      save({
-        sessionId: newSessionId,
-        taskId,
-        taskSelected: true,
-        isRunning: true,
-        endEpoch,
-        mode: 'work',
-        modeDuration: durSec,
-        pausedTimeLeft: 0,
-        sessionCount: store.sessionCount,
-      })
+        const endEpoch = Date.now() + durSec * 1000
 
-      this.startTick()
-    } catch (err) {
-      console.error('TimerService.start error:', err)
+        store.setSessionId(newSessionId)
+        store.setIsRunning(true)
+        store.setTimeLeft(durSec)
+        store.setModeDuration(durSec)
+        store.setLastReward(null)
+
+        save({
+          sessionId: newSessionId,
+          taskId,
+          taskSelected: true,
+          isRunning: true,
+          endEpoch,
+          mode: currentMode,
+          modeDuration: durSec,
+          pausedTimeLeft: 0,
+          sessionCount: store.sessionCount,
+        })
+
+        this.startTick()
+      } catch (err) {
+        console.error('TimerService.start error:', err)
+      }
+    } finally {
+      this.isStarting = false
     }
   }
 
@@ -261,35 +271,211 @@ class TimerService {
   }
 
   async complete() {
-    const store = useTimerStore.getState()
-    const saved = load()
-    const sid = saved.sessionId ?? store.sessionId
-    const curMode = saved.mode ?? store.mode
 
-    this.stopTick()
-    store.setIsRunning(false)
-    audioService.pause()
-    store.setSessionId(null)
+    if (this.isCompleting) return
+    this.isCompleting = true
 
-    playBeep(curMode === 'work' ? 'break' : 'work')
+    try {
+      const store = useTimerStore.getState()
+      const saved = load()
+      const sid = saved.sessionId ?? store.sessionId
+      const curMode = saved.mode ?? store.mode
 
-    if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification('LifeQuest', {
-        body: curMode === 'work' ? '🎉 Сессия завершена! Время перерыва.' : '⏰ Перерыв закончился!',
-        icon: '/favicon.ico',
+      this.stopTick()
+      store.setIsRunning(false)
+      audioService.pause()
+      store.setSessionId(null)
+      save({
+        sessionId: null,
+        isRunning: false,
+        endEpoch: 0,
       })
-    }
 
-    if (sid && curMode === 'work') {
+      playBeep(curMode === 'work' ? 'break' : 'work')
+
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('LifeQuest', {
+          body: curMode === 'work' ? '🎉 Сессия завершена! Время перерыва.' : '⏰ Перерыв закончился!',
+          icon: '/favicon.ico',
+        })
+      }
+
+      if (sid && curMode === 'work') {
+        try {
+          const durMin = this.getDur('work')
+          
+          const result = await pomodoroApi.completeSession(sid, durMin)
+          store.setLastReward(result.reward)
+          if (result.achievements?.length || result.levelUp) {
+            console.log('LEVEL UP:', result.levelUp)
+            console.log('ACHIEVEMENTS:', result.achievements)
+            dispatchRewards(result.achievements, result.levelUp)
+          }
+          if (result.achievements && result.achievements.length > 0) {
+            window.dispatchEvent(
+              new CustomEvent('achievements', {
+                detail: { achievements: result.achievements }
+              })
+            )
+          }
+
+          const newCount = (saved.sessionCount ?? store.sessionCount) + 1
+          store.setSessionCount(newCount)
+          this.loadUserFn?.()
+
+          const statsData = await pomodoroApi.getTodayStats()
+          store.setTodayStats(statsData.totalMinutes, statsData.sessionsCount, statsData.completedCycles)
+
+          const cyclesBeforeLong = Math.max(2, this.settings?.cyclesBeforeLong || 4)
+
+          const nextMode: TimerMode = newCount % cyclesBeforeLong === 0 ? 'longBreak': 'shortBreak'
+          const nextDurSec = this.getDur(nextMode) * 60
+
+          store.setMode(nextMode)
+          store.setTimeLeft(nextDurSec)
+          store.setModeDuration(nextDurSec)
+          store.setIsFlipped(true)
+          setTimeout(() => store.setIsFlipped(false), 900)
+
+          // Автопереключение — читаем из localStorage напрямую
+          const autoSwitch = this.getAutoSwitch()
+
+          if (autoSwitch) {
+            const endEpoch = Date.now() + 1200 + nextDurSec * 1000
+
+            save({
+              mode: nextMode,
+              isRunning: true,
+              sessionId: null,
+              endEpoch,
+              pausedTimeLeft: 0,
+              modeDuration: nextDurSec,
+              sessionCount: newCount,
+            })
+
+            setTimeout(() => {
+              const s = useTimerStore.getState()
+              s.setIsRunning(true)
+              this.startTick()
+            }, 1200)
+          } else {
+            save({
+              mode: nextMode,
+              isRunning: false,
+              sessionId: null,
+              endEpoch: 0,
+              pausedTimeLeft: nextDurSec,
+              modeDuration: nextDurSec,
+              sessionCount: newCount,
+            })
+          }
+        } catch (err) {
+          console.error('TimerService.complete (work) error:', err)
+        }
+      } else {
+        // Перерыв закончился → возвращаемся к фокусу
+        const workDurSec = this.getDur('work') * 60
+        store.setMode('work')
+        store.setTimeLeft(workDurSec)
+        store.setModeDuration(workDurSec)
+        store.setIsFlipped(true)
+        setTimeout(() => store.setIsFlipped(false), 900)
+
+        save({
+          mode: 'work',
+          isRunning: false,
+          sessionId: null,
+          endEpoch: 0,
+          pausedTimeLeft: workDurSec,
+          modeDuration: workDurSec,
+        })
+
+        // Автопереключение break → work — запускаем новую рабочую сессию
+        const autoSwitch = this.getAutoSwitch()
+        if (autoSwitch && this.lastTaskId !== undefined) {
+          setTimeout(async () => {
+            // Создаём новую рабочую сессию с тем же taskId
+            try {
+              const durMin = this.getDur('work')
+              const durSec = durMin * 60
+
+              let newSessionId: number
+              if (this.lastTaskId !== null) {
+                const res = await pomodoroApi.startSession({ taskId: this.lastTaskId, plannedDuration: durMin } as any)
+                newSessionId = res.session.id
+              } else {
+                const res = await pomodoroApi.startSession({ plannedDuration: durMin } as any)
+                newSessionId = res.session.id
+              }
+
+              const endEpoch = Date.now() + durSec * 1000
+              const s = useTimerStore.getState()
+              s.setSessionId(newSessionId)
+              s.setIsRunning(true)
+              s.setTimeLeft(durSec)
+
+              save({
+                sessionId: newSessionId,
+                taskId: this.lastTaskId,
+                isRunning: true,
+                endEpoch,
+                pausedTimeLeft: 0,
+                mode: 'work',
+                modeDuration: durSec,
+              })
+
+              this.startTick()
+            } catch (err) {
+              console.error('Auto start work error:', err)
+              // Если ошибка — просто показываем готовый таймер
+            }
+          }, 1200)
+        }
+      }
+    } finally {
+      this.isCompleting = false
+    }
+  }
+
+  async finishEarly() {
+    if (this.isFinishingEarly) return
+    this.isFinishingEarly = true
+
+    try {
+      const store = useTimerStore.getState()
+      const saved = load()
+
+      const sid = saved.sessionId ?? store.sessionId
+
+      if (!sid) return
+
       try {
-        const durMin = this.getDur('work')
-        const result = await pomodoroApi.completeSession(sid, durMin)
+        this.stopTick()
+        audioService.pause()
+
+        // Сколько минут реально прошло
+        const elapsedSeconds =
+          (saved.modeDuration || store.modeDuration) - store.timeLeft
+
+        const actualMinutes = Math.floor(elapsedSeconds / 60)
+
+        // Меньше минуты — просто сброс
+        if (actualMinutes <= 0) {
+          await this.reset()
+          return
+        }
+
+        const result = await pomodoroApi.completeSession(
+          sid,
+          actualMinutes
+        )
+
         store.setLastReward(result.reward)
+
         if (result.achievements?.length || result.levelUp) {
-          console.log('LEVEL UP:', result.levelUp)
-          console.log('ACHIEVEMENTS:', result.achievements)
           dispatchRewards(result.achievements, result.levelUp)
         }
+
         if (result.achievements && result.achievements.length > 0) {
           window.dispatchEvent(
             new CustomEvent('achievements', {
@@ -298,199 +484,45 @@ class TimerService {
           )
         }
 
-        const newCount = (saved.sessionCount ?? store.sessionCount) + 1
-        store.setSessionCount(newCount)
         this.loadUserFn?.()
 
+        // Обновляем статистику
         const statsData = await pomodoroApi.getTodayStats()
-        store.setTodayStats(statsData.totalMinutes, statsData.sessionsCount, statsData.completedCycles)
 
-        const cyclesBeforeLong = Math.max(2, this.settings?.cyclesBeforeLong || 4)
+        store.setTodayStats(
+          statsData.totalMinutes,
+          statsData.sessionsCount,
+          statsData.completedCycles
+        )
 
-        const nextMode: TimerMode = newCount % cyclesBeforeLong === 0 ? 'longBreak': 'shortBreak'
+        // Полностью очищаем текущую сессию
+        store.setSessionId(null)
+
+        store.setIsRunning(false)
+        store.setActiveSecondsToday(0)
+
+        // Переводим в shortBreak
+        const nextMode: TimerMode = 'shortBreak'
         const nextDurSec = this.getDur(nextMode) * 60
 
         store.setMode(nextMode)
         store.setTimeLeft(nextDurSec)
         store.setModeDuration(nextDurSec)
-        store.setIsFlipped(true)
-        setTimeout(() => store.setIsFlipped(false), 900)
 
-        // Автопереключение — читаем из localStorage напрямую
-        const autoSwitch = this.getAutoSwitch()
-
-        if (autoSwitch) {
-          const endEpoch = Date.now() + 1200 + nextDurSec * 1000
-
-          save({
-            mode: nextMode,
-            isRunning: true,
-            sessionId: null,
-            endEpoch,
-            pausedTimeLeft: 0,
-            modeDuration: nextDurSec,
-            sessionCount: newCount,
-          })
-
-          setTimeout(() => {
-            const s = useTimerStore.getState()
-            s.setIsRunning(true)
-            this.startTick()
-          }, 1200)
-        } else {
-          save({
-            mode: nextMode,
-            isRunning: false,
-            sessionId: null,
-            endEpoch: 0,
-            pausedTimeLeft: nextDurSec,
-            modeDuration: nextDurSec,
-            sessionCount: newCount,
-          })
-        }
+        save({
+          mode: nextMode,
+          isRunning: false,
+          sessionId: null,
+          endEpoch: 0,
+          pausedTimeLeft: nextDurSec,
+          modeDuration: nextDurSec,
+          sessionCount: store.sessionCount + 1,
+        })
       } catch (err) {
-        console.error('TimerService.complete (work) error:', err)
+        console.error('finishEarly error:', err)
       }
-    } else {
-      // Перерыв закончился → возвращаемся к фокусу
-      const workDurSec = this.getDur('work') * 60
-      store.setMode('work')
-      store.setTimeLeft(workDurSec)
-      store.setModeDuration(workDurSec)
-      store.setIsFlipped(true)
-      setTimeout(() => store.setIsFlipped(false), 900)
-
-      save({
-        mode: 'work',
-        isRunning: false,
-        sessionId: null,
-        endEpoch: 0,
-        pausedTimeLeft: workDurSec,
-        modeDuration: workDurSec,
-      })
-
-      // Автопереключение break → work — запускаем новую рабочую сессию
-      const autoSwitch = this.getAutoSwitch()
-      if (autoSwitch && this.lastTaskId !== undefined) {
-        setTimeout(async () => {
-          // Создаём новую рабочую сессию с тем же taskId
-          try {
-            const durMin = this.getDur('work')
-            const durSec = durMin * 60
-
-            let newSessionId: number
-            if (this.lastTaskId !== null) {
-              const res = await pomodoroApi.startSession({ taskId: this.lastTaskId, plannedDuration: durMin } as any)
-              newSessionId = res.session.id
-            } else {
-              const res = await pomodoroApi.startSession({ plannedDuration: durMin } as any)
-              newSessionId = res.session.id
-            }
-
-            const endEpoch = Date.now() + durSec * 1000
-            const s = useTimerStore.getState()
-            s.setSessionId(newSessionId)
-            s.setIsRunning(true)
-            s.setTimeLeft(durSec)
-
-            save({
-              sessionId: newSessionId,
-              taskId: this.lastTaskId,
-              isRunning: true,
-              endEpoch,
-              pausedTimeLeft: 0,
-              mode: 'work',
-              modeDuration: durSec,
-            })
-
-            this.startTick()
-          } catch (err) {
-            console.error('Auto start work error:', err)
-            // Если ошибка — просто показываем готовый таймер
-          }
-        }, 1200)
-      }
-    }
-  }
-
-  async finishEarly() {
-    const store = useTimerStore.getState()
-    const saved = load()
-
-    const sid = saved.sessionId ?? store.sessionId
-
-    if (!sid) return
-
-    try {
-      this.stopTick()
-      audioService.pause()
-
-      // Сколько минут реально прошло
-      const elapsedSeconds =
-        (saved.modeDuration || store.modeDuration) - store.timeLeft
-
-      const actualMinutes = Math.floor(elapsedSeconds / 60)
-
-      // Меньше минуты — просто сброс
-      if (actualMinutes <= 0) {
-        await this.reset()
-        return
-      }
-
-      const result = await pomodoroApi.completeSession(
-        sid,
-        actualMinutes
-      )
-
-      store.setLastReward(result.reward)
-
-      if (result.achievements?.length || result.levelUp) {
-        dispatchRewards(result.achievements, result.levelUp)
-      }
-
-      if (result.achievements && result.achievements.length > 0) {
-        window.dispatchEvent(
-          new CustomEvent('achievements', {
-            detail: { achievements: result.achievements }
-          })
-        )
-      }
-
-      this.loadUserFn?.()
-
-      // Обновляем статистику
-      const statsData = await pomodoroApi.getTodayStats()
-
-      store.setTodayStats(
-        statsData.totalMinutes,
-        statsData.sessionsCount,
-        statsData.completedCycles
-      )
-
-      // Полностью очищаем текущую сессию
-      store.setSessionId(null)
-      store.setIsRunning(false)
-      store.setActiveSecondsToday(0)
-
-      // Переводим в shortBreak
-      const nextMode: TimerMode = 'shortBreak'
-      const nextDurSec = this.getDur(nextMode) * 60
-
-      store.setMode(nextMode)
-      store.setTimeLeft(nextDurSec)
-      store.setModeDuration(nextDurSec)
-
-      save({
-        mode: nextMode,
-        isRunning: false,
-        sessionId: null,
-        endEpoch: 0,
-        pausedTimeLeft: nextDurSec,
-        modeDuration: nextDurSec,
-        sessionCount: store.sessionCount + 1,
-      })
-    } catch (err) {
-      console.error('finishEarly error:', err)
+    } finally {
+      this.isFinishingEarly = false
     }
   }
 

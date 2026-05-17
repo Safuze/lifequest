@@ -32,7 +32,7 @@ class AudioService {
     this.currentSound = soundId
     this.audio = new Audio(src)
     this.audio.loop = true
-    this.audio.volume = 0.4
+    this.audio.volume = Number(localStorage.getItem('lifequest_volume') || 0.5)
     this.isPlaying = true
 
     this.audio.play().catch(() => {
@@ -82,8 +82,14 @@ class AudioService {
   }
 
   setVolume(volume: number) {
-    if (this.audio) this.audio.volume = Math.max(0, Math.min(1, volume))
+    localStorage.setItem('lifequest_volume', String(volume))
+
+    if (this.audio) {
+      this.audio.volume = volume
+    }
   }
+
+  
 
   getCurrentSound() { return this.currentSound }
   getIsPlaying() { return this.isPlaying }
