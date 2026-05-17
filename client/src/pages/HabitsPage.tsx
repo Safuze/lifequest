@@ -408,7 +408,7 @@ function HabitCard({ habit, userGold, onLog, onBreak, onDelete, onRestoreStreak,
                 border: '1px solid rgba(245,158,11,0.3)'
               }}>
               <RotateCcw size={14} />
-              Восстановить стрик за<strong>50</strong>кредитов
+              Восстановить стрик за<strong>50</strong>баллов
             </button>
           ) : (
             // ОБЫЧНЫЕ КНОПКИ
@@ -466,7 +466,7 @@ function HabitCard({ habit, userGold, onLog, onBreak, onDelete, onRestoreStreak,
         {lastReward && (lastReward.xp > 0 || lastReward.gold > 0) && (
           <div className="mt-2 flex items-center gap-3 text-xs">
             {lastReward.xp > 0 && <span className="text-indigo-400">+{lastReward.xp} XP</span>}
-            {lastReward.gold > 0 && <span className="text-yellow-400">+{lastReward.gold} Сredits</span>}
+            {lastReward.gold > 0 && <span className="text-yellow-400">+{lastReward.gold} Балла</span>}
           </div>
         )}
       </div>
@@ -862,7 +862,7 @@ export default function HabitsPage() {
 
   const handleRestoreStreak = async (id: number) => {
     if (restoringStreakIds.has(id)) return // уже восстанавливается
-    if (!confirm('Восстановить стрик за 50 кредитов?')) return
+    if (!confirm('Восстановить стрик за 50 баллов?')) return
     
     // Немедленно блокируем кнопку
     setRestoringStreakIds(prev => new Set([...prev, id]))

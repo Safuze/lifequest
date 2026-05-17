@@ -90,7 +90,6 @@ export default function ChallengesPage() {
         <div className="px-3 py-1.5 rounded-xl text-sm"
           style={{ backgroundColor: '#1e293b', border: '1px solid rgba(245,158,11,0.3)' }}>
           <span className="text-yellow-400 font-bold">{user?.gold || 0}</span>
-          <span className="text-yellow-400 ml-1">кр.</span>
         </div>
       </div>
 
@@ -167,7 +166,7 @@ export default function ChallengesPage() {
                     style={{ backgroundColor: '#0f172a' }}>
                     <Target size={14} className="mx-auto text-yellow-400 mb-1" />
                     <div className="text-yellow-400 text-sm font-bold">+{ch.rewardCredits}</div>
-                    <div className="text-slate-500 text-xs">Кредиты</div>
+                    <div className="text-slate-500 text-xs">Баллов</div>
                   </div>
                 </div>
 

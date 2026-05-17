@@ -4,9 +4,8 @@ import apiClient from '../api/client'
 import { useAuth } from '../hooks/useAuth'
 import { Search, UserPlus, Check, X, Trophy, Users, Crown } from 'lucide-react'
 import { getAvatarBorderStyle, getAvatarBorderClass } from '../utils/avatar'
-import { PETS_EMOJIS } from '../data/petsClient'
 import { LEVEL_NAMES, LEVEL_COLORS } from '../data/levelData'
-
+import { PETS } from '../../../server/src/data/pets'
 
 interface LeaderboardEntry {
   rank: number
@@ -60,7 +59,7 @@ export default function LeaderboardPage() {
   const [searchLoading, setSearchLoading] = useState(false)
   const [searchError, setSearchError] = useState('')
   const navigate = useNavigate()
-
+  
 
   useEffect(() => {
     loadData()
@@ -306,11 +305,18 @@ export default function LeaderboardPage() {
                         {entry.name}
                       </span>
 
-                      {entry.activePetId && (
-                        <span className="text-lg shrink-0" title="Активный питомец">
-                          {PETS_EMOJIS[entry.activePetId] || ''}
-                        </span>
-                      )}
+                      {(() => {
+                        const activePet = PETS.find(p => p.id === entry.activePetId)
+
+                        return activePet ? (
+                          <img
+                            src={activePet.image}
+                            alt={activePet.name}
+                            title={activePet.name}
+                            className="w-6 h-6 object-contain shrink-0"
+                          />
+                        ) : null
+                      })()}
 
                       {entry.isCurrentUser && (
                         <span className="text-indigo-400 text-xs shrink-0">

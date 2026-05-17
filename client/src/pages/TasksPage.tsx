@@ -652,7 +652,7 @@ function RewardToast({ xp, gold, onDone }: { xp: number; gold: number; onDone: (
         <p className="text-white text-sm font-semibold">Задача выполнена!</p>
         <div className="flex items-center gap-3 mt-0.5">
           <span className="text-indigo-400 text-sm font-medium">+{xp} XP</span>
-          <span className="text-yellow-400 text-sm font-medium">+{Number(gold).toFixed(1).replace(/\.0$/, '')}🪙</span>
+          <span className="text-yellow-400 text-sm font-medium">+{Number(gold).toFixed(1).replace(/\.0$/, '')} Баллов</span>
         </div>
       </div>
     </div>

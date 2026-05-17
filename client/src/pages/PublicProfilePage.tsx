@@ -4,8 +4,8 @@ import apiClient from '../api/client'
 import { useAuth } from '../hooks/useAuth'
 import { ArrowLeft, UserPlus, Check, Clock, CheckSquare, Flame, Lock, Trophy } from 'lucide-react'
 import { AchievementGrid } from '../components/AchievementGrid'
-import { getAvatarBorderStyle, getAvatarBorderClass, getProfileBgStyle } from '../utils/avatar'
-import { PETS_EMOJIS } from '../data/petsClient'
+import { getAvatarBorderStyle, getAvatarBorderClass, getProfileBgStyle, getProfileBgData } from '../utils/avatar'
+import { PETS } from '../../../server/src/data/pets'
 import { InventoryCard } from '../components/InventoryCard'
 import { LEVEL_NAMES, LEVEL_COLORS, LEVEL_XP } from '../data/levelData'
 
@@ -126,13 +126,15 @@ export default function PublicProfilePage() {
   )
 
   const { user, achievements, topHabits, totalPomodoroMin, totalSessions, tasksCompleted } = data
+  const activePet = PETS.find(p => p.id === user.activePetId)
   const isOwnProfile = currentUser?.id === user.id
   const levelColor = LEVEL_COLORS[Math.min(user.level, LEVEL_COLORS.length - 1)]
   const levelName = LEVEL_NAMES[Math.min(user.level, LEVEL_NAMES.length - 1)]
+  const bgData = getProfileBgData(user.profileBg)
   const profileBgStyle =
-  user.profileBg && user.profileBg !== 'default'
-    ? getProfileBgStyle(user.profileBg)
-    : { backgroundColor: '#0f172a' }
+    bgData?.type !== 'video'
+      ? getProfileBgStyle(user.profileBg)
+      : { backgroundColor: '#0f172a' }
   const prevXp = LEVEL_XP[user.level] || 0
   const nextXp = LEVEL_XP[user.level + 1] || prevXp + 10000
   const xpProgress = Math.min(Math.round(((user.xp - prevXp) / (nextXp - prevXp)) * 100), 100)
@@ -140,14 +142,30 @@ export default function PublicProfilePage() {
 
   return (
     <div
-      className="min-h-screen"
+      className="min-h-screen relative"
       style={profileBgStyle}
     >
+    {bgData?.type === 'video' && (
+      <>
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          poster={bgData.poster}
+          className="fixed inset-0 w-screen h-screen object-cover z-0"
+        >
+          <source src={bgData.value} type="video/mp4" />
+        </video>
+
+        <div className="fixed inset-0 bg-black/40 z-0" />
+      </>
+    )}
       <button onClick={() => navigate(-1)}
         className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm">
         <ArrowLeft size={16} /> Назад
       </button>
-    <div className="max-w-lg mx-auto space-y-5">
+      <div className="relative z-10 max-w-2xl mx-auto space-y-5 pb-10">
       
 
       {/* RPG-карточка */}
@@ -178,7 +196,13 @@ export default function PublicProfilePage() {
                   {user.activePetId && (
                     <span className="text-2xl ml-1" title="Активный питомец">
                       {/* Найди emoji по activePetId */}
-                      {PETS_EMOJIS[user.activePetId] || ''}
+                      {activePet && (
+                        <img
+                          src={activePet.image}
+                          alt={activePet.name}
+                          className="w-8 h-8 object-contain inline-block ml-1"
+                        />
+                      )}
                     </span>
                   )}
                 </h1>
@@ -238,7 +262,7 @@ export default function PublicProfilePage() {
 
             <div className="flex gap-4 mt-2">
               <span className="text-sm text-indigo-400">{user.xp.toLocaleString()} XP</span>
-              {!user.isPrivate && <span className="text-sm text-yellow-400">{user.gold} 🪙</span>}
+              {!user.isPrivate && <span className="text-sm text-yellow-400">{user.gold} Баллов</span>}
             </div>
           </div>
         </div>

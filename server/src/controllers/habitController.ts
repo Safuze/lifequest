@@ -277,11 +277,11 @@ export const logHabit = async (req: AuthRequest, res: Response) => {
         newStreak = habit.currentStreak + 1
       }
 
-      const baseXp = 15
+      const baseXp = 25
       const streakBonus = newStreak >= 30 ? 10 : newStreak >= 7 ? 5 : 0
 
       const rawXp = baseXp + streakBonus
-      const baseGold = 2
+      const baseGold = 5
 
       const boostedRewards = await applyBoosters({
         userId: req.userId!,

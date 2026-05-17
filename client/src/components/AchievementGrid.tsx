@@ -2,31 +2,33 @@
 const ALL_ACHIEVEMENT_DEFS = [
   // Задачи
   { type: 'tasks_10',    title: 'Решатель',         description: 'Выполнено 10 задач',           icon: '✅', rarity: 'common',    },
-  { type: 'tasks_50',    title: 'Продуктивист',      description: 'Выполнено 50 задач',           icon: '⚡', rarity: 'rare',      },
-  { type: 'tasks_200',   title: 'Машина задач',      description: 'Выполнено 200 задач',          icon: '🤖', rarity: 'epic',      },
-  { type: 'tasks_1000',  title: 'Легенда задач',     description: 'Выполнено 1000 задач',         icon: '🏆', rarity: 'legendary', },
+  { type: 'tasks_50',    title: 'Исполнитель',      description: 'Выполнено 50 задач',           icon: '⚡', rarity: 'rare',      },
+  { type: 'tasks_200',   title: 'Продуктивист',      description: 'Выполнено 200 задач',          icon: '🤖', rarity: 'epic',      },
+  { type: 'tasks_1000',  title: 'Мастер задач',     description: 'Выполнено 1000 задач',         icon: '🏆', rarity: 'legendary', },
   // Фокус
-  { type: 'focus_5h',    title: 'Сосредоточенный',   description: '5 часов в фокусе',             icon: '🎯', rarity: 'common',        },
-  { type: 'focus_25h',   title: 'Весь в работе',     description: '25 часов в фокусе',            icon: '🔥', rarity: 'rare',          },
-  { type: 'focus_100h',  title: 'Монах фокуса',      description: '100 часов в фокусе',           icon: '🧘', rarity: 'epic',          },
-  { type: 'focus_500h',  title: 'Хранитель времени', description: '500 часов в фокусе',           icon: '⌛', rarity: 'legendary',     },
-  { type: 'sessions_10', title: 'Первые сессии',     description: '10 помодоро-сессий',            icon: '⏱',  rarity: 'common',        },
-  { type: 'sessions_50', title: 'Таймерщик',         description: '50 помодоро-сессий',            icon: '⏰', rarity: 'rare',          },
+  { type: 'focus_10h',    title: 'Сосредоточенный',   description: '5 часов в фокусе',             icon: '🎯', rarity: 'common',        },
+  { type: 'focus_50h',   title: 'Концентрация на уровне',     description: '25 часов в фокусе',            icon: '🔥', rarity: 'rare',          },
+  { type: 'focus_200h',  title: 'Глубокий фокус',      description: '100 часов в фокусе',           icon: '🧘', rarity: 'epic',          },
+  { type: 'focus_1000h',  title: 'В потоке', description: '500 часов в фокусе',           icon: '⌛', rarity: 'legendary',     },
+  { type: 'sessions_25', title: 'Любитель помодоро',     description: '25 помодоро-сессий',            icon: '⏱',  rarity: 'common',        },
+  { type: 'sessions_100', title: 'Практик помодоро',         description: '100 помодоро-сессий',            icon: '⏰', rarity: 'rare',          },
+  { type: 'sessions_500', title: 'Мастер помодоро',         description: '500 помодоро-сессий',            icon: '⏰', rarity: 'epic',          },
+
   // Привычки
   { type: 'streak_7',    title: 'Первая неделя',     description: '7 дней стрика',                icon: '📅', rarity: 'common',     },
-  { type: 'streak_30',   title: 'Месяц силы',        description: '30 дней стрика',               icon: '🗓️', rarity: 'rare',       },
-  { type: 'streak_90',   title: 'Квартал',           description: '90 дней стрика',               icon: '💪', rarity: 'epic',       },
-  { type: 'streak_365',  title: 'Целый год',         description: '365 дней стрика',              icon: '👑', rarity: 'legendary',  },
+  { type: 'streak_30',   title: 'Месяц стойкости',        description: '30 дней стрика',               icon: '🗓️', rarity: 'rare',       },
+  { type: 'streak_90',   title: 'Железная привычка',           description: '90 дней стрика',               icon: '💪', rarity: 'epic',       },
+  { type: 'streak_365',  title: 'Год дисциплины',         description: '365 дней стрика',              icon: '👑', rarity: 'legendary',  },
   // Социальное
-  { type: 'friend_1',    title: 'Знакомый',          description: 'Первый друг добавлен',         icon: '🤝', rarity: 'common',       },
-  { type: 'friend_5',    title: 'Компания',          description: '5 друзей',                     icon: '👥', rarity: 'rare',         },
-  { type: 'friend_25',   title: 'Популярный',        description: '25 друзей',                    icon: '🌟', rarity: 'epic',         },
-  { type: 'friend_100',  title: 'Легенда сети',      description: '100 друзей',                   icon: '🌐', rarity: 'legendary',    },
+  { type: 'friend_1',    title: 'Первый друг',          description: '1 друг добавлен',         icon: '🤝', rarity: 'common',       },
+  { type: 'friend_5',    title: 'Дружелюбный',          description: '5 друзей',                     icon: '👥', rarity: 'rare',         },
+  { type: 'friend_25',   title: 'Душа компании',        description: '25 друзей',                    icon: '🌟', rarity: 'epic',         },
+  { type: 'friend_100',  title: 'Популярный',      description: '100 друзей',                   icon: '🌐', rarity: 'legendary',    },
   // Золото
-  { type: 'gold_500',    title: 'Богатей',           description: 'Заработано 500 кредитов',         icon: '🪙', rarity: 'common',       },
-  { type: 'gold_2000',   title: 'Казначей',          description: 'Заработано 2000 кредитов',        icon: '💰', rarity: 'rare',         },
-  { type: 'gold_10000',  title: 'Меценат',           description: 'Заработано 10000 кредитов',       icon: '💎', rarity: 'epic',         },
-  { type: 'gold_25000',  title: 'Ротшильд',          description: 'Заработано 25000 кредитов',       icon: '🏦', rarity: 'legendary',    },
+  { type: 'gold_500',    title: 'Первые накопления',           description: 'Заработано 500 баллов',         icon: '🪙', rarity: 'common',       },
+  { type: 'gold_2000',   title: 'Богатей',          description: 'Заработано 2000 баллов',        icon: '💰', rarity: 'rare',         },
+  { type: 'gold_10000',  title: 'Казначей',           description: 'Заработано 10000 баллов',       icon: '💎', rarity: 'epic',         },
+  { type: 'gold_50000',  title: 'Коллекционер',          description: 'Заработано 50000 баллов',       icon: '🏦', rarity: 'legendary',    },
   // Уровни
   { type: 'level_2',     title: 'Бронза II',           description: 'Достигнут уровень Бронза II',   icon: '🔶🔶', rarity: 'common'    },
   { type: 'level_3',     title: 'Серебро I',          description: 'Достигнут уровень Серебро I',  icon: '⚪', rarity: 'common'      },
@@ -39,8 +41,10 @@ const ALL_ACHIEVEMENT_DEFS = [
   { type: 'level_10',     title: 'Алмаз II',           description: 'Достигнут уровень Алмаз II',   icon: '💎💎', rarity: 'epic'      },
   { type: 'level_11',     title: 'Грандмастер',          description: 'Достигнут уровень Грандмастер',  icon: '⚜️', rarity: 'legendary' },
   // Цели
-  { type: 'goal_first',  title: 'Целеустремлённый',  description: 'Первая завершённая цель',      icon: '🎯', rarity: 'common',         },
-  { type: 'goal_5',      title: 'Многоцелевой',      description: '5 завершённых целей',          icon: '🏹', rarity: 'rare',           },
+  { type: 'goal_first',  title: 'Первый шаг', description: '1 завершённая цель',    icon: '🎯', rarity: 'common'    },
+  { type: 'goal_5',      title: 'Целеустремленный',     description: '5 завершённых целей',        icon: '🏹', rarity: 'rare'      },
+  { type: 'goal_20',  title: 'Планировщик', description: '20 завершённых целей',    icon: '🎯', rarity: 'epic'    },
+  { type: 'goal_50',      title: 'Полный контроль',     description: '50 завершённых целей',        icon: '🏹', rarity: 'legendary'      },
 ]
 
 const RARITY_COLORS: Record<string, string> = {
@@ -144,7 +148,7 @@ export function AchievementGrid({ earned, showLocked = true }: AchievementGridPr
                   style={{
                     backgroundColor: '#1e293b',
                     border: '1px solid #334155',
-                    opacity: 0.5,
+                    opacity: 0.95,
                   }}>
                   {/* Заблокированный оверлей */}
                   <div className="absolute top-2 right-2 text-slate-600">🔒</div>

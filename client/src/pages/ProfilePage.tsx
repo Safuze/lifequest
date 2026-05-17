@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react'
 import apiClient from '../api/client'
 import { Trophy, Clock, CheckSquare, Flame, TrendingUp, Star, Package } from 'lucide-react'
 import { AchievementGrid } from '../components/AchievementGrid'
-import { getAvatarBorderStyle, getAvatarBorderClass, getProfileBgStyle } from '../utils/avatar'
+import { getAvatarBorderStyle, getAvatarBorderClass, getProfileBgStyle, getProfileBgData } from '../utils/avatar'
 import { InventoryCard } from '../components/InventoryCard'
-import { PETS_EMOJIS } from '../data/petsClient'
 type Period = 'day' | 'week' | 'month'
 import { LEVEL_NAMES, LEVEL_COLORS } from '../data/levelData'
+import { PETS } from '../../../server/src/data/pets'
 
 interface ProfileAchievement {
   id: number
@@ -155,7 +155,7 @@ export default function ProfilePage() {
   const [period, setPeriod] = useState<Period>('week')
   const [activeTab, setActiveTab] = useState<'stats' | 'achievements' | 'inventory'>('stats')
   const [isLoading, setIsLoading] = useState(true)
-
+  
   useEffect(() => {
     loadProfile()
   }, [period])
@@ -181,10 +181,13 @@ export default function ProfilePage() {
   }
 
   const { user, stats, radar, achievements, inventory } = data
+  const activePet = PETS.find(p => p.id === user.activePetId)
   const levelColor = LEVEL_COLORS[user.level] || '#64748b'
-  const profileBgStyle = user.profileBg && user.profileBg !== 'default'
-    ? getProfileBgStyle(user.profileBg)
-    : { backgroundColor: '#0f172a' }
+  const bgData = getProfileBgData(user.profileBg)
+  const profileBgStyle =
+    bgData?.type !== 'video'
+      ? getProfileBgStyle(user.profileBg)
+      : { backgroundColor: '#0f172a' }
   const daysInApp = Math.floor((Date.now() - new Date(user.createdAt).getTime()) / 86400000)
   const statCards = [
     { icon: <Clock size={16} />,       label: 'Время в фокусе',        value: formatMinutes(stats.totalPomodoroMin), color: '#4f46e5', bg: 'rgba(79,70,229,0.15)'  },
@@ -194,16 +197,28 @@ export default function ProfilePage() {
     { icon: <TrendingUp size={16} />,  label: 'Прогресс целей',         value: `${stats.goalsProgress}%`,           color: '#a855f7', bg: 'rgba(168,85,247,0.15)'  },
     { icon: <Star size={16} />,        label: 'Привычки выполнено',     value: `${stats.habitsCompletion}%`,         color: '#f97316', bg: 'rgba(249,115,22,0.15)'  },
     { icon: <Star size={16} />,        label: 'XP заработано',          value: `+${stats.earnedXp}`,                color: '#6366f1', bg: 'rgba(99,102,241,0.15)'  },
-    { icon: <Star size={16} />,        label: 'Золото заработано',      value: `+${stats.earnedGold} 🪙`,          color: '#eab308', bg: 'rgba(234,179,8,0.15)'   },
+    { icon: <Star size={16} />,        label: 'Баллов заработано',      value: `+${stats.earnedGold}`,          color: '#eab308', bg: 'rgba(234,179,8,0.15)'   },
   ]
   
 
   return (
     <div
-      className="min-h-screen"
+      className="min-h-screen relative overflow-hidden"
       style={profileBgStyle}
     >
-    <div className="max-w-2xl mx-auto space-y-5">
+    {bgData?.type === 'video' && (
+      <video
+        autoPlay
+        muted
+        loop
+        playsInline
+        poster={bgData.poster}
+        className="absolute inset-0 w-full h-full object-cover"
+      >
+        <source src={bgData.value} type="video/mp4" />
+      </video>
+    )}
+    <div className="relative z-10 max-w-2xl mx-auto space-y-5">
 
       {/* RPG-карточка профиля */}
       <div className="rounded-2xl p-5 relative overflow-hidden"
@@ -230,11 +245,12 @@ export default function ProfilePage() {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-white font-bold text-xl">{user.name}
-                {user.activePetId && (
-                  <span className="text-2xl ml-1" title="Активный питомец">
-                    {/* Найди emoji по activePetId */}
-                    {PETS_EMOJIS[user.activePetId] || ''}
-                  </span>
+                {activePet && (
+                  <img
+                    src={activePet.image}
+                    alt={activePet.name}
+                    className="w-8 h-8 object-contain inline-block ml-1"
+                  />
                 )}
               </h1>
               <span className="text-xs px-2 py-0.5 rounded-full font-medium"
@@ -259,8 +275,8 @@ export default function ProfilePage() {
 
             {/* Ресурсы */}
             <div className="flex gap-4 mt-2">
-              <span className="text-sm text-indigo-400">{user.xp} XP всего</span>
-              <span className="text-sm text-yellow-400">{user.gold} 🪙</span>
+              <span className="text-sm text-indigo-400">{user.xp} XP</span>
+              <span className="text-sm text-yellow-400">{user.gold} Баллов</span>
             </div>
           </div>
         </div>
@@ -343,7 +359,7 @@ export default function ProfilePage() {
       )}
 
       {/* Коллекции */}
-      {(() => {
+      {activeTab === 'inventory' && (() => {
         const pets = inventory.filter((i: any) => i.itemType === 'pet')
 
         const pomodoroItems = inventory.filter((i: any) =>
