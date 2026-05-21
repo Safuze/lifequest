@@ -32,7 +32,7 @@ interface QolData {
 export default function ShopPage() {
   const { user, loadUser } = useAuth()
   const [catalog, setCatalog] = useState<CatalogItem[]>([])
-  const [activeTab, setActiveTab] = useState<'avatar_border' | 'profile_bg' | 'booster_temp' | 'perk_permanent' | 'qol_upgrade' | 'pets'>('avatar_border')
+  const [activeTab, setActiveTab] = useState<'avatar_border' | 'background' | 'booster_temp' | 'perk_permanent' | 'qol_upgrade' | 'pets' | 'pomodoro_sound' | 'pomodoro_timer'>('avatar_border')
   const [isLoading, setIsLoading] = useState(true)
   const [buying, setBuying] = useState<string | null>(null)
   const [equipping, setEquipping] = useState<string | null>(null)
@@ -146,7 +146,7 @@ export default function ShopPage() {
   const filtered = catalog.filter(i => i.category === activeTab)
 
   const getPreviewStyle = (item: any): React.CSSProperties => {
-    if (item.category !== 'profile_bg' || !item.background) {
+    if (item.category !== 'background' || !item.background) {
       if (!item.preview) return {}
 
       if (item.preview === 'rainbow') {
@@ -267,12 +267,14 @@ export default function ShopPage() {
       {/* Табы */}
       <div className="flex rounded-xl overflow-hidden" style={{ border: '1px solid #334155' }}>
         {([
-          { id: 'avatar_border', label: '🖼 Обводка аватара' },
-          { id: 'profile_bg',    label: '🎨 Фон профиля' },
-          { id: 'booster_temp',    label: '⚡ Бустеры'  },
-          { id: 'perk_permanent',  label: '📈 Перки'    },
-          { id: 'qol_upgrade', label: '🧩 Улучшения' },
-          { id: 'pets', label: '🐾 Питомцы' },
+          { id: 'avatar_border', label: 'Обводка аватара' },
+          { id: 'background',    label: 'Фон' },
+          { id: 'pomodoro_sound', label: 'Звуки' },
+          { id: 'pomodoro_timer', label: 'Таймеры' },
+          { id: 'booster_temp',    label: 'Бустеры'  },
+          { id: 'perk_permanent',  label: 'Перки'    },
+          { id: 'qol_upgrade', label: 'Улучшения' },
+          { id: 'pets', label: 'Питомцы' },
         ] as const).map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)}
             className="flex-1 py-2.5 text-sm font-medium transition-all"
@@ -633,6 +635,12 @@ export default function ShopPage() {
             const isEquipping = equipping === item.id
             const isBooster = item.category === 'booster_temp'
             const isPerk = item.category === 'perk_permanent'
+
+            const isPomodoroSound = item.category === 'pomodoro_sound'
+            const isPomodoroTimer = item.category === 'pomodoro_timer'
+            const isPomodoroItem = isPomodoroSound || isPomodoroTimer
+
+            const isBackground = item.category === 'background'
             return (
             <div key={item.id} className="rounded-2xl p-4 flex flex-col gap-3 transition-all hover:-translate-y-1"
               style={{
@@ -659,6 +667,91 @@ export default function ShopPage() {
                       })
                     }}>
                     A
+                  </div>
+                ) : activeTab === 'pomodoro_sound' ? (
+                  <div
+                    className="w-full h-20 rounded-xl overflow-hidden relative"
+                    style={{
+                      border: `1px solid ${color}30`,
+                      backgroundColor: '#0f172a',
+                    }}
+                  >
+                    {item.preview ? (
+                      <img
+                        src={item.preview}
+                        alt={item.name}
+                        className="w-full h-full object-cover"
+                        draggable={false}
+                      />
+                    ) : (
+                      <div
+                        className="w-full h-full flex items-center justify-center text-3xl"
+                        style={{
+                          backgroundColor: `${color}15`,
+                        }}
+                      >
+                        {item.icon || '🔊'}
+                      </div>
+                    )}
+
+                    <div
+                      className="absolute inset-0"
+                      style={{
+                        background:
+                          'linear-gradient(to top, rgba(0,0,0,0.55), rgba(0,0,0,0.1))',
+                      }}
+                    />
+
+                    <div className="absolute bottom-2 left-2 text-white text-xs font-semibold">
+                      Превью звука
+                    </div>
+                  </div>
+                ) : activeTab === 'pomodoro_timer' ? (
+                  <div
+                    className="w-full h-20 rounded-xl overflow-hidden relative"
+                    style={{
+                      border: `1px solid ${color}30`,
+                      backgroundColor: '#0f172a',
+                    }}
+                  >
+                    {item.preview ? (
+                      <img
+                        src={item.preview}
+                        alt={item.name}
+                        className="w-full h-full object-cover"
+                        draggable={false}
+                      />
+                    ) : (
+                      <div
+                        className="w-full h-full flex items-center justify-center"
+                        style={{
+                          background: item.preview || '#0f172a',
+                        }}
+                      >
+                        <div
+                          className="px-3 py-1 rounded-lg text-sm font-bold"
+                          style={{
+                            backgroundColor: 'rgba(0,0,0,0.35)',
+                            color: '#fff',
+                            backdropFilter: 'blur(4px)',
+                          }}
+                        >
+                          25:00
+                        </div>
+                      </div>
+                    )}
+
+                    <div
+                      className="absolute inset-0"
+                      style={{
+                        background:
+                          'linear-gradient(to top, rgba(0,0,0,0.6), rgba(0,0,0,0.05))',
+                      }}
+                    />
+
+                    <div className="absolute bottom-2 left-2 text-white text-xs font-semibold">
+                      Стиль таймера
+                    </div>
                   </div>
                 ) : (
                   // Превью фона
@@ -733,7 +826,7 @@ export default function ShopPage() {
                   {isBuying
                     ? 'Активация...'
                     : canAfford
-                    ? `${item.price}`
+                    ? `${item.price} Баллов`
                     : `${item.price} Баллов`}
                 </button>
               ) : isPerk ? (
@@ -771,17 +864,54 @@ export default function ShopPage() {
                 </button>
               ) : item.owned ? (
 
-                <button
-                  onClick={() => handleEquip(item)}
-                  disabled={isEquipping}
-                  className="w-full py-2 rounded-xl text-sm font-medium transition-all"
-                  style={{
-                    backgroundColor: item.equipped ? 'rgba(239,68,68,0.15)' : `${color}20`,
-                    color: item.equipped ? '#ef4444' : color,
-                    border: `1px solid ${item.equipped ? 'rgba(239,68,68,0.3)' : color + '40'}`,
-                  }}>
-                  {isEquipping ? '...' : item.equipped ? '✕ Снять' : '✓ Надеть'}
-                </button>
+                isPomodoroItem ? (
+
+                  <button
+                    disabled
+                    className="w-full py-2 rounded-xl text-sm font-medium"
+                    style={{
+                      backgroundColor: 'rgba(34,197,94,0.15)',
+                      color: '#22c55e',
+                      border: '1px solid rgba(34,197,94,0.3)',
+                      cursor: 'default',
+                    }}
+                  >
+                    ✓ Куплено
+                  </button>
+
+                ) : (
+
+                  <button
+                    onClick={() => handleEquip(item)}
+                    disabled={isEquipping}
+                    className="w-full py-2 rounded-xl text-sm font-medium transition-all"
+                    style={{
+                      backgroundColor: item.equipped
+                        ? 'rgba(239,68,68,0.15)'
+                        : `${color}20`,
+
+                      color: item.equipped
+                        ? '#ef4444'
+                        : color,
+
+                      border: `1px solid ${
+                        item.equipped
+                          ? 'rgba(239,68,68,0.3)'
+                          : color + '40'
+                      }`,
+                    }}
+                  >
+                    {isEquipping
+                      ? '...'
+                      : item.equipped
+                      ? '✕ Убрать'
+                      : isBackground
+                      ? '✓ Применить в профиле'
+                      : '✓ Надеть'}
+                  </button>
+
+                )
+
               ) : (
                 <button
                   onClick={() => handleBuy(item)}

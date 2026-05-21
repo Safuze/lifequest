@@ -64,17 +64,17 @@ function HabitHeatmap({ days = 30 }: { days?: number }) {
   const getColor = (percent: number) => {
     if (percent === 0) return '#1e293b'
     if (percent <= 25) return 'rgba(99,102,241,0.3)'
-    if (percent <= 50) return 'rgba(99,102,241,0.55)'
-    if (percent <= 75) return 'rgba(99,102,241,0.8)'
-    return '#4f46e5'
+    if (percent <= 50) return 'rgba(109,102,241,0.6)'
+    if (percent <= 75) return 'rgba(119,102,241,0.85)'
+    return 'rgba(129,102,241,1)'
   }
 
   const getBorder = (percent: number) => {
     if (percent === 0) return '#334155'
-    if (percent <= 25) return 'rgba(99,102,241,0.4)'
-    if (percent <= 50) return 'rgba(99,102,241,0.6)'
-    if (percent <= 75) return 'rgba(99,102,241,0.85)'
-    return '#6366f1'
+    if (percent <= 25) return 'rgba(99,102,241,0.3)'
+    if (percent <= 50) return 'rgba(109,102,241,0.6)'
+    if (percent <= 75) return 'rgba(119,102,241,0.85)'
+    return 'rgba(129,102,241,1)'
   }
 
   const today = new Date().toISOString().split('T')[0]
@@ -139,10 +139,37 @@ function HabitHeatmap({ days = 30 }: { days?: number }) {
 
       {/* Статистика под картой */}
       <div className="flex items-center gap-4 mt-3 text-xs text-slate-500">
-        <span>🟦 0–25%</span>
-        <span>🔵 25–50%</span>
-        <span>💙 50–75%</span>
-        <span>🟣 75–100%</span>
+        <span className="flex items-center gap-1">
+          <span
+            className="w-3 h-3 rounded-sm"
+            style={{ backgroundColor: 'rgba(99,102,241,0.3)' }}
+          />
+          0–25%
+        </span>
+
+        <span className="flex items-center gap-1">
+          <span
+            className="w-3 h-3 rounded-sm"
+            style={{ backgroundColor: 'rgba(109,102,241,0.6)' }}
+          />
+          25–50%
+        </span>
+
+        <span className="flex items-center gap-1">
+          <span
+            className="w-3 h-3 rounded-sm"
+            style={{ backgroundColor: 'rgba(119,102,241,0.85)' }}
+          />
+          50–75%
+        </span>
+
+        <span className="flex items-center gap-1">
+          <span
+            className="w-3 h-3 rounded-sm"
+            style={{ backgroundColor: 'rgba(129,102,241,1)' }}
+          />
+          75–100%
+        </span>
       </div>
     </div>
   )
@@ -341,7 +368,6 @@ function HabitCard({ habit, userGold, onLog, onBreak, onDelete, onRestoreStreak,
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-lg">{habit.type === 'anti' ? '🚫' : '✅'}</span>
               <h3 className="text-white font-medium truncate">{habit.title}</h3>
               {habit.trackingType === 'continuous' && (
                 <span className="text-xs px-2 py-0.5 rounded-full shrink-0"
@@ -383,7 +409,7 @@ function HabitCard({ habit, userGold, onLog, onBreak, onDelete, onRestoreStreak,
           <div className="mb-3 p-3 rounded-xl"
             style={{ backgroundColor: '#0f172a', border: '1px solid #334155' }}>
             <div className="text-xs text-slate-400 mb-1">
-              {habit.type === 'anti' ? '⏱ Без нарушений:' : '⏱ Выполняется:'}
+              {habit.type === 'anti' ? 'Без нарушений:' : 'Выполняется:'}
             </div>
             <div className="text-xl font-bold font-mono"
               style={{ color: habit.type === 'anti' ? '#22c55e' : '#6366f1' }}>
@@ -576,7 +602,7 @@ function CreateHabitModal({ templates, onClose, onCreated }: CreateHabitModalPro
                 backgroundColor: tab === t ? '#4f46e5' : '#0f172a',
                 color: tab === t ? '#fff' : '#94a3b8',
               }}>
-              {t === 'custom' ? '✏️ Своя' : '📋 Шаблон'}
+              {t === 'custom' ? 'Своя' : 'Шаблон'}
             </button>
           ))}
         </div>
@@ -601,8 +627,8 @@ function CreateHabitModal({ templates, onClose, onCreated }: CreateHabitModalPro
               <label className="text-slate-400 text-sm mb-1.5 block">Тип привычки</label>
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  { value: 'positive', label: '✅ Положительная', desc: 'Хочу делать' },
-                  { value: 'anti', label: '🚫 Антипривычка', desc: 'Хочу бросить' },
+                  { value: 'positive', label: ' Положительная', desc: 'Хочу делать' },
+                  { value: 'anti', label: ' Антипривычка', desc: 'Хочу бросить' },
                 ].map(opt => (
                   <button key={opt.value} type="button"
                     onClick={() => setType(opt.value as any)}
@@ -622,8 +648,8 @@ function CreateHabitModal({ templates, onClose, onCreated }: CreateHabitModalPro
               <label className="text-slate-400 text-sm mb-1.5 block">Тип отслеживания</label>
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  { value: 'discrete', label: '☑️ Дискретное', desc: 'Отмечаю каждый день' },
-                  { value: 'continuous', label: '⏱ Непрерывное', desc: 'Идёт счётчик дней' },
+                  { value: 'discrete', label: 'Дискретное', desc: 'Отмечаю каждый день' },
+                  { value: 'continuous', label: 'Непрерывное', desc: 'Идёт счётчик дней' },
                 ].map(opt => (
                   <button key={opt.value} type="button"
                     onClick={() => setTrackingType(opt.value as any)}
@@ -915,8 +941,8 @@ export default function HabitsPage() {
       {/* Табы */}
       <div className="flex rounded-xl overflow-hidden" style={{ border: '1px solid #334155' }}>
         {([
-          { id: 'habits', label: '📋 Привычки' },
-          { id: 'heatmap', label: '🗓 Активность' },
+          { id: 'habits', label: 'Привычки' },
+          { id: 'heatmap', label: 'Активность' },
         ] as const).map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)}
             className="flex-1 py-2.5 text-sm font-medium transition-all"

@@ -16,13 +16,6 @@ interface UserChallenge {
   challenge: Challenge
 }
 
-const TYPE_ICONS: Record<string, string> = {
-  pomodoro_daily: '⏱',
-  tasks_daily:    '✅',
-  habit_streak:   '🔥',
-  combined:       '⚡',
-}
-
 const STATUS_CONFIG = {
   active:    { label: 'Активно',   color: '#4f46e5', bg: 'rgba(79,70,229,0.15)'  },
   completed: { label: 'Выполнено', color: '#22c55e', bg: 'rgba(34,197,94,0.15)'  },
@@ -89,7 +82,7 @@ export default function ChallengesPage() {
         </div>
         <div className="px-3 py-1.5 rounded-xl text-sm"
           style={{ backgroundColor: '#1e293b', border: '1px solid rgba(245,158,11,0.3)' }}>
-          <span className="text-yellow-400 font-bold">{user?.gold || 0}</span>
+          <span className="text-yellow-400 font-bold">{Number(user?.gold).toFixed(1).replace(/\.0$/, '') || 0}</span>
         </div>
       </div>
 
@@ -103,8 +96,8 @@ export default function ChallengesPage() {
       {/* Табы */}
       <div className="flex rounded-xl overflow-hidden" style={{ border: '1px solid #334155' }}>
         {([
-          { id: 'all', label: '🏆 Все испытания' },
-          { id: 'my',  label: `📋 Мои (${myChallenges.filter(c => c.status === 'active').length})` },
+          { id: 'all', label: 'Все испытания' },
+          { id: 'my',  label: `Мои (${myChallenges.filter(c => c.status === 'active').length})` },
         ] as const).map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)}
             className="flex-1 py-2.5 text-sm font-medium transition-all"
@@ -134,7 +127,6 @@ export default function ChallengesPage() {
                 }}>
                 <div className="flex items-start justify-between gap-3 mb-3">
                   <div className="flex items-center gap-3">
-                    <div className="text-3xl">{TYPE_ICONS[ch.type] || '🎯'}</div>
                     <div>
                       <h3 className="text-white font-semibold">{ch.title}</h3>
                       <p className="text-slate-400 text-sm mt-0.5">{ch.description}</p>
@@ -214,7 +206,6 @@ export default function ChallengesPage() {
                   style={{ backgroundColor: '#1e293b', border: `1px solid ${st.color}40` }}>
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-3">
-                      <div className="text-2xl">{TYPE_ICONS[uc.challenge.type] || '🎯'}</div>
                       <div>
                         <h3 className="text-white font-semibold">{uc.challenge.title}</h3>
                         <p className="text-slate-400 text-xs mt-0.5">{uc.challenge.description}</p>

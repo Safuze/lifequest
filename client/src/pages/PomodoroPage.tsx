@@ -11,151 +11,54 @@ import { useTimerStore } from '../stores/timerStore'
 import { timerService } from '../services/timerService'
 import type { TimerMode } from '../services/timerService'
 import { audioService } from '../services/audioService'
+import { SHOP_ITEMS } from '../../../server/src/data/shopItems'
+import type { TimerStyle } from '../../../shared/types/pomodoro'
 
-type TimerStyle = 'circle' | 'hourglass' | 'cheetah' | 'horse' | 'snail'
 
-const SOUND_SOURCES: Record<string, string | null> = {
-  none: null,
-  white: '/sounds/whitt.mp3',      
-  lofi: '/sounds/aventure-lofi-chill-music-515431.mp3',              
-  nature: '/sounds/priroda.mp3',          
-  waves: '/sounds/z_uki-belogo-morya-shtil-legkiy-nakat-morskoy-_olny-bbm-2015.mp3',            
-  rain: '/sounds/rain.mp3',             
-  fire: '/sounds/sound-effects-library-camp-fire-burning.mp3',              
-  night: '/sounds/cicada_night_forest.mp3',     
-}
-
-const SOUNDS = [
-  { id: 'none',      label: 'Тишина',      icon: '🔇', price: 0   },
-  { id: 'white',     label: 'Белый шум',   icon: '📻', price: 50  },
-  { id: 'lofi',      label: 'Lo-fi',       icon: '🎵', price: 100 },
-  { id: 'nature',    label: 'Природа',     icon: '🌿', price: 150 },
-  { id: 'waves',     label: 'Волны',       icon: '🌊', price: 200 },
-  { id: 'rain',      label: 'Дождь',       icon: '🌧️', price: 250 },
-  { id: 'fire',      label: 'Огонь',       icon: '🔥', price: 300 },
-  { id: 'night',     label: 'Ночь',        icon: '🌙', price: 400 },
-]
-// Фоны
-type BgType = 'css' | 'video'
-
-interface BgConfig {
-  id: string
-  label: string
-  price: number
-  type: BgType
-  // Для css: стиль контейнера
-  style?: React.CSSProperties
-  // Для video: URL видео файла (вставишь сам)
-  videoSrc?: string
-  // CSS анимация для живого фона
-  animated?: boolean
-}
-
-const BG_CONFIG: BgConfig[] = [
+const SOUND_ITEMS = [
   {
-    id: 'dark',
-    label: 'Тёмный',
+    id: 'none',
+    name: 'Без звука',
+    category: 'pomodoro_sound',
     price: 0,
-    type: 'css',
-    style: { backgroundColor: '#0f172a' },
-    animated: false,
+    soundConfig: {
+      icon: '🔇'
+    }
   },
-  {
-    id: 'forest',
-    label: 'Лес',
-    price: 150,
-    type: 'video',
-    videoSrc: '/video/minecraft.mp4',  // ← вставь URL или путь
-    style: { background: 'linear-gradient(135deg, #1a2f1a 0%, #0f172a 100%)' }, // fallback
-    animated: true,
-  },
-  {
-    id: 'ocean',
-    label: 'Океан',
-    price: 200,
-    type: 'video',
-    videoSrc: '/videos/ocean.mp4',   // ← вставь URL или путь
-    style: { background: 'linear-gradient(135deg, #0c1a2e 0%, #0f172a 100%)' },
-    animated: true,
-  },
-  {
-    id: 'sunset',
-    label: 'Закат',
-    price: 250,
-    type: 'video',
-    videoSrc: '/videos/sunset.mp4',  // ← вставь URL или путь
-    style: { background: 'linear-gradient(135deg, #2d1b1b 0%, #0f172a 100%)' },
-    animated: true,
-  },
-  {
-    id: 'space',
-    label: 'Космос',
-    price: 300,
-    type: 'css',
-    style: { backgroundColor: '#0a0a1a' },
-    animated: true, // используем CSS анимацию звёзд
-  },
+  ...SHOP_ITEMS.filter(i => i.category === 'pomodoro_sound')
 ]
 
-// Перестраиваем BACKGROUNDS для SettingsPanel превью
-const BACKGROUNDS = BG_CONFIG.map(bg => ({
-  id: bg.id,
-  label: bg.label,
-  price: bg.price,
-  style: bg.style || {},
-}))
+const BACKGROUND_ITEMS = [
+  {
+    id: 'none',
+    name: 'Без фона',
+    category: 'background',
+    price: 0,
+    background: null
+  },
+  ...SHOP_ITEMS.filter(i => i.category === 'background')
+]
 
-// ============ КОМПОНЕНТ ЖИВОГО ФОНА ============
-// Вне компонента LiveBackground — один раз при загрузке модуля
-const STARS = Array.from({ length: 80 }, (_, i) => ({
-  id: i,
-  width: Math.random() * 2 + 1,
-  height: Math.random() * 2 + 1,
-  left: Math.random() * 100,
-  top: Math.random() * 100,
-  duration: 2 + Math.random() * 4,
-  delay: Math.random() * 4,
-}))
+const TIMER_STYLE_ITEMS = [
+  {
+    id: 'default',
+    name: 'Без стиля',
+    category: 'pomodoro_timer',
+    price: 0,
+    timerStyleConfig: {
+      style: 'circle',
+      icon: '⭕'
+    }
+  },
+  ...SHOP_ITEMS.filter(i => i.category === 'pomodoro_timer')
+]
 
 function LiveBackground({ bgId }: { bgId: string }) {
-  const config = BG_CONFIG.find(b => b.id === bgId)
-  if (!config) return null
+  const config = BACKGROUND_ITEMS.find(b => b.id === bgId)
 
-  if (bgId === 'space') {
-    return (
-      <div className="absolute inset-0 overflow-hidden pointer-events-none" style={{ zIndex: 0 }}>
-        <style>{`
-          @keyframes twinkle {
-            0%, 100% { opacity: 0.15; }
-            50% { opacity: 0.9; }
-          }
-          .lq-star {
-            position: absolute;
-            background: white;
-            border-radius: 50%;
-            animation: twinkle var(--dur) ease-in-out infinite;
-            animation-delay: var(--del);
-          }
-        `}</style>
-        {STARS.map(star => (
-          <div
-            key={star.id}
-            className="lq-star"
-            style={{
-              width: `${star.width}px`,
-              height: `${star.height}px`,
-              left: `${star.left}%`,
-              top: `${star.top}%`,
-              '--dur': `${star.duration}s`,
-              '--del': `${star.delay}s`,
-            } as React.CSSProperties}
-          />
-        ))}
-      </div>
-    )
-  }
+  if (!config?.background) return null
 
-  if (config.type === 'video' && config.videoSrc) {
+  if (config.background.type === 'video') {
     return (
       <video
         key={bgId}
@@ -166,7 +69,7 @@ function LiveBackground({ bgId }: { bgId: string }) {
         className="absolute inset-0 w-full h-full object-cover pointer-events-none"
         style={{ opacity: 0.4, zIndex: 0 }}
       >
-        <source src={config.videoSrc} type="video/mp4" />
+        <source src={config.background.value} type="video/mp4" />
       </video>
     )
   }
@@ -174,25 +77,18 @@ function LiveBackground({ bgId }: { bgId: string }) {
   return null
 }
 
-const TIMER_STYLES: { id: TimerStyle; label: string; icon: string; price: number }[] = [
-  { id: 'circle',    label: 'Классика',      icon: '⭕', price: 0   },
-  { id: 'snail',     label: 'Улитка 🐌',     icon: '🐌', price: 100 },
-  { id: 'horse',     label: 'Лошадь 🐎',     icon: '🐎', price: 200 },
-  { id: 'cheetah',   label: 'Гепард 🐆',     icon: '🐆', price: 300 },
-  { id: 'hourglass', label: 'Песочные часы', icon: '⏳', price: 400 },
-]
 
 function formatTime(s: number): string {
   return `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`
 }
 
-// ============ TimerVisual (без изменений — копируй из предыдущей версии) ============
+// TimerVisual
 interface TimerVisualProps {
   progress: number; timeLeft: number; mode: TimerMode
-  isRunning: boolean; timerStyle: TimerStyle
+  isRunning: boolean; timerStyle: TimerStyle, modeDuration: number
 }
 
-function TimerVisual({ progress, timeLeft, mode, isRunning, timerStyle }: TimerVisualProps) {
+function TimerVisual({ progress, timeLeft, mode, isRunning, timerStyle, modeDuration }: TimerVisualProps) {
   const isFlipped = useTimerStore(s => s.isFlipped)
   const color = mode === 'work' ? '#4f46e5' : '#22c55e'
   const angle = (progress / 100) * 360
@@ -208,12 +104,15 @@ function TimerVisual({ progress, timeLeft, mode, isRunning, timerStyle }: TimerV
 
     return (
       <div
-          className={`relative w-64 h-64 flex items-center justify-center ${isFlipped ? 'hourglass-flip' : ''}`}
+          className={`relative w-64 h-64 flex items-center justify-center
+            ${isFlipped ? 'hourglass-flip' : ''}
+            ${isRunning ? 'hourglass-active' : ''}
+          `}
           style={{ transformOrigin: 'center' }}
         >
         <svg viewBox="0 0 120 180" className="w-48 h-48">
           <path d="M20,10 L100,10 L70,85 L100,170 L20,170 L50,85 Z"
-            fill="rgba(30,41,59,0.6)" stroke="#334155" strokeWidth="2.5" strokeLinejoin="round" />
+            fill="rgba(15,23,42,0.72)" stroke="#334155" strokeWidth="2.5" strokeLinejoin="round" />
           {topFill > 0.01 && (
             <polygon points={`${xLeft},${sandTop} ${xRight},${sandTop} 70,85 50,85`}
               fill={color} opacity="0.8" style={{ transition: 'all 1s linear' }} />
@@ -221,13 +120,60 @@ function TimerVisual({ progress, timeLeft, mode, isRunning, timerStyle }: TimerV
           {botFill > 0.01 && (
             <polygon points={`50,85 70,85 ${bxRight},${sandBot} ${bxLeft},${sandBot}`}
               fill={color} opacity="0.8" style={{ transition: 'all 1s linear' }} />
+              
           )}
           {topFill > 0.01 && topFill < 0.99 && (
-            <line x1="60" y1="85" x2="60" y2="90" stroke={color} strokeWidth="1.5" opacity="0.9" />
+            <g className="sand-stream">
+              <line
+                x1="60"
+                y1="85"
+                x2="60"
+                y2="93"
+                stroke={color}
+                strokeWidth="1.8"
+                strokeLinecap="round"
+              />
+
+              <circle
+                cx="60"
+                cy="88"
+                r="1"
+                fill={color}
+                opacity="0.9"
+              />
+
+              <circle
+                cx="60"
+                cy="91"
+                r="0.8"
+                fill={color}
+                
+                opacity="0.7"
+              />
+            </g>
           )}
-          <path d="M20,10 L100,10 L70,85 L100,170 L20,170 L50,85 Z"
-            fill="none" stroke="#475569" strokeWidth="2" strokeLinejoin="round" />
+          {isRunning && topFill > 0.01 && (
+            <>
+              <circle className="sand-particle-1" cx="59" cy="87" r="0.7" fill={color}  />
+              <circle className="sand-particle-2" cx="61" cy="89" r="0.5" fill={color} />
+              <circle className="sand-particle-3" cx="60" cy="92" r="0.6" fill={color} />
+            </>
+          )}
+          <path
+            d="M20,10 L100,10 L70,85 L100,170 L20,170 L50,85 Z"
+            fill="none"
+            stroke={isRunning ? color : '#475569'}
+            strokeWidth="2.2"
+            strokeLinejoin="round"
+            style={{
+              filter: isRunning
+                ? `drop-shadow(0 0 10px ${color})`
+                : 'none',
+              transition: 'all 0.5s ease'
+            }}
+          />
         </svg>
+        
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span className="text-3xl font-bold text-white font-mono drop-shadow-lg">{formatTime(timeLeft)}</span>
           {isRunning && mode === 'work' && <span className="text-indigo-400 text-xs mt-1 animate-pulse">● Фокус</span>}
@@ -237,29 +183,163 @@ function TimerVisual({ progress, timeLeft, mode, isRunning, timerStyle }: TimerV
     )
   }
 
+  if (timerStyle === 'clock') {
+    const totalSeconds = modeDuration
+    const elapsed = totalSeconds - timeLeft
+
+    const seconds = elapsed % 60
+    const minutes = Math.floor(elapsed / 60)
+
+    const secondsAngle = (seconds / 60) * 360
+    const minutesAngle = (minutes / 60) * 360 + (seconds / 60) * 6
+
+    return (
+      <div className="relative w-72 h-72">
+        <svg viewBox="0 0 200 200" className="w-full h-full">
+
+          {/* Внешний корпус */}
+          <circle
+            cx="100"
+            cy="100"
+            r="92"
+            fill="#0f172a"
+            stroke={isRunning ? color : '#475569'}
+            strokeWidth="6"
+            style={{
+              filter: isRunning
+                ? `drop-shadow(0 0 10px ${color})`
+                : 'none',
+              transition: 'all 0.5s ease'
+            }}
+          />
+
+          {/* Деления */}
+          {Array.from({ length: 60 }).map((_, i) => {
+            const angle = (i * 6 * Math.PI) / 180
+            const inner = i % 5 === 0 ? 74 : 82
+            const outer = 88
+
+            return (
+              <line
+                key={i}
+                x1={100 + inner * Math.cos(angle)}
+                y1={100 + inner * Math.sin(angle)}
+                x2={100 + outer * Math.cos(angle)}
+                y2={100 + outer * Math.sin(angle)}
+                stroke={i % 5 === 0 ? '#cbd5e1' : '#64748b'}
+                strokeWidth={i % 5 === 0 ? 2 : 1}
+              />
+            )
+          })}
+
+          {/* Минутная стрелка */}
+          <line
+            x1="100"
+            y1="100"
+            x2="100"
+            y2="45"
+            stroke="#e2e8f0"
+            strokeWidth="4"
+            strokeLinecap="round"
+            transform={`rotate(${minutesAngle} 100 100)`}
+            style={{ transition: 'transform 1s linear' }}
+          />
+
+          {/* Секундная стрелка */}
+          <line
+            x1="100"
+            y1="100"
+            x2="100"
+            y2="30"
+            stroke={color}
+            strokeWidth="2"
+            strokeLinecap="round"
+            transform={`rotate(${secondsAngle} 100 100)`}
+            style={{ transition: 'transform 1s linear' }}
+          />
+
+          {/* Центр */}
+          <circle cx="100" cy="100" r="5" fill="#fff" />
+        </svg>
+        <div
+          className="absolute inset-6 rounded-full pointer-events-none"
+          style={{
+            backdropFilter: 'blur(1px)',
+            background: 'rgba(255,255,255,0.03)',
+            border: '1px solid rgba(255,255,255,0.06)',
+            boxShadow: 'inset 0 0 25px rgba(255,255,255,0.03)'
+          }}
+        />
+
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-4xl font-bold text-white font-mono">
+            {formatTime(timeLeft)}
+          </span>
+        </div>
+      </div>
+    )
+  }
+
   if (timerStyle === 'cheetah' || timerStyle === 'horse' || timerStyle === 'snail') {
-    const emoji = timerStyle === 'cheetah' ? '🐆' : timerStyle === 'horse' ? '🐎' : '🐌'
+    const TIMER_ASSETS = {
+      cheetah: {
+        src: '/timers/cheetah.webp',
+        className: 'cheetah-speed'
+      },
+      horse: {
+        src: '/timers/horse.webp',
+        className: 'timer-bounce'
+      },
+      snail: {
+        src: '/timers/snail.webp',
+        className: ''
+      }
+    }
+    const asset = TIMER_ASSETS[timerStyle]
     const rad = ((angle - 90) * Math.PI) / 180
-    const cx = 50 + 42 * Math.cos(rad)
-    const cy = 50 + 42 * Math.sin(rad)
+    const cx = 50 + 45 * Math.cos(rad)
+    const cy = 50 + 45 * Math.sin(rad)
+    const size = timerStyle === 'cheetah' ? 80 : 56
     return (
       <div className="relative w-64 h-64">
         <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
-          <circle cx="50" cy="50" r="42" fill="none" stroke="#1e293b" strokeWidth="6" />
+          <circle cx="50" cy="52" r="42" fill="none" stroke="#1e293b" strokeWidth="6" />
           <circle cx="50" cy="50" r="42" fill="none" stroke={color} strokeWidth="6" strokeLinecap="round"
             strokeDasharray={`${2 * Math.PI * 42}`}
             strokeDashoffset={`${2 * Math.PI * 42 * (1 - progress / 100)}`}
-            style={{ transition: 'stroke-dashoffset 1s linear' }} />
+            style={{ transition: 'stroke-dashoffset 1s linear ', }} />
         </svg>
-        <div className="absolute text-2xl" style={{
-          left: `${(cx / 100) * 256 - 16}px`,
-          top: `${(cy / 100) * 256 - 16}px`,
-          transform: 'rotate(90deg)', transition: 'all 1s linear',
-        }}>{emoji}</div>
+        <div
+          className="absolute"
+          style={{
+            left: `${(cx / 100) * 256 - size / 2}px`,
+            top: `${(cy / 100) * 256 - size / 2}px`,
+            transform: `rotate(${angle}deg)`,
+            transition: 'all 0.8s cubic-bezier(0.4, 0, 0.2, 1)'
+          }}
+        >
+          <div className={asset.className}>
+            <img
+            style={{
+              transform: 'rotate(0deg)',
+              filter: timerStyle === 'cheetah' ? 'drop-shadow(0 0 12px rgba(250,204,21,0.6))': timerStyle === 'horse' ? 'drop-shadow(0 0 10px rgba(255,255,255,0.35))' : 'drop-shadow(0 0 8px rgba(34,197,94,0.4))'
+            }}
+              src={asset.src}
+              className={`
+                -rotate-90
+                object-contain
+                select-none
+                pointer-events-none
+                ${timerStyle === 'cheetah' ? 'w-20 h-20' : 'w-14 h-14'}
+              `}
+              draggable={false}
+            />
+          </div>
+        </div>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span className="text-4xl font-bold text-white font-mono">{formatTime(timeLeft)}</span>
           <span className="text-slate-400 text-xs mt-1">
-            {mode === 'work' ? '🎯 Фокус' : mode === 'shortBreak' ? '☕ Перерыв' : '🛋️ Длинный'}
+            {mode === 'work' ? ' Фокус' : mode === 'shortBreak' ? ' Перерыв' : ' Длинный'}
           </span>
           {isRunning && mode === 'work' && <span className="text-indigo-400 text-xs mt-1 animate-pulse">● Фокус</span>}
           {isRunning && mode !== 'work' && <span className="text-green-400 text-xs mt-1 animate-pulse">● Перерыв</span>}
@@ -269,7 +349,7 @@ function TimerVisual({ progress, timeLeft, mode, isRunning, timerStyle }: TimerV
   }
 
   return (
-    <div className="relative w-64 h-64">
+    <div className={`relative w-64 h-64 ${ isRunning ? 'timer-glow' : ''}`}>
       <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
         <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(30,41,59,0.8)" strokeWidth="6" />
         <circle cx="50" cy="50" r="45" fill="none" stroke={color} strokeWidth="6" strokeLinecap="round"
@@ -280,7 +360,6 @@ function TimerVisual({ progress, timeLeft, mode, isRunning, timerStyle }: TimerV
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-5xl font-bold text-white font-mono tracking-wide">{formatTime(timeLeft)}</span>
         <span className="text-slate-400 text-sm mt-2">
-          {mode === 'work' ? '🎯 Фокус' : mode === 'shortBreak' ? '☕ Перерыв' : '🛋️ Длинный перерыв'}
         </span>
         {isRunning && mode === 'work' && <span className="text-indigo-400 text-xs mt-1 animate-pulse">● Фокус</span>}
         {isRunning && mode !== 'work' && <span className="text-green-400 text-xs mt-1 animate-pulse">● Перерыв</span>}
@@ -289,56 +368,24 @@ function TimerVisual({ progress, timeLeft, mode, isRunning, timerStyle }: TimerV
   )
 }
 
-// ============ PurchaseModal ============
-function PurchaseModal({ item, userGold, onConfirm, onClose }: {
-  item: { id: string; label: string; price: number; icon: string }
-  userGold: number; onConfirm: () => Promise<void>; onClose: () => void
-}) {
-  const [loading, setLoading] = useState(false)
-  const canAfford = userGold >= item.price
-  const handleConfirm = async () => { setLoading(true); try { await onConfirm() } finally { setLoading(false) } }
-  return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/70" onClick={onClose} />
-      <div className="relative rounded-2xl p-6 z-10 w-full max-w-sm text-center"
-        style={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}>
-        <div className="text-5xl mb-3">{item.icon}</div>
-        <h3 className="text-white font-semibold text-lg mb-1">{item.label}</h3>
-        <p className="text-slate-400 text-sm mb-2">Стоимость: <span className="text-yellow-400 font-bold">{item.price} Баллов</span></p>
-        <p className="text-slate-500 text-sm mb-4">Баланс: <span className={canAfford ? 'text-yellow-400' : 'text-red-400'}>{userGold}</span></p>
-        {!canAfford && <p className="text-red-400 text-xs mb-4">Недостаточно золота</p>}
-        <div className="flex gap-3">
-          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-slate-400"
-            style={{ backgroundColor: '#0f172a', border: '1px solid #334155' }}>Отмена</button>
-          <button onClick={canAfford ? handleConfirm : undefined} disabled={!canAfford || loading}
-            className="flex-1 py-2.5 rounded-xl text-white font-medium"
-            style={{ backgroundColor: canAfford ? '#f59e0b' : '#475569', opacity: (!canAfford || loading) ? 0.6 : 1 }}>
-            {loading ? 'Покупка...' : canAfford ? 'Купить' : 'Мало золота'}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // ============ SettingsPanel ============
 interface SettingsPanelProps {
-  settings: PomodoroSettings; userGold: number
+  settings: PomodoroSettings; 
   unlockedSounds: string[]; unlockedBgs: string[]; unlockedTimerStyles: string[]
   selectedSound: string; selectedBg: string; selectedTimerStyle: TimerStyle; autoSwitch: boolean
   onSaveTimer: (s: Partial<PomodoroSettings>) => void
   onSelectSound: (id: string) => void; onSelectBg: (id: string) => void
   onSelectTimerStyle: (id: TimerStyle) => void; onToggleAutoSwitch: () => void
-  onPurchase: (type: 'sound' | 'bg' | 'timer', id: string, label: string, icon: string, price: number) => Promise<void>
+  // onPurchase: (type: 'sound' | 'bg' | 'timer', id: string, label: string, icon: string, price: number) => Promise<void>
   onClose: () => void
   volume: number
   onVolumeChange: (v: number) => void
 }
 
 function SettingsPanel({
-  settings, userGold, unlockedSounds, unlockedBgs, unlockedTimerStyles,
+  settings, unlockedSounds, unlockedBgs, unlockedTimerStyles,
   selectedSound, selectedBg, selectedTimerStyle, autoSwitch,
-  onSaveTimer, onSelectSound, onSelectBg, onSelectTimerStyle, onToggleAutoSwitch, onPurchase, onClose,
+  onSaveTimer, onSelectSound, onSelectBg, onSelectTimerStyle, onToggleAutoSwitch, onClose,
   volume, onVolumeChange,
 }: SettingsPanelProps) {
   const [work, setWork] = useState(settings.workDuration)
@@ -346,18 +393,35 @@ function SettingsPanel({
   const [longB, setLongB] = useState(settings.longBreak)
   const [cycles, setCycles] = useState(settings.cyclesBeforeLong)
   const [timeError, setTimeError] = useState('')
-  const [purchaseItem, setPurchaseItem] = useState<{ id: string; label: string; price: number; icon: string; type: 'sound' | 'bg' | 'timer' } | null>(null)
+  // const [purchaseItem, setPurchaseItem] = useState<{id: string, name: string, price: number, icon: string, type: 'sound' | 'bg' | 'timer'} | null>(null)
 
   const inputStyle = { backgroundColor: '#0f172a', border: '1px solid #334155', color: '#fff' }
+  const handleItemClick = (
+    type: 'sound' | 'bg' | 'timer',
+    item: any
+  ) => {
+    const unlocked =
+      type === 'sound'
+        ? unlockedSounds
+        : type === 'bg'
+          ? unlockedBgs
+          : unlockedTimerStyles
 
-  const handleItemClick = (type: 'sound' | 'bg' | 'timer', item: { id: string; label: string; price: number; icon?: string }) => {
-    const unlocked = type === 'sound' ? unlockedSounds : type === 'bg' ? unlockedBgs : unlockedTimerStyles
-    if (item.price === 0 || unlocked.includes(item.id)) {
-      if (type === 'sound') onSelectSound(item.id)
-      else if (type === 'bg') onSelectBg(item.id)
-      else onSelectTimerStyle(item.id as TimerStyle)
+    const isUnlocked =
+      item.price === 0 || unlocked.includes(item.id)
+
+    // НЕ куплено → ничего не делаем
+    if (!isUnlocked) {
+      return
+    }
+
+    // Куплено → экипируем
+    if (type === 'sound') {
+      onSelectSound(item.id)
+    } else if (type === 'bg') {
+      onSelectBg(item.id)
     } else {
-      setPurchaseItem({ ...item, icon: item.icon || '🎨', type })
+      onSelectTimerStyle(item.timerStyleConfig.style)
     }
   }
 
@@ -436,23 +500,31 @@ function SettingsPanel({
           {/* Стиль таймера */}
           <div className="mb-5">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-slate-400 text-xs font-medium uppercase tracking-wide">🎮 Стиль таймера</h3>
-              <span className="text-yellow-400 text-sm">Баллы: {userGold}</span>
+              <h3 className="text-slate-400 text-xs font-medium uppercase tracking-wide">Стиль таймера</h3>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              {TIMER_STYLES.map(ts => {
+              {TIMER_STYLE_ITEMS.map(ts => {
                 const isUnlocked = ts.price === 0 || unlockedTimerStyles.includes(ts.id)
-                const isSelected = selectedTimerStyle === ts.id
+                const isSelected = selectedTimerStyle === ts.timerStyleConfig?.style
                 return (
                   <button key={ts.id} onClick={() => handleItemClick('timer', ts)}
                     className="flex items-center gap-2 p-3 rounded-xl transition-all text-left"
-                    style={{ backgroundColor: isSelected ? 'rgba(99,102,241,0.2)' : '#0f172a', border: `1px solid ${isSelected ? '#6366f1' : '#334155'}` }}>
-                    <span className="text-2xl shrink-0">{ts.icon}</span>
+                    style={{ opacity: !isUnlocked ? 0.5 : 1, cursor: !isUnlocked ? 'not-allowed' : 'pointer', backgroundColor: isSelected ? 'rgba(99,102,241,0.2)' : '#0f172a', border: `1px solid ${isSelected ? '#6366f1' : '#334155'}` }}>
+                    <span className="text-2xl shrink-0">{ts.timerStyleConfig?.icon}</span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-white text-sm">{ts.label}</p>
-                      {!isUnlocked ? <p className="text-yellow-400 text-xs flex items-center gap-1"><Lock size={10} /> {ts.price} Баллов</p>
-                        : isSelected ? <p className="text-indigo-400 text-xs">✓ Активен</p>
-                        : <p className="text-slate-500 text-xs">Разблокирован</p>}
+                      <p className="text-white text-sm">{ts.name}</p>
+                      {!isUnlocked ? (
+                        <p className="text-slate-500 text-xs flex items-center gap-1">
+                          <Lock size={10} />
+                          Не куплено
+                        </p>
+                      ) : isSelected ? (
+                        <p className="text-indigo-400 text-xs">Активен</p>
+                      ) : (
+                        <p className="text-slate-500 text-xs">
+                          Разблокирован
+                        </p>
+                      )}
                     </div>
                   </button>
                 )
@@ -462,44 +534,52 @@ function SettingsPanel({
 
           {/* Фоны */}
           <div className="mb-5">
-            <h3 className="text-slate-400 text-xs font-medium uppercase tracking-wide mb-3">🎨 Фон</h3>
+            <h3 className="text-slate-400 text-xs font-medium uppercase tracking-wide mb-3">Фон</h3>
             <div className="grid grid-cols-2 gap-2">
-              {BACKGROUNDS.map(bg => {
-                const bgConf = BG_CONFIG.find(b => b.id === bg.id)
+              {BACKGROUND_ITEMS.map(bg => {
                 const isUnlocked = bg.price === 0 || unlockedBgs.includes(bg.id)
                 const isSelected = selectedBg === bg.id
                 return (
                   <button key={bg.id} onClick={() => handleItemClick('bg', { ...bg, icon: '🎨' })}
                     className="flex items-center gap-2 p-3 rounded-xl transition-all text-left"
                     style={{
+                      opacity: !isUnlocked ? 0.5 : 1, cursor: !isUnlocked ? 'not-allowed' : 'pointer',
                       backgroundColor: isSelected ? 'rgba(99,102,241,0.2)' : '#0f172a',
                       border: `1px solid ${isSelected ? '#6366f1' : '#334155'}`,
                     }}>
                     {/* Превью фона */}
-                    <div className="w-10 h-10 rounded-lg shrink-0 overflow-hidden relative"
-                      style={bg.style}>
-                      {bgConf?.type === 'video' && bgConf.videoSrc && (
+                    <div
+                      className="w-10 h-10 rounded-lg shrink-0 overflow-hidden relative bg-cover bg-center"
+                      style={
+                        bg.background?.type === 'gradient'
+                          ? { background: bg.background.value }
+                          : bg.background?.type === 'image'
+                            ? { backgroundImage: `url(${bg.background.value})` }
+                            : {}
+                      }
+                    >
+                      {bg.background?.type === 'video' && (
                         <video
-                          autoPlay loop muted playsInline
+                          autoPlay
+                          loop
+                          muted
+                          playsInline
                           className="absolute inset-0 w-full h-full object-cover opacity-70"
                         >
-                          <source src={bgConf.videoSrc} type="video/mp4" />
+                          <source src={bg.background.value} type="video/mp4" />
                         </video>
-                      )}
-                      {bg.id === 'space' && (
-                        <div className="absolute inset-0 flex items-center justify-center text-lg">✨</div>
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-white text-sm">{bg.label}</p>
-                      {bgConf?.animated && (
-                        <p className="text-indigo-400 text-xs"></p>
-                      )}
+                      <p className="text-white text-sm">{bg.name}</p>
                       {!isUnlocked
-                        ? <p className="text-yellow-400 text-xs flex items-center gap-1"><Lock size={10} /> {bg.price} Баллов</p>
+                        ? <p className="text-slate-500 text-xs flex items-center gap-1">
+                            <Lock size={10} />
+                            Не куплено
+                          </p>
                         : isSelected
                           ? <p className="text-indigo-400 text-xs">Активен</p>
-                          : bgConf?.animated ? null : <p className="text-slate-500 text-xs">Разблокирован</p>}
+                          : <p className="text-slate-500 text-xs">Разблокирован</p>}
                     </div>
                   </button>
                 )
@@ -509,7 +589,7 @@ function SettingsPanel({
 
           {/* Звуки */}
           <div>
-            <h3 className="text-slate-400 text-xs font-medium uppercase tracking-wide mb-3">🔊 Звук</h3>
+            <h3 className="text-slate-400 text-xs font-medium uppercase tracking-wide mb-3">Звук</h3>
             <div
               className="mb-4 p-3 rounded-xl"
               style={{
@@ -538,17 +618,17 @@ function SettingsPanel({
               />
             </div>
             <div className="grid grid-cols-2 gap-2">
-              {SOUNDS.map(sound => {
+              {SOUND_ITEMS.map(sound => {
                 const isUnlocked = sound.price === 0 || unlockedSounds.includes(sound.id)
                 const isSelected = selectedSound === sound.id
                 return (
                   <button key={sound.id} onClick={() => handleItemClick('sound', sound)}
                     className="flex items-center gap-2 p-3 rounded-xl transition-all"
-                    style={{ backgroundColor: isSelected ? 'rgba(99,102,241,0.2)' : '#0f172a', border: `1px solid ${isSelected ? '#6366f1' : '#334155'}` }}>
-                    <span className="text-xl shrink-0">{sound.icon}</span>
+                    style={{ opacity: !isUnlocked ? 0.5 : 1, cursor: !isUnlocked ? 'not-allowed' : 'pointer', backgroundColor: isSelected ? 'rgba(99,102,241,0.2)' : '#0f172a', border: `1px solid ${isSelected ? '#6366f1' : '#334155'}` }}>
+                    <span className="text-xl shrink-0">{sound.soundConfig?.icon}</span>
                     <div className="flex-1 text-left min-w-0">
-                      <p className="text-white text-sm truncate">{sound.label}</p>
-                      {!isUnlocked ? <p className="text-yellow-400 text-xs flex items-center gap-1"><Lock size={10} /> {sound.price} Баллов</p>
+                      <p className="text-white text-sm truncate">{sound.name}</p>
+                      {!isUnlocked ? <p className="text-slate-500 text-xs flex items-center gap-1"><Lock size={10} />Не куплено</p>
                         : isSelected ? <p className="text-indigo-400 text-xs">Активен</p>
                         : <p className="text-slate-500 text-xs">Разблокирован</p>}
                     </div>
@@ -559,14 +639,6 @@ function SettingsPanel({
           </div>
         </div>
       </div>
-      {purchaseItem && (
-        <PurchaseModal item={purchaseItem} userGold={userGold}
-          onConfirm={async () => {
-            await onPurchase(purchaseItem.type, purchaseItem.id, purchaseItem.label, purchaseItem.icon, purchaseItem.price)
-            setPurchaseItem(null)
-          }}
-          onClose={() => setPurchaseItem(null)} />
-      )}
     </>
   )
 }
@@ -592,8 +664,7 @@ export default function PomodoroPage() {
     Number(localStorage.getItem('lifequest_volume') || 0.5)
   )
   const [selectedBg, setSelectedBg] = useState(() =>
-    localStorage.getItem('lifequest_bg') || 'dark'
-  )
+  localStorage.getItem('lifequest_bg') || 'none'  )
   const [selectedTimerStyle, setSelectedTimerStyle] = useState<TimerStyle>(() =>
     (localStorage.getItem('lifequest_timer_style') as TimerStyle) || 'circle'
   )
@@ -605,33 +676,35 @@ export default function PomodoroPage() {
   const initDone = useRef(false)
 
   useEffect(() => {
-    // При монтировании — синхронизируем аудио с текущим состоянием таймера
-    if (isRunning && selectedSound !== 'none') {
+    localStorage.setItem('lifequest_sound', selectedSound)
+
+    // меняем звук только если таймер уже идет
+    if (isRunning) {
       audioService.changeSound(selectedSound, true)
     }
-    // При размонтировании — НЕ останавливаем (звук продолжает играть)
-  }, []) // только при монтировании
+  }, [selectedSound])
 
-  // Эффект при смене звука или состояния таймера:
   useEffect(() => {
-    localStorage.setItem('lifequest_sound', selectedSound)
-    audioService.changeSound(selectedSound, isRunning)
-  }, [selectedSound, isRunning])
+    if (isRunning) {
+      audioService.resume()
+    } else {
+      audioService.pause()
+    }
+  }, [isRunning])
 
+  useEffect(() => {
+    if (isRunning) {
+      audioService.resume()
+    } else {
+      audioService.pause()
+    }
+  }, [isRunning])
 
   useEffect(() => {
     localStorage.setItem('lifequest_volume', String(volume))
     audioService.setVolume(volume)
   }, [volume])
 
-  // При изменении isRunning
-  useEffect(() => {
-    if (isRunning) {
-      audioService.changeSound(selectedSound, true)
-    } else {
-      audioService.pause()
-    }
-  }, [isRunning])
 
   // Передаём loadUser в сервис
   useEffect(() => {
@@ -679,7 +752,9 @@ export default function PomodoroPage() {
         if (saved.sessionId) store.setSessionId(saved.sessionId)
         if (saved.taskId !== undefined) store.setSelectedTaskId(saved.taskId)
         if (saved.taskSelected) store.setTaskSelected(true)
-        if (saved.sessionCount) store.setSessionCount(saved.sessionCount)
+        // if (saved.sessionCount !== undefined) {
+        //   store.setSessionCount(saved.sessionCount)
+        // }
 
         // Если нет modeDuration — вычисляем
         if (!saved.modeDuration) {
@@ -724,10 +799,24 @@ export default function PomodoroPage() {
         // Инвентарь
         try {
           const invRes = await apiClient.get('/inventory')
-          const items: { itemType: string; name: string }[] = invRes.data.items || []
-          setUnlockedSounds(items.filter(i => i.itemType === 'sound').map(i => i.name))
-          setUnlockedBgs(items.filter(i => i.itemType === 'background').map(i => i.name))
-          setUnlockedTimerStyles(items.filter(i => i.itemType === 'timer').map(i => i.name))
+          const items: { itemId: string, itemType: string, name: string }[] = invRes.data.items || []
+          setUnlockedSounds(
+            items
+              .filter(i => i.itemType === 'pomodoro_sound')
+              .map(i => i.itemId || i.name)
+          )
+
+          setUnlockedBgs(
+            items
+              .filter(i => i.itemType === 'background')
+              .map(i => i.itemId || i.name)
+          )
+
+          setUnlockedTimerStyles(
+            items
+              .filter(i => i.itemType === 'pomodoro_timer')
+              .map(i => i.itemId || i.name)
+          )
         } catch { /* ignore */ }
 
       } catch (err) {
@@ -749,8 +838,24 @@ export default function PomodoroPage() {
 
   const handleStart = async () => {
     if (!pomodoroSettings) return
-    if (!taskSelected) { setShowTaskSelect(true); return }
-    await timerService.start(selectedTaskId, pomodoroSettings)
+
+    if (!taskSelected && selectedTaskId === null) {
+      setTaskSelected(true)
+    }
+
+    try {
+      // Запускаем звук прямо в user gesture
+      if (selectedSound !== 'none') {
+        audioService.play(selectedSound)
+      }
+
+      await timerService.start(
+        selectedTaskId ?? null,
+        pomodoroSettings
+      )
+    } catch (err) {
+      console.error('START ERROR:', err)
+    }
   }
 
   const handlePause = () => timerService.pause()
@@ -792,34 +897,23 @@ export default function PomodoroPage() {
     }
   }
 
-  const handlePurchase = async (type: 'sound' | 'bg' | 'timer', id: string, _label: string, _icon: string, price: number) => {
-    try {
-      const itemType = type === 'sound' ? 'sound' : type === 'bg' ? 'background' : 'timer'
-      await apiClient.post('/inventory/purchase', { itemType, name: id, price })
-      if (type === 'sound') { setUnlockedSounds(p => [...p, id]); setSelectedSound(id) }
-      else if (type === 'bg') { setUnlockedBgs(p => [...p, id]); setSelectedBg(id) }
-      else { setUnlockedTimerStyles(p => [...p, id]); setSelectedTimerStyle(id as TimerStyle) }
-      loadUser()
-    } catch (err: any) {
-      console.error('Purchase error:', err?.response?.data?.error || err)
-    }
-  }
-
   const progress = modeDuration > 0 ? ((modeDuration - timeLeft) / modeDuration) * 100 : 0
   const selectedTask = tasks.find(t => t.id === selectedTaskId)
   const displayMinutes = todayMinutes + Math.floor(useTimerStore.getState().activeSecondsToday / 60)
 
-  const bgConfig = BG_CONFIG.find(b => b.id === selectedBg)
-  const bgStyle = bgConfig?.style || {}
+  const selectedBackgroundItem = BACKGROUND_ITEMS.find(b => b.id === selectedBg)
 
+  const bgStyle = selectedBackgroundItem?.background?.type === 'gradient' ? { background: selectedBackgroundItem.background.value } : selectedBackgroundItem?.background?.type === 'image'
+    ? {backgroundImage: `url(${selectedBackgroundItem.background.value})`, backgroundSize: 'cover', backgroundPosition: 'center',}: {}
 
+  
   return (
     <div className="min-h-[calc(100vh-80px)] flex flex-col items-center justify-center relative transition-all duration-1000 overflow-hidden"
       style={bgStyle}>
              {/* Живой фон поверх CSS цвета */}
       <LiveBackground bgId={selectedBg} />
       {/* Overlay для читаемости текста при активном видео/анимации */}
-      {bgConfig?.animated && (
+      {selectedBackgroundItem?.background?.type === 'video' && (
         <div
           className="absolute inset-0 pointer-events-none"
           style={{ backgroundColor: 'rgba(0,0,0,0.4)', zIndex: 1 }}
@@ -853,7 +947,7 @@ export default function PomodoroPage() {
 
           {/* Таймер */}
           <div className="flex flex-col items-center gap-4">
-            <TimerVisual progress={progress} timeLeft={timeLeft} mode={mode} isRunning={isRunning} timerStyle={selectedTimerStyle} />
+            <TimerVisual progress={progress} timeLeft={timeLeft} mode={mode} isRunning={isRunning} timerStyle={selectedTimerStyle} modeDuration={modeDuration} />
             {lastReward && (
               <div className="flex items-center gap-4 px-5 py-2.5 rounded-xl"
                 style={{ backgroundColor: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.4)' }}>
@@ -872,7 +966,6 @@ export default function PomodoroPage() {
               cursor: (isRunning || sessionId !== null) ? 'default' : 'pointer',
             }}>
             <div className="flex items-center gap-2 min-w-0">
-              <span className="text-indigo-400 shrink-0">🎯</span>
               <span className="text-sm truncate" style={{ color: selectedTask ? '#f1f5f9' : (taskSelected && !selectedTask ? '#a5b4fc' : '#64748b') }}>
                 {selectedTask ? selectedTask.title : (taskSelected ? 'Без задачи' : 'Выбрать задачу...')}
               </span>
@@ -995,7 +1088,7 @@ export default function PomodoroPage() {
                   {task.isFocusToday && <span>⭐</span>}
                   <div className="flex-1 min-w-0">
                     <p className="text-white text-sm truncate">{task.title}</p>
-                    {task.goal && <p className="text-slate-500 text-xs">🎯 {task.goal.title}</p>}
+                    {task.goal && <p className="text-slate-500 text-xs">{task.goal.title}</p>}
                   </div>
                   {selectedTaskId === task.id && <span className="text-indigo-400">✓</span>}
                 </button>
@@ -1008,7 +1101,6 @@ export default function PomodoroPage() {
       {showSettings && pomodoroSettings && (
         <SettingsPanel
           settings={pomodoroSettings}
-          userGold={user?.gold || 0}
           unlockedSounds={unlockedSounds}
           unlockedBgs={unlockedBgs}
           unlockedTimerStyles={unlockedTimerStyles}
@@ -1021,7 +1113,6 @@ export default function PomodoroPage() {
           onSelectBg={setSelectedBg}
           onSelectTimerStyle={setSelectedTimerStyle}
           onToggleAutoSwitch={() => setAutoSwitch(!autoSwitch)}
-          onPurchase={handlePurchase}
           onClose={() => setShowSettings(false)}
           volume={volume}
           onVolumeChange={setVolume}

@@ -21,7 +21,7 @@ router.get('/catalog', async (req: AuthRequest, res: Response) => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.userId! },
-      select: { gold: true, avatarBorder: true, profileBg: true, permanentPerks: true, }
+      select: { gold: true, avatarBorder: true, profileBg: true, permanentPerks: true, activePomodoroSound: true, activePomodoroTimer: true, }
     })
 
     // Список купленных предметов из inventoryItem
@@ -49,9 +49,13 @@ router.get('/catalog', async (req: AuthRequest, res: Response) => {
         equipped:
           item.category === 'avatar_border'
             ? user?.avatarBorder === item.id
-            : item.category === 'profile_bg'
+            : item.category === 'background'
               ? user?.profileBg === item.id
-              : false,
+              : item.category === 'pomodoro_sound'
+                ? user?.activePomodoroSound === item.id
+                : item.category === 'pomodoro_timer'
+                  ? user?.activePomodoroTimer === item.id
+                  : false,
 
         // ДЛЯ FRONTEND
         level: currentLevel,
@@ -182,6 +186,7 @@ router.post('/buy', async (req: AuthRequest, res: Response) => {
         await tx.inventoryItem.create({
           data: {
             userId: req.userId!,
+            itemId: item.id,
             name: itemId,
             itemType: item.category,
             rarity: item.rarity,
@@ -245,12 +250,20 @@ router.post('/equip', async (req: AuthRequest, res: Response) => {
 
     const updateData: any = {}
     if (item.category === 'avatar_border') updateData.avatarBorder = itemId
-    if (item.category === 'profile_bg') updateData.profileBg = itemId
+    if (item.category === 'background') updateData.profileBg = itemId
+    
+    if (item.category === 'pomodoro_sound') {
+      updateData.activePomodoroSound = item.id
+    }
+
+    if (item.category === 'pomodoro_timer') {
+      updateData.activePomodoroTimer = item.id
+    }
 
     const updated = await prisma.user.update({
       where: { id: req.userId! },
       data: updateData,
-      select: { avatarBorder: true, profileBg: true }
+      select: { avatarBorder: true, profileBg: true, activePomodoroSound: true, activePomodoroTimer: true, }
     })
 
     res.json({ success: true, equipped: updated })
@@ -266,8 +279,9 @@ router.post('/unequip', async (req: AuthRequest, res: Response) => {
 
     const updateData: any = {}
     if (category === 'avatar_border') updateData.avatarBorder = 'none'
-    if (category === 'profile_bg') updateData.profileBg = 'default'
-
+    if (category === 'background') updateData.profileBg = 'default'
+    if (category === 'pomodoro_sound') {updateData.activePomodoroSound = 'default'}
+    if (category === 'pomodoro_timer') {updateData.activePomodoroTimer = 'default'}
     await prisma.user.update({ where: { id: req.userId! }, data: updateData })
     res.json({ success: true })
   } catch (error) {

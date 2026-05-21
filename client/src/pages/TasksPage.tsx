@@ -335,7 +335,7 @@ function TaskDetailModal({ task, goals, onClose, onUpdate, onDelete }: TaskDetai
         <div className="flex items-start justify-between gap-3 mb-4">
           <div className="flex-1 min-w-0">
             <h2 className="text-white font-semibold text-lg leading-snug">{task.title}</h2>
-            {task.goal && <p className="text-slate-400 text-sm mt-1">🎯 {task.goal.title}</p>}
+            {task.goal && <p className="text-slate-400 text-sm mt-1">Цель: {task.goal.title}</p>}
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             <button onClick={() => onUpdate(task.id, { isPinned: !task.isPinned })}
@@ -608,7 +608,7 @@ function TaskCard({ task, onClick }: TaskCardProps) {
         )}
         {task.goal && (
           <span className="text-xs text-slate-600 truncate max-w-[70px]" title={task.goal.title}>
-            🎯{task.goal.title}
+            {task.goal.title}
           </span>
         )}
       </div>
@@ -1071,7 +1071,7 @@ const handleUpdate = useCallback(async (id: number, data: any) => {
                       </div>
                       <div className="flex-1 min-w-0">
                         <span className="text-sm text-slate-400 line-through truncate block">{task.title}</span>
-                        {task.goal && <p className="text-xs text-slate-600">🎯 {task.goal.title}</p>}
+                        {task.goal && <p className="text-xs text-slate-600">{task.goal.title}</p>}
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         <span className="text-xs px-1.5 py-0.5 rounded"
@@ -1198,7 +1198,7 @@ const handleUpdate = useCallback(async (id: number, data: any) => {
                             </span>
                           )}
                           {task.goal && (
-                            <span className="text-xs text-slate-500 hidden sm:block">🎯 {task.goal.title}</span>
+                            <span className="text-xs text-slate-500 hidden sm:block">{task.goal.title}</span>
                           )}
                         </div>
                       </div>

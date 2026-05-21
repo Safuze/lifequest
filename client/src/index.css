@@ -34,6 +34,101 @@ input:-webkit-autofill:focus {
   animation: flipHourglass 0.8s ease-in-out forwards;
 }
 
+.sand-stream {
+  animation: sandFlow 0.6s linear infinite;
+  transform-origin: center;
+}
+
+@keyframes sandFlow {
+  0% {
+    opacity: 0.4;
+    transform: translateY(-1px);
+  }
+
+  50% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0.4;
+    transform: translateY(2px);
+  }
+}
+
+.sand-particle-1 {
+  animation: sandParticle1 0.9s linear infinite;
+}
+
+.sand-particle-2 {
+  animation: sandParticle2 1.2s linear infinite;
+}
+
+.sand-particle-3 {
+  animation: sandParticle3 1s linear infinite;
+}
+
+@keyframes sandParticle1 {
+  0% {
+    transform: translateY(0px);
+    opacity: 0;
+  }
+
+  30% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+}
+
+@keyframes sandParticle2 {
+  0% {
+    transform: translateY(-2px);
+    opacity: 0;
+  }
+
+  40% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateY(7px);
+    opacity: 0;
+  }
+}
+
+@keyframes sandParticle3 {
+  0% {
+    transform: translateY(-1px);
+    opacity: 0;
+  }
+
+  50% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateY(9px);
+    opacity: 0;
+  }
+}
+
+.hourglass-active {
+  animation: hourglassPulse 2s ease-in-out infinite;
+}
+
+@keyframes hourglassPulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.015);
+  }
+}
+
 /* Анимация уведомления о награде */
 @keyframes slideIn {
   from { transform: translateX(100px); opacity: 0; }
@@ -59,4 +154,44 @@ input:-webkit-autofill:focus {
   0%   { background-position: 0% 50%; }
   50%  { background-position: 100% 50%; }
   100% { background-position: 0% 50%; }
+}
+
+.timer-bounce {
+  animation: timerBounce 1.2s ease-in-out infinite;
+}
+
+@keyframes timerBounce {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-4px) scale(1.03);
+  }
+}
+
+.timer-glow {
+  filter:
+    drop-shadow(0 0 8px rgba(99,102,241,0.7))
+    drop-shadow(0 0 18px rgba(99,102,241,0.4));
+}
+
+.cheetah-speed {
+  filter:
+    drop-shadow(6px 0px 6px rgba(255,255,255,0.15))
+    blur(0.2px);
+}
+
+@keyframes pulseRing {
+  0%, 100% {
+    filter: drop-shadow(0 0 8px rgba(79,70,229,0.3));
+  }
+
+  50% {
+    filter: drop-shadow(0 0 18px rgba(79,70,229,0.8));
+  }
+}
+
+.timer-ring-pulse {
+  animation: pulseRing 3s ease-in-out infinite;
 }

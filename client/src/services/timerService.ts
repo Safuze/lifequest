@@ -14,7 +14,7 @@ interface StoredTimer {
   sessionId: number | null
   taskId: number | null
   taskSelected: boolean
-  sessionCount: number
+  // sessionCount: number
   pausedTimeLeft: number  // сколько осталось в момент паузы
   modeDuration: number    // полная длительность текущего режима
 }
@@ -191,7 +191,7 @@ class TimerService {
           mode: currentMode,
           modeDuration: durSec,
           pausedTimeLeft: 0,
-          sessionCount: store.sessionCount,
+          // sessionCount: store.sessionCount,
         })
 
         this.startTick()
@@ -319,16 +319,43 @@ class TimerService {
             )
           }
 
-          const newCount = (saved.sessionCount ?? store.sessionCount) + 1
-          store.setSessionCount(newCount)
+          // let newCount = (saved.sessionCount ?? store.sessionCount) + 1
+          // this.loadUserFn?.()
+          // const statsData = await pomodoroApi.getTodayStats()
+
+          // store.setTodayStats(
+          //   statsData.totalMinutes,
+          //   statsData.sessionsCount,
+          //   statsData.completedCycles
+          // )
+
+          // const cyclesBeforeLong = Math.max(2, this.settings?.cyclesBeforeLong || 4)
+
+          // const isLongBreak = newCount >= cyclesBeforeLong
+
+          // const nextMode: TimerMode = isLongBreak ? 'longBreak' : 'shortBreak'
+
+          // if (isLongBreak) {
+          //   newCount = 0
+          // }
+
+          // store.setSessionCount(newCount)
+
           this.loadUserFn?.()
 
           const statsData = await pomodoroApi.getTodayStats()
-          store.setTodayStats(statsData.totalMinutes, statsData.sessionsCount, statsData.completedCycles)
 
-          const cyclesBeforeLong = Math.max(2, this.settings?.cyclesBeforeLong || 4)
+          store.setTodayStats(
+            statsData.totalMinutes,
+            statsData.sessionsCount,
+            statsData.completedCycles
+          )
 
-          const nextMode: TimerMode = newCount % cyclesBeforeLong === 0 ? 'longBreak': 'shortBreak'
+          const nextMode: TimerMode =
+            result.cycleBonus
+              ? 'longBreak'
+              : 'shortBreak'
+
           const nextDurSec = this.getDur(nextMode) * 60
 
           store.setMode(nextMode)
@@ -350,7 +377,7 @@ class TimerService {
               endEpoch,
               pausedTimeLeft: 0,
               modeDuration: nextDurSec,
-              sessionCount: newCount,
+              // sessionCount: newCount,
             })
 
             setTimeout(() => {
@@ -366,7 +393,7 @@ class TimerService {
               endEpoch: 0,
               pausedTimeLeft: nextDurSec,
               modeDuration: nextDurSec,
-              sessionCount: newCount,
+              // sessionCount: newCount,
             })
           }
         } catch (err) {
@@ -508,7 +535,11 @@ class TimerService {
         store.setMode(nextMode)
         store.setTimeLeft(nextDurSec)
         store.setModeDuration(nextDurSec)
-
+        // const cyclesBeforeLong = Math.max(2, this.settings?.cyclesBeforeLong || 4)
+        // let nextCount = store.sessionCount + 1
+        // if (nextCount >= cyclesBeforeLong) {
+        //   nextCount = 0
+        // }
         save({
           mode: nextMode,
           isRunning: false,
@@ -516,7 +547,7 @@ class TimerService {
           endEpoch: 0,
           pausedTimeLeft: nextDurSec,
           modeDuration: nextDurSec,
-          sessionCount: store.sessionCount + 1,
+          // sessionCount: nextCount,
         })
       } catch (err) {
         console.error('finishEarly error:', err)

@@ -32,7 +32,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 const CATEGORY_EMOJIS: Record<string, string> = {
   'учёба': '📚', 'работа': '💼', 'здоровье': '💪',
-  'хобби': '🎨', 'личное': '👤', 'другое': '📌'
+  'хобби': '🎨', 'личное': '👤', 
 }
 
 function formatMinutes(min: number): string {
@@ -71,7 +71,7 @@ function PomodoroChart({ byCategory, totalMin }: {
           <div key={cat}>
             <div className="flex justify-between text-xs mb-1">
               <span className="text-slate-300">
-                {CATEGORY_EMOJIS[cat] || '📌'} {cat}
+                {CATEGORY_EMOJIS[cat]} {cat}
               </span>
               <span className="text-slate-400">{formatMinutes(min)} · {pct}%</span>
             </div>
@@ -175,7 +175,7 @@ export default function LifeScopePage() {
 
       {/* Сравнение с прошлой неделей */}
       <div className="rounded-2xl p-4" style={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}>
-        <h3 className="text-white font-medium mb-3">📊 vs прошлая неделя</h3>
+        <h3 className="text-white font-medium mb-3">Сравнение с предыдущей неделей</h3>
         <div className="grid grid-cols-2 gap-4">
           <div>
             <p className="text-slate-400 text-xs mb-1">XP</p>
@@ -196,7 +196,7 @@ export default function LifeScopePage() {
 
       {/* Помодоро по категориям */}
       <div className="rounded-2xl p-4" style={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}>
-        <h3 className="text-white font-medium mb-3">⏱ Фокус по категориям</h3>
+        <h3 className="text-white font-medium mb-3">Фокус по категориям</h3>
         <PomodoroChart byCategory={report.pomodoroByCategory} totalMin={report.totalPomodoroMin} />
       </div>
 
@@ -204,7 +204,7 @@ export default function LifeScopePage() {
       {report.habitStats.length > 0 && (
         <div className="rounded-2xl p-4" style={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}>
           <h3 className="text-white font-medium mb-3">
-            🔥 Привычки
+            Привычки
             <span className="text-slate-400 text-sm font-normal ml-2">
               ср. {report.avgHabitCompletion}%
             </span>
@@ -240,7 +240,7 @@ export default function LifeScopePage() {
       {/* Рекомендации */}
       <div className="rounded-2xl p-4" style={{ backgroundColor: '#1e293b', border: '1px solid rgba(99,102,241,0.3)' }}>
         <h3 className="text-white font-medium mb-3 flex items-center gap-2">
-          <Lightbulb size={16} className="text-yellow-400" /> Рекомендации
+          <Lightbulb size={16} className="text-yellow-400" />Рекомендации
         </h3>
         <div className="space-y-2">
           {report.recommendations.map((rec, i) => (
@@ -255,7 +255,7 @@ export default function LifeScopePage() {
       {/* Завершённые задачи */}
       {report.tasks.length > 0 && (
         <div className="rounded-2xl p-4" style={{ backgroundColor: '#1e293b', border: '1px solid #334155' }}>
-          <h3 className="text-white font-medium mb-3">✅ Завершённые задачи</h3>
+          <h3 className="text-white font-medium mb-3">Завершённые задачи</h3>
           <div className="space-y-1.5">
             {report.tasks.map((task: any) => (
               <div key={task.id} className="flex items-center gap-2 text-sm">

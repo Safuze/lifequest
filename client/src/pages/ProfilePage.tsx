@@ -202,23 +202,26 @@ export default function ProfilePage() {
   
 
   return (
+    <div className="min-h-screen relative bg-slate-950 overflow-hidden">
+  
+    {/* Background layer */}
     <div
-      className="min-h-screen relative overflow-hidden"
+      className="fixed inset-0 z-0"
       style={profileBgStyle}
-    >
+    />
     {bgData?.type === 'video' && (
-      <video
-        autoPlay
-        muted
-        loop
-        playsInline
-        poster={bgData.poster}
-        className="absolute inset-0 w-full h-full object-cover"
-      >
+    <video
+      autoPlay
+      muted
+      loop
+      playsInline
+      poster={bgData.poster}
+      className="fixed inset-0 w-full h-full object-cover z-0"
+    >
         <source src={bgData.value} type="video/mp4" />
       </video>
     )}
-    <div className="relative z-10 max-w-2xl mx-auto space-y-5">
+    <div className="relative z-10 max-w-2xl mx-auto space-y-5 p-4">
 
       {/* RPG-карточка профиля */}
       <div className="rounded-2xl p-5 relative overflow-hidden"
@@ -276,7 +279,7 @@ export default function ProfilePage() {
             {/* Ресурсы */}
             <div className="flex gap-4 mt-2">
               <span className="text-sm text-indigo-400">{user.xp} XP</span>
-              <span className="text-sm text-yellow-400">{user.gold} Баллов</span>
+              <span className="text-sm text-yellow-400">{Number(user.gold).toFixed(1).replace(/\.0$/, '')} Баллов</span>
             </div>
           </div>
         </div>
@@ -285,9 +288,9 @@ export default function ProfilePage() {
       {/* Табы */}
       <div className="flex rounded-xl overflow-hidden" style={{ border: '1px solid #334155' }}>
         {([
-          { id: 'stats',        label: '📊 Статистика' },
-          { id: 'achievements', label: '🏆 Достижения' },
-          { id: 'inventory',    label: '🐾 Коллекция'  },
+          { id: 'stats',        label: 'Статистика' },
+          { id: 'achievements', label: 'Достижения' },
+          { id: 'inventory',    label: 'Коллекция'  },
         ] as const).map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)}
             className="flex-1 py-2.5 text-sm font-medium transition-all"
@@ -317,7 +320,7 @@ export default function ProfilePage() {
           </div>
 
           {/* Метрики */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {statCards.map(({ icon, label, value, color, bg }) => (
               <div key={label} className="p-4 rounded-2xl"
                 style={{ backgroundColor: 'rgba(30, 41, 59, 0.95)', border: '1px solid #334155' }}>
@@ -334,7 +337,7 @@ export default function ProfilePage() {
 
           {/* Радар */}
           <div className="rounded-2xl p-5" style={{backgroundColor: 'rgba(30, 41, 59, 0.95)', border: '1px solid #334155' }}>
-            <h3 className="text-white font-medium mb-4">🕸 Радар характеристик</h3>
+            <h3 className="text-white font-medium mb-4">Радар характеристик</h3>
             <RadarChart data={radar} />
             <div className="grid grid-cols-5 gap-1 mt-3">
               {[
@@ -362,26 +365,9 @@ export default function ProfilePage() {
       {activeTab === 'inventory' && (() => {
         const pets = inventory.filter((i: any) => i.itemType === 'pet')
 
-        const pomodoroItems = inventory.filter((i: any) =>
-          ['timer', 'background', 'sound'].includes(i.itemType)
+        const cosmeticItems = inventory.filter((i: any) =>
+          i.itemType !== 'pet'
         )
-
-        const profileItems = inventory.filter((i: any) =>
-          ['avatar_border', 'profile_bg'].includes(i.itemType)
-        )
-
-        const sections = [
-          {
-            key: 'profile',
-            title: '👤 Оформление профиля',
-            items: profileItems,
-          },
-          {
-            key: 'pomodoro',
-            title: '⏱ Оформление Pomodoro',
-            items: pomodoroItems,
-          },
-        ].filter(section => section.items.length > 0)
 
         return (
           <div className="space-y-5">
@@ -390,12 +376,13 @@ export default function ProfilePage() {
             <div
               className="rounded-2xl p-4"
               style={{
-                backgroundColor: '#1e293b',
+                backgroundColor: 'rgba(30, 41, 59, 0.92)',
+                backdropFilter: 'blur(10px)',
                 border: '1px solid #334155',
               }}
             >
               <h3 className="text-white font-medium mb-3 flex items-center gap-2">
-                🐾 Питомцы
+                Питомцы
                 <span className="text-slate-500 text-sm font-normal">
                   ({pets.length})
                 </span>
@@ -419,44 +406,38 @@ export default function ProfilePage() {
             </div>
 
             {/* Остальные коллекции */}
-            {sections.length === 0 ? (
-              <div
-                className="rounded-2xl p-8 text-center"
-                style={{
-                  backgroundColor: '#1e293b',
-                  border: '1px solid #334155',
-                }}
-              >
-                <p className="text-3xl mb-2">🎒</p>
-                <p className="text-slate-400 text-sm">
-                  Косметика не куплена
-                </p>
-              </div>
-            ) : (
-              sections.map(section => (
-                <div
-                  key={section.key}
-                  className="rounded-2xl p-4"
-                  style={{
-                    backgroundColor: '#1e293b',
-                    border: '1px solid #334155',
-                  }}
-                >
-                  <h3 className="text-white font-medium mb-3 flex items-center gap-2">
-                    {section.title}
-                    <span className="text-slate-500 text-sm font-normal">
-                      ({section.items.length})
-                    </span>
-                  </h3>
+            {/* Предметы */}
+            <div
+              className="rounded-2xl p-4"
+              style={{
+                backgroundColor: 'rgba(30, 41, 59, 0.92)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid #334155',
+              }}
+            >
+              <h3 className="text-white font-medium mb-3 flex items-center gap-2">
+                Предметы
+                <span className="text-slate-500 text-sm font-normal">
+                  ({cosmeticItems.length})
+                </span>
+              </h3>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    {section.items.map((item: any) => (
-                      <InventoryCard key={item.name} item={item} />
-                    ))}
-                  </div>
+              {cosmeticItems.length === 0 ? (
+                <div className="text-center py-6">
+                  <p className="text-3xl mb-2">🎒</p>
+                  <p className="text-slate-400 text-sm">
+                    Косметика не куплена
+                  </p>
                 </div>
-              ))
-            )}
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {cosmeticItems.map((item: any) => (
+                    <InventoryCard key={item.name} item={item} />
+                  ))}
+                </div>
+              )}
+            </div>
+              
           </div>
         )
       })()}

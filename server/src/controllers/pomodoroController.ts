@@ -15,8 +15,8 @@ export const settingsSchema = z.object({
 })
 
 export const createSessionSchema = z.object({
-  taskId:          z.number().positive().optional(),
-  goalId:          z.number().positive().optional(),
+  taskId:          z.number().positive().nullable().optional(),
+  goalId:          z.number().positive().nullable().optional(),
   plannedDuration: z.number().min(5).max(120),
 })
 
@@ -181,19 +181,34 @@ export const completeSession = async (req: AuthRequest, res: Response) => {
     })
     const cyclesBeforeLong = settings?.cyclesBeforeLong || 4
 
-    const todayStart = new Date()
-    todayStart.setUTCHours(0, 0, 0, 0) // UTC чтобы избежать timezone-багов
-
-    // Считаем завершённые сессии сегодня ВКЛЮЧАЯ текущую
-    const completedTodayCount = await prisma.pomodoroSession.count({
-      where: {
-        userId: req.userId!,
-        status: 'completed',
-        completedAt: { gte: todayStart }
+    const userCycleData = await prisma.user.findUnique({
+      where: { id: req.userId! },
+      select: {
+        currentCycleProgress: true
       }
     })
 
-    const isNewCycleCompleted = completedTodayCount > 0 && completedTodayCount % cyclesBeforeLong === 0
+    const currentProgress =
+      userCycleData?.currentCycleProgress || 0
+
+    const newCycleProgress = currentProgress + 1
+
+    const isNewCycleCompleted =
+      newCycleProgress >= cyclesBeforeLong
+
+    // const todayStart = new Date()
+    // todayStart.setHours(0, 0, 0, 0) 
+
+    // // Считаем завершённые сессии сегодня ВКЛЮЧАЯ текущую
+    // const completedTodayCount = await prisma.pomodoroSession.count({
+    //   where: {
+    //     userId: req.userId!,
+    //     status: 'completed',
+    //     startedAt: { gte: todayStart }
+    //   }
+    // })
+
+    // const isNewCycleCompleted = completedTodayCount > 0 && completedTodayCount % cyclesBeforeLong === 0
 
     let cycleBonusXp = 0
     let cycleBonusGold = 0
@@ -202,27 +217,40 @@ export const completeSession = async (req: AuthRequest, res: Response) => {
       // Алгоритм: бонус = сумма XP всех сессий текущего цикла / 4
       // Берём XP последних cyclesBeforeLong сессий из RewardTransaction
       const recentSessions = await prisma.pomodoroSession.findMany({
-  where: {
-    userId: req.userId!,
-    status: 'completed',
-    completedAt: { gte: todayStart },
-  },
-  orderBy: {
-    completedAt: 'desc'
-  },
+        where: {
+          userId: req.userId!,
+          status: 'completed',
+        },
+        orderBy: {
+          completedAt: 'desc'
+        },
 
-  // текущая сессия уже сохранена,
-  // поэтому берём весь цикл
-  take: cyclesBeforeLong,
+        // текущая сессия уже сохранена,
+        // поэтому берём весь цикл
+        take: cyclesBeforeLong,
         })
 
         const totalCycleXp = recentSessions.reduce(
-          (sum, s) => sum + s.earnedXp,
+          (sum, s) => {
+            const baseXp = Math.max(
+              1,
+              Math.floor(s.actualDuration * BASE_XP_PER_MIN)
+            )
+
+            return sum + baseXp
+          },
           0
         )
 
         const totalCycleGold = recentSessions.reduce(
-          (sum, s) => sum + s.earnedGold,
+          (sum, s) => {
+            const baseGold = Math.max(
+              0.1,
+              s.actualDuration * BASE_GOLD_PER_MIN
+            )
+
+            return sum + baseGold
+          },
           0
         )
 
@@ -247,7 +275,20 @@ export const completeSession = async (req: AuthRequest, res: Response) => {
     await prisma.$transaction(async (tx) => {
       const updatedUser = await tx.user.update({
         where: { id: req.userId! },
-        data: { xp: { increment: finalXp  }, gold: { increment: finalGold } }
+
+        data: {
+          xp: {
+            increment: finalXp
+          },
+
+          gold: {
+            increment: finalGold
+          },
+
+          currentCycleProgress: isNewCycleCompleted
+            ? 0
+            : newCycleProgress
+        }
       })
 
       // Автообновление уровня
@@ -345,7 +386,7 @@ export const getTodayStats = async (req: AuthRequest, res: Response) => {
       where: {
         userId: req.userId!,
         status: 'completed',
-        completedAt: { gte: today, lt: tomorrow }
+        startedAt: { gte: today, lt: tomorrow }
       }
     })
 

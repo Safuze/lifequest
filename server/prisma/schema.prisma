@@ -30,6 +30,9 @@ model User {
   taskSlots      Int @default(20)
   dailyTaskLimit Int @default(10)
   activePetId    String?  
+  activePomodoroSound String? @default("none")
+  activePomodoroTimer String? @default("default")
+  currentCycleProgress Int @default(0)
 
   goals          Goal[]
   projects       Project[]
@@ -217,6 +220,7 @@ model RewardTransaction {
 model InventoryItem {
   id         Int      @id @default(autoincrement())
   userId     Int
+  itemId     String?
   itemType   String
   name       String
   rarity     String   @default("common")

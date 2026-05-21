@@ -1,13 +1,13 @@
 // Аудио сервис — синглтон, не привязан к компонентам
 const SOUND_SOURCES: Record<string, string | null> = {
   none: null,
-  white: '/sounds/whitt.mp3',
-  lofi: '/sounds/aventure-lofi-chill-music-515431.mp3',
-  nature: '/sounds/priroda.mp3',
-  waves: '/sounds/z_uki-belogo-morya-shtil-legkiy-nakat-morskoy-_olny-bbm-2015.mp3',
-  rain: '/sounds/rain.mp3',
-  fire: '/sounds/sound-effects-library-camp-fire-burning.mp3',
-  night: '/sounds/cicada_night_forest.mp3',
+  sound_white: '/sounds/white.mp3',
+  sound_lofi: '/sounds/lofi.mp3',
+  sound_nature: '/sounds/priroda.mp3',
+  sound_waves: '/sounds/z_uki-belogo-morya-shtil-legkiy-nakat-morskoy-_olny-bbm-2015.mp3',
+  sound_rain: '/sounds/rain.mp3',
+  sound_fire: '/sounds/sound-effects-library-camp-fire-burning.mp3',
+  sound_night: '/sounds/cicada_night_forest.mp3',
 }
 
 class AudioService {
@@ -16,6 +16,7 @@ class AudioService {
   private isPlaying: boolean = false
 
   play(soundId: string) {
+    console.log('PLAY CALLED', soundId)
     const src = SOUND_SOURCES[soundId]
 
     // Если тот же звук уже играет — ничего не делаем
@@ -24,24 +25,31 @@ class AudioService {
     // Останавливаем предыдущий
     this.stop()
 
-    if (!src || soundId === 'none') {
-      this.currentSound = soundId
+    if (!src) {
+      console.error('Sound source not found:', soundId)
+      return
+    }
+
+    if (soundId === 'none') {
+      this.stop()
+      this.currentSound = 'none'
       return
     }
 
     this.currentSound = soundId
     this.audio = new Audio(src)
+    this.audio.preload = 'auto'
     this.audio.loop = true
     this.audio.volume = Number(localStorage.getItem('lifequest_volume') || 0.5)
     this.isPlaying = true
 
-    this.audio.play().catch(() => {
-      // Автовоспроизведение заблокировано браузером — ок
-      // Звук запустится при следующем пользовательском действии
+    this.audio.play().catch((err) => {
+      console.error('Audio play failed:', err)
     })
   }
 
   pause() {
+    console.log('PAUSE CALLED')
     if (this.audio && this.isPlaying) {
       this.audio.pause()
       this.isPlaying = false
@@ -49,8 +57,12 @@ class AudioService {
   }
 
   resume() {
+    console.log('RESUME CALLED')
     if (this.audio && !this.isPlaying && this.currentSound !== 'none') {
-      this.audio.play().catch(() => { /* ignore */ })
+      this.audio.play().catch((err) => {
+        console.error('Audio play failed:', err)
+      })
+
       this.isPlaying = true
     }
   }

@@ -142,7 +142,7 @@ export default function PublicProfilePage() {
 
   return (
     <div
-      className="min-h-screen relative"
+      className="min-h-screen relative overflow-hidden"
       style={profileBgStyle}
     >
     {bgData?.type === 'video' && (
@@ -316,7 +316,7 @@ export default function PublicProfilePage() {
           {/* Радар */}
           {data.radar && (
             <div className="rounded-2xl p-4" style={{ backgroundColor: 'rgba(30, 41, 59, 0.95)', border: '1px solid #334155' }}>
-              <h3 className="text-white font-medium mb-3">🕸 Радар характеристик (7 дней)</h3>
+              <h3 className="text-white font-medium mb-3">Радар характеристик (7 дней)</h3>
               <RadarChart data={data.radar} />
               <div className="grid grid-cols-5 gap-1 mt-2">
                 {[
@@ -339,32 +339,16 @@ export default function PublicProfilePage() {
           {data.inventory && data.inventory.length > 0 && (() => {
             const pets = data.inventory.filter((i: any) => i.itemType === 'pet')
 
-            const pomodoroItems = data.inventory.filter((i: any) =>
-              ['timer', 'background', 'sound'].includes(i.itemType)
+            const cosmeticItems = data.inventory.filter((i: any) =>
+              i.itemType !== 'pet'
             )
-
-            const profileItems = data.inventory.filter((i: any) =>
-              ['avatar_border', 'profile_bg'].includes(i.itemType)
-            )
-
-            const sections = [
-              {
-                key: 'profile',
-                title: '👤 Оформление профиля',
-                items: profileItems,
-              },
-              {
-                key: 'pomodoro',
-                title: '⏱ Оформление Pomodoro',
-                items: pomodoroItems,
-              },
-            ].filter(section => section.items.length > 0)
 
             return (
               <div
                 className="rounded-2xl p-4"
                 style={{
-                  backgroundColor: '#1e293b',
+                  backgroundColor: 'rgba(30, 41, 59, 0.92)',
+                  backdropFilter: 'blur(10px)',
                   border: '1px solid #334155',
                 }}
               >
@@ -392,24 +376,23 @@ export default function PublicProfilePage() {
                     </div>
                   )}
 
-                  {/* Остальные секции */}
-                  {sections.map(section => (
-                    <div key={section.key}>
+                  {/* Предметы */}
+                  {cosmeticItems.length > 0 && (
+                    <div>
                       <h4 className="text-white font-medium mb-3 flex items-center gap-2">
-                        {section.title}
+                        ✨ Предметы
                         <span className="text-slate-500 text-sm font-normal">
-                          ({section.items.length})
+                          ({cosmeticItems.length})
                         </span>
                       </h4>
 
                       <div className="grid grid-cols-2 gap-3">
-                        {section.items.map((item: any) => (
+                        {cosmeticItems.map((item: any) => (
                           <InventoryCard key={item.name} item={item} />
                         ))}
                       </div>
                     </div>
-                  ))}
-
+                  )}
                 </div>
               </div>
             )

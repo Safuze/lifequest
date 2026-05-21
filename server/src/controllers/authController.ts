@@ -162,6 +162,8 @@ export const getMe = async (req: Request, res: Response) => {
         profileBg: true,
         theme: true,
         createdAt: true,
+        activePomodoroSound: true,
+        activePomodoroTimer: true,
       }
     })
 

@@ -362,7 +362,7 @@ export default function GoalsPage() {
                           return (
                             <span className="text-xs flex items-center gap-1"
                               style={{ color: isOverdue ? '#ef4444' : days <= 3 ? '#f59e0b' : '#94a3b8' }}>
-                              📅 {isOverdue ? `Просрочено на ${Math.abs(days)} дн.` : `Осталось ${days} дн.`}
+                              {isOverdue ? `Просрочено на ${Math.abs(days)} дн.` : `Осталось ${days} дн.`}
                             </span>
                           )
                         })()}

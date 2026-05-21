@@ -10,7 +10,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
   try {
     const items = await prisma.inventoryItem.findMany({
       where: { userId: req.userId! },
-      select: { itemType: true, name: true, isActive: true }
+      select: { itemId: true, itemType: true, name: true, isActive: true, isEquipped: true, rarity: true,}
     })
     res.json({ items })
   } catch {
@@ -18,51 +18,98 @@ router.get('/', async (req: AuthRequest, res: Response) => {
   }
 })
 
-// router.post('/purchase', async (req: AuthRequest, res: Response) => {
-//   try {
-//     const { itemType, name, price } = req.body
+router.post('/equip', async (req: AuthRequest, res: Response) => {
+  try {
+    const { itemName } = req.body
 
-//     const user = await prisma.user.findUnique({ where: { id: req.userId! } })
-//     if (!user || user.gold < price) {
-//       res.status(400).json({ error: 'Недостаточно золота' })
-//       return
-//     }
+    if (!itemName) {
+      res.status(400).json({ error: 'itemName required' })
+      return
+    }
 
-//     // Проверяем что ещё не куплено
-//     const existing = await prisma.inventoryItem.findFirst({
-//       where: { userId: req.userId!, itemType, name }
-//     })
-//     if (existing) {
-//       res.status(400).json({ error: 'Уже куплено' })
-//       return
-//     }
+    const item = await prisma.inventoryItem.findFirst({
+      where: {
+        userId: req.userId!,
+        name: itemName,
+      }
+    })
 
-//     await prisma.$transaction([
-//       prisma.user.update({
-//         where: { id: req.userId! },
-//         data: { gold: { decrement: price } }
-//       }),
-//       prisma.inventoryItem.create({
-//         data: {
-//           userId: req.userId!,
-//           itemType,
-//           name,
-//           rarity: price <= 100 ? 'common' : price <= 250 ? 'rare' : 'epic',
-//           source: 'shop',
-//           price,
-//         }
-//       })
-//     ])
+    if (!item) {
+      res.status(404).json({ error: 'Предмет не найден' })
+      return
+    }
 
-//     const updatedUser = await prisma.user.findUnique({
-//       where: { id: req.userId! },
-//       select: { gold: true, xp: true, level: true }
-//     })
+    // ===== ПИТОМЕЦ =====
 
-//     res.json({ success: true, user: updatedUser })
-//   } catch {
-//     res.status(500).json({ error: 'Ошибка сервера' })
-//   }
-// })
+    if (item.itemType === 'pet') {
+
+      await prisma.user.update({
+        where: { id: req.userId! },
+        data: {
+          activePetId: item.name
+        }
+      })
+
+      res.json({
+        success: true,
+        activePetId: item.name
+      })
+
+      return
+    }
+
+    // ===== ОСТАЛЬНАЯ КОСМЕТИКА =====
+
+    await prisma.inventoryItem.updateMany({
+      where: {
+        userId: req.userId!,
+        itemType: item.itemType
+      },
+      data: {
+        isEquipped: false,
+        isActive: false
+      }
+    })
+
+    const updated = await prisma.inventoryItem.update({
+      where: { id: item.id },
+      data: {
+        isEquipped: true,
+        isActive: true
+      }
+    })
+
+    // sync user table
+    if (item.itemType === 'avatar_border') {
+      await prisma.user.update({
+        where: { id: req.userId! },
+        data: {
+          avatarBorder: item.name
+        }
+      })
+    }
+
+    if (item.itemType === 'profile_bg') {
+      await prisma.user.update({
+        where: { id: req.userId! },
+        data: {
+          profileBg: item.name
+        }
+      })
+    }
+
+    res.json({
+      success: true,
+      item: updated
+    })
+
+  } catch (error) {
+    console.error(error)
+
+    res.status(500).json({
+      error: 'Ошибка сервера'
+    })
+  }
+})
 
 export default router

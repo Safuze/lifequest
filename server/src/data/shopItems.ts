@@ -1,5 +1,6 @@
+import type { TimerStyle } from '../../../shared/types/pomodoro'
 export type ItemRarity = 'common' | 'rare' | 'epic' | 'legendary'
-export type ItemCategory = 'avatar_border' | 'profile_bg' | 'booster_temp' | 'perk_permanent' | 'pet' | 'pomodoro_theme' | 'pomodoro_sound' | 'pomodoro_timer'
+export type ItemCategory = 'avatar_border' | 'background' | 'booster_temp' | 'perk_permanent' | 'pet' | 'pomodoro_sound' | 'pomodoro_timer'
 
 type ProfileBackground =
   | {
@@ -16,6 +17,8 @@ type ProfileBackground =
       poster?: string
     } 
 
+    
+
 export interface ShopItem {
   id: string
   category: ItemCategory
@@ -25,6 +28,16 @@ export interface ShopItem {
   rarity: ItemRarity
   preview?: string // css-класс или значение для превью
   background?: ProfileBackground
+  soundConfig?: {
+    soundId: string
+    src: string | null
+    icon: string
+  }
+
+  timerStyleConfig?: {
+    style: TimerStyle
+    icon: string
+  }
   // Конфиги для бустеров/перков
   boosterConfig?: {
     type: 'xp_boost' | 'gold_boost' | 'combo_boost'
@@ -39,6 +52,7 @@ export interface ShopItem {
 }
 
 export const SHOP_ITEMS: ShopItem[] = [
+  
   // ── Обводки аватара ──
   {
     id: 'border_silver',
@@ -63,7 +77,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     category: 'avatar_border',
     name: 'Огненная',
     description: 'Пылающая огненная обводка',
-    price: 800,
+    price: 500,
     rarity: 'rare',
     preview: '#ef4444',
   },
@@ -72,7 +86,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     category: 'avatar_border',
     name: 'Неоновая',
     description: 'Мистическая неоновая обводка',
-    price: 600,
+    price: 800,
     rarity: 'epic',
     preview: '#a855f7',
   },
@@ -81,7 +95,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     category: 'avatar_border',
     name: 'Ледяная',
     description: 'Кристальная ледяная обводка',
-    price: 800,
+    price: 1100,
     rarity: 'epic',
     preview: '#06b6d4',
   },
@@ -95,38 +109,104 @@ export const SHOP_ITEMS: ShopItem[] = [
     preview: 'rainbow',
   },
 
-  // ── Фоны профиля ──
-  {
-    id: 'bg_midnight',
-    category: 'profile_bg',
-    name: 'Полночь',
-    description: 'Тёмно-синий звёздный фон',
-    price: 200,
-    rarity: 'common',
-    background: {
-      type: 'gradient',
-      value: 'linear-gradient(135deg, #0f0c29, #302b63, #24243e)'
-    }
-  },
+  // Фоны
   {
     id: 'bg_forest',
-    category: 'profile_bg',
-    name: 'Лес',
-    description: 'Спокойный зелёный фон',
+    category: 'background',
+    name: 'Тёплый камин',
+    description: 'Яркий фон огненных цветов',
+    price: 150,
+    rarity: 'common',
+    background: {
+      type: 'gradient',
+      value: 'linear-gradient(135deg, #2b0f0a 0%, #5c1f12 25%, #a33a12 50%, #d96c1a 75%, #ffd36b 100%)'
+    }
+  },
+  {
+    id: 'bg_aurora',
+    category: 'background',
+    name: 'Аврора',
+    description: 'Переливающееся северное сияние',
     price: 200,
     rarity: 'common',
     background: {
       type: 'gradient',
-      value: 'linear-gradient(135deg, #1a2f1a, #2d4a2d, #0f172a)'
+      value: 'linear-gradient(135deg, #a8edea, #fed6e3, #d299c2)'
     }
   },
   {
-    id: 'bg_sunset',
-    category: 'profile_bg',
-    name: 'Японский стиль',
-    description: 'Нежный розовый пейзаж ',
+    id: 'bg_nature',
+    category: 'background',
+    name: 'Природа',
+    description: 'Ярко зеленный фон',
+    price: 250,
+    rarity: 'common',
+    background: {
+      type: 'image',
+      value: '/sounds/nature.jpg'
+    }
+  },
+  {
+    id: 'bg_midnight',
+    category: 'background',
+    name: 'Полночь',
+    description: 'Тёмно-синий облачный фон',
+    price: 300,
+    rarity: 'common',
+    background: {
+      type: 'image',
+      value: '/sounds/night.jpg'
+    }
+  },
+  {
+    id: 'bg_minecraft',
+    category: 'background',
+    name: 'Майнкрафт',
+    description: 'Пиксельный живой фон в стиле Minecraft',
     price: 400,
     rarity: 'rare',
+   
+    background: {
+      type: 'video',
+      value: '/video/minecraft.mp4',
+      poster: '/backgrounds/minecraft.png'
+    }
+  },
+  {
+    id: 'bg_eclipse',
+    category: 'background',
+    name: 'Затмение',
+    description: 'Живой фон яркого светящегося затмения',
+    price: 600,
+    rarity: 'rare',
+   
+    background: {
+      type: 'video',
+      value: '/backgrounds/eclipse.mp4',
+      poster: '/backgrounds/eclipse.png'
+    }
+  },
+  {
+    id: 'bg_house-in-the-mountains',
+    category: 'background',
+    name: 'Исландский пейзаж',
+    description: 'Домик в горах на живом фоне',
+    price: 800,
+    rarity: 'rare',
+   
+    background: {
+      type: 'video',
+      value: '/backgrounds/house-in-the-mountains.mp4',
+      poster: '/backgrounds/house-in-the-mountains.png'
+    }
+  },
+  {
+    id: 'bg_japan',
+    category: 'background',
+    name: 'Япония',
+    description: 'Живой фон в японском стиле',
+    price: 1000,
+    rarity: 'epic',
    
     background: {
       type: 'video',
@@ -135,47 +215,24 @@ export const SHOP_ITEMS: ShopItem[] = [
     }
   },
   {
-    id: 'bg_jungle',
-    category: 'profile_bg',
-    name: 'Розовые джунгли',
-    description: 'Нежный розовый пейзаж ',
-    price: 400,
-    rarity: 'rare',
-    background: {
-      type: 'image',
-      value: '/backgrounds/sakura.png'
-    }
-  },
-  {
-    id: 'bg_ocean',
-    category: 'profile_bg',
-    name: 'Океан',
-    description: 'Глубокий океанский фон',
-    price: 400,
-    rarity: 'rare',
-    background: {
-      type: 'image',
-      value: '/backgrounds/night.png'
-    }
-  },
-  {
-    id: 'bg_aurora',
-    category: 'profile_bg',
-    name: 'Аврора',
-    description: 'Переливающееся северное сияние',
-    price: 1000,
+    id: 'bg_galaxy',
+    category: 'background',
+    name: 'Глубокий космос',
+    description: 'Космический живой фон',
+    price: 1300,
     rarity: 'epic',
     background: {
-      type: 'gradient',
-      value: 'linear-gradient(135deg, #a8edea, #fed6e3, #d299c2)'
+      type: 'video',
+      value: '/backgrounds/space.mp4',
+      poster: '/backgrounds/space.png'
     }
   },
   {
     id: 'bg_black_hole',
-    category: 'profile_bg',
+    category: 'background',
     name: 'Черная дыра',
-    description: 'Засасывание черыной дырой всего живого в открытом космосе',
-    price: 1500,
+    description: 'Живой фон черной дыры в открытом космосе',
+    price: 1600,
     rarity: 'epic',
     background: {
       type: 'video',
@@ -184,16 +241,198 @@ export const SHOP_ITEMS: ShopItem[] = [
     }
   },
   {
-    id: 'bg_galaxy',
-    category: 'profile_bg',
-    name: 'Глубокий космос',
-    description: 'Космический фон',
+    id: 'bg_ocean',
+    category: 'background',
+    name: 'Океан',
+    description: 'Глубокий океанский живой фон',
     price: 2000,
     rarity: 'legendary',
+   
     background: {
       type: 'video',
-      value: '/backgrounds/space.mp4',
-      poster: '/backgrounds/space.png'
+      value: '/backgrounds/ocean.mp4',
+      poster: '/backgrounds/ocean.png'
+    }
+  },
+  {
+    id: 'bg_luminousBloom',
+    category: 'background',
+    name: 'Зачарованное дерево',
+    description: 'Светящееся цветение на живом синем фоне',
+    price: 2500,
+    rarity: 'legendary',
+   
+    background: {
+      type: 'video',
+      value: '/backgrounds/luminousBloom.mp4',
+      poster: '/backgrounds/luminousBloom.png'
+    }
+  },
+
+  // Помодоро звук
+  {
+    id: 'sound_white',
+    category: 'pomodoro_sound',
+    name: 'Белый шум',
+    description: 'Белый шум',
+    price: 100,
+    rarity: 'common',
+    preview: "/sounds/white.jpg",
+    soundConfig: {
+      soundId: 'white',
+      src: '/sounds/white.mp3',
+      icon: '📻'
+    }
+  },
+  {
+    id: 'sound_lofi',
+    category: 'pomodoro_sound',
+    name: 'Lo-fi',
+    description: 'Успокаивающая музыка',
+    price: 150,
+    rarity: 'common',
+    preview: "/sounds/lofi.jpg",
+    soundConfig: {
+      soundId: 'lofi',
+      src: '/sounds/lofi.mp3',
+      icon: '🎵'
+    }
+  },
+  {
+    id: 'sound_nature',
+    category: 'pomodoro_sound',
+    name: 'Природа',
+    description: 'Успокаивающие пение птиц на природе',
+    price: 200,
+    rarity: 'common',
+    preview: "/sounds/nature.jpg",
+    soundConfig: {
+      soundId: 'nature',
+      src: '/sounds/nature.mp3',
+      icon: '🌿'
+    }
+  },
+  {
+    id: 'sound_waves',
+    category: 'pomodoro_sound',
+    name: 'Волны',
+    description: 'Успокаивающие звуки моря и волны',
+    price: 250,
+    rarity: 'common',
+    preview: "/sounds/waves.jpg",
+    soundConfig: {
+      soundId: 'waves',
+      src: '/sounds/waves.mp3',
+      icon: '🌊'
+    }
+  },
+  {
+    id: 'sound_night',
+    category: 'pomodoro_sound',
+    name: 'Ночь',
+    description: 'Успокаивающие звуки ночью',
+    price: 300,
+    rarity: 'rare',
+    preview: "/sounds/night.jpg",
+    soundConfig: {
+      soundId: 'night',
+      src: '/sounds/night.mp3',
+      icon: '🌙'
+    }
+  },
+  {
+    id: 'sound_rain',
+    category: 'pomodoro_sound',
+    name: 'Дождь',
+    description: 'Успокаивающий дождь',
+    price: 400,
+    rarity: 'rare',
+    preview: "/sounds/rain.jpg",
+    soundConfig: {
+      soundId: 'rain',
+      src: '/sounds/rain.mp3',
+      icon: '🌧️'
+    }
+  },
+{
+    id: 'sound_fire',
+    category: 'pomodoro_sound',
+    name: 'Огонь',
+    description: 'Успокаивающие звуки костра',
+    price: 500,
+    rarity: 'rare',
+    preview: "/sounds/fire.jpg",
+    soundConfig: {
+      soundId: 'fire',
+      src: '/sounds/fire.mp3',
+      icon: '🔥'
+    }
+  },
+
+  // Стиль таймера
+  {
+    id: 'timer_snail',
+    category: 'pomodoro_timer',
+    name: 'Улитка',
+    description: 'Анимированный таймер',
+    price: 100,
+    rarity: 'common',
+    preview: "/timers/snail.jpg",
+    timerStyleConfig: {
+      style: 'snail',
+      icon: '🐌'
+    }
+  },
+  {
+    id: 'timer_horse',
+    category: 'pomodoro_timer',
+    name: 'Лошадь',
+    description: 'Анимированный таймер',
+    price: 200,
+    rarity: 'common',
+    preview: "/timers/horse.jpg",
+    timerStyleConfig: {
+      style: 'horse',
+      icon: '🐎'
+    }
+  },
+  {
+    id: 'timer_cheetah',
+    category: 'pomodoro_timer',
+    name: 'Гепард',
+    description: 'Анимированный таймер',
+    price: 300,
+    rarity: 'rare',
+    preview: "/timers/cheetah.jpg",
+    timerStyleConfig: {
+      style: 'cheetah',
+      icon: '🐆'
+    }
+  },
+  {
+    id: 'timer_clock',
+    category: 'pomodoro_timer',
+    name: 'Механические часы',
+    description: 'Анимированный таймер',
+    price: 500,
+    rarity: 'rare',
+    preview: "/timers/clock.png",
+    timerStyleConfig: {
+      style: 'clock',
+      icon: '🕗'
+    }
+  },
+  {
+    id: 'timer_hourglass',
+    category: 'pomodoro_timer',
+    name: 'Песочные часы',
+    description: 'Анимированный таймер',
+    price: 800,
+    rarity: 'epic',
+    preview: "/timers/hourglass.jpg",
+    timerStyleConfig: {
+      style: 'hourglass',
+      icon: '⏳'
     }
   },
 
@@ -212,7 +451,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     id: 'boost_gold_30',
     category: 'booster_temp',
     name: 'Баллы x2 на 30 минут',
-    description: 'Удваивает всё получаемое баллы на 30 минут',
+    description: 'Удваивает всё получаемые баллы на 30 минут',
     price: 150,
     rarity: 'common',
     preview: '#f59e0b',

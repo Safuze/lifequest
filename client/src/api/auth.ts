@@ -14,6 +14,8 @@ export interface User {
   avatar: string | null
   theme: string
   activePetId?: string | null
+  activePomodoroSound?: string
+  activePomodoroTimer?: string
 }
 
 export interface AuthResponse {

@@ -11,7 +11,7 @@ interface TimerStore {
   sessionId: number | null
   selectedTaskId: number | null
   taskSelected: boolean
-  sessionCount: number
+  // sessionCount: number
   activeSecondsToday: number
   sessionStartEpoch: number
   activeSecondsBeforePause: number
@@ -30,7 +30,7 @@ interface TimerStore {
   setSessionId: (id: number | null) => void
   setSelectedTaskId: (id: number | null) => void
   setTaskSelected: (v: boolean) => void
-  setSessionCount: (n: number) => void
+  // setSessionCount: (n: number) => void
   setActiveSecondsToday: (s: number) => void
   setSessionStartEpoch: (e: number) => void
   setActiveSecondsBeforePause: (s: number) => void
@@ -48,7 +48,7 @@ export const useTimerStore = create<TimerStore>((set) => ({
   sessionId: null,
   selectedTaskId: null,
   taskSelected: false,
-  sessionCount: 0,
+  // sessionCount: 0,
   activeSecondsToday: 0,
   sessionStartEpoch: 0,
   activeSecondsBeforePause: 0,
@@ -66,7 +66,7 @@ export const useTimerStore = create<TimerStore>((set) => ({
   setSessionId: (sessionId) => set({ sessionId }),
   setSelectedTaskId: (selectedTaskId) => set({ selectedTaskId }),
   setTaskSelected: (taskSelected) => set({ taskSelected }),
-  setSessionCount: (sessionCount) => set({ sessionCount }),
+  // setSessionCount: (sessionCount) => set({ sessionCount }),
   setActiveSecondsToday: (activeSecondsToday) => set({ activeSecondsToday }),
   setSessionStartEpoch: (sessionStartEpoch) => set({ sessionStartEpoch }),
   setActiveSecondsBeforePause: (activeSecondsBeforePause) => set({ activeSecondsBeforePause }),
