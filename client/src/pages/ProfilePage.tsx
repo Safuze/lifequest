@@ -197,7 +197,7 @@ export default function ProfilePage() {
     { icon: <TrendingUp size={16} />,  label: 'Прогресс целей',         value: `${stats.goalsProgress}%`,           color: '#a855f7', bg: 'rgba(168,85,247,0.15)'  },
     { icon: <Star size={16} />,        label: 'Привычки выполнено',     value: `${stats.habitsCompletion}%`,         color: '#f97316', bg: 'rgba(249,115,22,0.15)'  },
     { icon: <Star size={16} />,        label: 'XP заработано',          value: `+${stats.earnedXp}`,                color: '#6366f1', bg: 'rgba(99,102,241,0.15)'  },
-    { icon: <Star size={16} />,        label: 'Баллов заработано',      value: `+${stats.earnedGold}`,          color: '#eab308', bg: 'rgba(234,179,8,0.15)'   },
+    { icon: <Star size={16} />,        label: 'Баллов заработано',      value: `+${Number(stats.earnedGold).toFixed(1).replace(/\.0$/, '')}`,          color: '#eab308', bg: 'rgba(234,179,8,0.15)'   },
   ]
   
 

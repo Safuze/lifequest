@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Habit" ADD COLUMN     "bestWeeks" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "completedWeeks" INTEGER NOT NULL DEFAULT 0;

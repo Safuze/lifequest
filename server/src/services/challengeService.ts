@@ -15,17 +15,33 @@ async function recalcUserChallenge(
   challenge: { type: string; targetValue: number; durationDays: number }
 ): Promise<{ progress: number; status: string }> {
   const now = new Date()
-  const today = getTodayStr()
+  const progress = await calcCurrentProgress(uc, challenge)
 
   // Испытание просрочено
   if (now > uc.expiresAt) {
-    const progress = await calcCurrentProgress(uc, challenge)
-    const status = progress >= 100 ? 'completed' : 'failed'
-    return { progress, status }
+    return { progress, status: progress >= 100 ? 'completed' : 'failed' }
   }
 
-  const progress = await calcCurrentProgress(uc, challenge)
-  return { progress, status: progress >= 100 ? 'completed' : 'active' }
+  // Считаем сколько дней уже прошло
+  const start = new Date(uc.startedAt)
+  start.setHours(0, 0, 0, 0)
+  const daysPassed = Math.floor((now.getTime() - start.getTime()) / 86400000)
+
+  // Дней осталось
+  const daysLeft = challenge.durationDays - daysPassed
+
+  // Максимально возможный прогресс если выполнять все оставшиеся дни
+  // successDays = текущий прогресс в днях + daysLeft
+  const currentSuccessDays = Math.round((progress / 100) * challenge.durationDays)
+  const maxPossibleDays = currentSuccessDays + daysLeft
+  const maxPossibleProgress = Math.round((maxPossibleDays / challenge.durationDays) * 100)
+
+  // Если даже при идеальном выполнении оставшихся дней не наберём 100% — провал
+  if (maxPossibleProgress < 100) {
+    return { progress, status: 'failed' }
+  }
+
+  return { progress, status: 'active' }
 }
 
 async function calcCurrentProgress(

@@ -14,7 +14,7 @@ export const createHabitSchema = z.object({
   trackingType: z.enum(['discrete', 'continuous']),
   frequency: z.enum(['daily', 'weekly']).default('daily'),
   timesPerDay: z.number().min(1).max(20).default(1),
-  timesPerWeek: z.number().min(1).max(7).optional(),
+  timesPerWeek: z.number().min(2).max(7).optional(),
   startDate: z.string().optional(), // для непрерывных — дата начала
 })
 
@@ -57,7 +57,10 @@ export const getHabits = async (req: AuthRequest, res: Response) => {
     const habitsWithMeta = await Promise.all(habits.map(async (habit) => {
       // Для непрерывных и привычек с нулевым стриком — не показываем восстановление
       if (habit.trackingType !== 'discrete' || habit.currentStreak === 0) {
-        return { ...habit, canRestoreStreak: false }
+        return {
+          ...habit,
+          canRestoreStreak: false,
+        }
       }
 
       const now = new Date()
@@ -91,9 +94,9 @@ export const getHabits = async (req: AuthRequest, res: Response) => {
           where: { habitId: habit.id, date: { gte: twoDaysAgoStart, lte: twoDaysAgoEnd } }
         }),
       ])
-      const isTodayCompleted = todayLogs.length >= habit.timesPerDay
-      const isYesterdayCompleted = yesterdayLogs.length >= habit.timesPerDay
-      const wasTwoDaysAgoCompleted = twoDaysAgoLogs.length >= habit.timesPerDay
+      const isTodayCompleted = habit.frequency === 'weekly' ? todayLogs.length > 0 : todayLogs.length >= habit.timesPerDay
+      const isYesterdayCompleted = habit.frequency === 'weekly' ? yesterdayLogs.length > 0 : yesterdayLogs.length >= habit.timesPerDay
+      const wasTwoDaysAgoCompleted = habit.frequency === 'weekly' ? twoDaysAgoLogs.length > 0 : twoDaysAgoLogs.length >= habit.timesPerDay
 
       let currentStreak = habit.currentStreak
       
@@ -165,8 +168,16 @@ export const createHabit = async (req: AuthRequest, res: Response) => {
       })
       return
     }
-    const data = req.body
-
+    const data = createHabitSchema.parse(req.body)
+    if (
+      data.frequency === 'weekly' &&
+      (!data.timesPerWeek || data.timesPerWeek < 2)
+    ) {
+      res.status(400).json({
+        error: 'Недельная привычка должна выполняться минимум 2 раза в неделю',
+      })
+      return
+    }
     // Для непрерывных — startDate из запроса или сейчас
     let startDate: Date | null = null
     if (data.trackingType === 'continuous') {
@@ -228,8 +239,33 @@ export const logHabit = async (req: AuthRequest, res: Response) => {
       where: { habitId, date: { gte: today, lte: todayEnd } }
     })
 
-    if (todayLogs >= habit.timesPerDay) {
-      res.status(400).json({ error: 'Достигнут лимит отметок на сегодня' })
+    if (habit.frequency === 'weekly') {
+      const existingTodayLog =
+        await prisma.habitLog.findFirst({
+          where: {
+            habitId,
+            date: {
+              gte: today,
+              lte: todayEnd,
+            },
+          },
+        })
+
+      if (existingTodayLog) {
+        res.status(400).json({
+          error:
+            'Weekly привычку можно отмечать только 1 раз в день',
+        })
+        return
+      }
+    }
+
+    const limit = habit.frequency === 'weekly' ? 1 : habit.timesPerDay
+
+    if (todayLogs >= limit) {
+      res.status(400).json({
+        error: 'Достигнут лимит отметок на сегодня',
+      })
       return
     }
 
@@ -243,45 +279,134 @@ export const logHabit = async (req: AuthRequest, res: Response) => {
       data: { habitId, date: new Date(), repetition: nextRep }
     })
 
-    const isCompleted = nextRep >= habit.timesPerDay
+    const isCompleted = habit.frequency === 'weekly' ? true : nextRep >= habit.timesPerDay
+    let weekCompleted = false
     let xpEarned = 0
     let goldEarned = 0
     let newAchievements: any[] = []
     let newStreak = habit.currentStreak
     let levelUp: { level: number; levelName: string } | null = null
-
     if (isCompleted) {
       const userBefore = await prisma.user.findUnique({
         where: { id: req.userId! },
         select: { level: true }
       })
+
+      if (habit.frequency === 'weekly') {
+        const weekStart = startOfWeek(new Date(), {
+          weekStartsOn: 1,
+        })
+
+        const weekEnd = endOfDay(
+          new Date(
+            weekStart.getTime() +
+            6 * 24 * 60 * 60 * 1000
+          )
+        )
+
+        const weeklyLogs = await prisma.habitLog.count({
+          where: {
+            habitId,
+            date: {
+              gte: weekStart,
+              lte: weekEnd,
+            },
+          },
+        })
+
+        weekCompleted =
+          weeklyLogs >= (habit.timesPerWeek || 1)
+
+        if (weekCompleted) {
+          const alreadyCompletedThisWeek =
+            habit.lastCompletedWeek &&
+            habit.lastCompletedWeek >= weekStart
+
+          if (!alreadyCompletedThisWeek) {
+            newStreak = habit.currentStreak + 1
+
+            await prisma.habit.update({
+              where: { id: habitId },
+              data: {
+                currentStreak: newStreak,
+
+                bestStreak: Math.max(
+                  newStreak,
+                  habit.bestStreak
+                ),
+
+                completedWeeks: {
+                  increment: 1,
+                },
+
+                bestWeeks: Math.max(
+                  habit.bestWeeks,
+                  habit.completedWeeks + 1
+                ),
+
+                lastCompletedWeek: new Date(),
+              },
+            })
+          } else {
+            newStreak = habit.currentStreak
+          }
+        }
+      }
+    
+    if (habit.frequency !== 'weekly') {
       const yesterdayStart = startOfDay(subDays(new Date(), 1))
       const yesterdayEnd = endOfDay(subDays(new Date(), 1))
 
       const yesterdayLog = await prisma.habitLog.findFirst({
-        where: { habitId, date: { gte: yesterdayStart, lte: yesterdayEnd } }
+        where: {
+          habitId,
+          date: {
+            gte: yesterdayStart,
+            lte: yesterdayEnd,
+          },
+        },
       })
+
       const todayStart = startOfDay(new Date())
       const todayEnd = endOfDay(new Date())
-      // Проверяем было ли восстановление вчера (тогда стрик не прерван)
+
       const restoredToday = habit.streakRestoredAt
         ? new Date(habit.streakRestoredAt) >= today &&
           new Date(habit.streakRestoredAt) <= todayEnd
         : false
 
-      const hadValidYesterday = !!yesterdayLog || restoredToday
+      const hadValidYesterday =
+        !!yesterdayLog || restoredToday
 
       if (!hadValidYesterday) {
         newStreak = 1
       } else {
         newStreak = habit.currentStreak + 1
       }
+    }
 
-      const baseXp = 25
-      const streakBonus = newStreak >= 30 ? 10 : newStreak >= 7 ? 5 : 0
+
+
+      const baseXp = habit.frequency === 'weekly' ? (weekCompleted ? 100 : 0) : 25
+      const baseGold = habit.frequency === 'weekly' ? (weekCompleted ? 20 : 0) : 5
+      const streakBonus = habit.frequency === 'weekly' ? 0 : newStreak >= 30 ? 10 : newStreak >= 7 ? 5 : 0
 
       const rawXp = baseXp + streakBonus
-      const baseGold = 5
+      if (habit.frequency === 'weekly' && !weekCompleted) {
+        res.json({
+          success: true,
+          repetitionsDone: nextRep,
+          repetitionsTotal: habit.timesPerWeek,
+          isFullyCompleted: false,
+          currentStreak: newStreak,
+          xpEarned: 0,
+          goldEarned: 0,
+          achievements: [],
+          levelUp: null,
+        })
+
+        return
+      }
 
       const boostedRewards = await applyBoosters({
         userId: req.userId!,
@@ -293,13 +418,18 @@ export const logHabit = async (req: AuthRequest, res: Response) => {
       goldEarned = boostedRewards.gold
 
       await prisma.$transaction(async (tx) => {
-        await tx.habit.update({
-          where: { id: habitId },
-          data: {
-            currentStreak: newStreak,
-            bestStreak: Math.max(newStreak, habit.bestStreak),
-          }
-        })
+        if (habit.frequency !== 'weekly') {
+          await tx.habit.update({
+            where: { id: habitId },
+            data: {
+              currentStreak: newStreak,
+              bestStreak: Math.max(
+                newStreak,
+                habit.bestStreak
+              ),
+            },
+          })
+        }
         const updatedUser = await tx.user.update({
           where: { id: req.userId! },
           data: { xp: { increment: xpEarned }, gold: { increment: goldEarned } }
@@ -325,22 +455,24 @@ export const logHabit = async (req: AuthRequest, res: Response) => {
           { days: 90,  type: 'streak_90',  title: 'Квартал дисциплины!',        icon: '💪', rarity: 'epic'      },
           { days: 365, type: 'streak_365', title: 'Год привычки — Легенда!',    icon: '👑', rarity: 'legendary' },
         ]
-        for (const m of milestones) {
-          if (newStreak >= m.days) {
-            const key = `${m.type}_habit_${habitId}`
-            const ex = await tx.achievement.findFirst({ where: { userId: req.userId!, type: key } })
-            if (!ex) {
-              const a = await tx.achievement.create({
-                data: {
-                  userId: req.userId!,
-                  type: key,
-                  title: m.title,
-                  description: `${m.days} дней стрика по привычке`,
-                  icon: m.icon,
-                  rarity: m.rarity,
-                }
-              })
-              newAchievements.push(a)
+        if (habit.frequency !== 'weekly') {
+          for (const m of milestones) {
+            if (newStreak >= m.days) {
+              const key = `${m.type}_habit_${habitId}`
+              const ex = await tx.achievement.findFirst({ where: { userId: req.userId!, type: key } })
+              if (!ex) {
+                const a = await tx.achievement.create({
+                  data: {
+                    userId: req.userId!,
+                    type: key,
+                    title: m.title,
+                    description: `${m.days} дней стрика по привычке`,
+                    icon: m.icon,
+                    rarity: m.rarity,
+                  }
+                })
+                newAchievements.push(a)
+              }
             }
           }
         }
@@ -360,15 +492,14 @@ export const logHabit = async (req: AuthRequest, res: Response) => {
             }
           : null
       const extraAchievements = await checkAchievementsForUser(req.userId!)
-      newAchievements.push(...extraAchievements)
-    }
-    
+      newAchievements.push(...extraAchievements) 
+          }
 
     res.json({
       success: true,
       repetitionsDone: nextRep,
-      repetitionsTotal: habit.timesPerDay,
-      isFullyCompleted: isCompleted,
+      repetitionsTotal: habit.frequency === 'weekly' ? (habit.timesPerWeek || 2) : habit.timesPerDay,
+      isFullyCompleted: habit.frequency === 'weekly' ? weekCompleted : isCompleted,
       currentStreak: newStreak,
       xpEarned,
       goldEarned: Number(goldEarned.toFixed(1)),
@@ -383,7 +514,8 @@ export const logHabit = async (req: AuthRequest, res: Response) => {
   } catch (error) {
     res.status(500).json({ error: 'Внутренняя ошибка сервера' })
   }
-}
+}                         
+
 
 // Нарушение непрерывной привычки — удаляет её
 export const breakContinuousHabit = async (req: AuthRequest, res: Response) => {

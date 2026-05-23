@@ -32,7 +32,6 @@ model User {
   activePetId    String?  
   activePomodoroSound String? @default("none")
   activePomodoroTimer String? @default("default")
-  currentCycleProgress Int @default(0)
 
   goals          Goal[]
   projects       Project[]
@@ -150,10 +149,14 @@ model Habit {
   timesPerWeek        Int?
   currentStreak       Int       @default(0)
   bestStreak          Int       @default(0)
+  completedWeeks      Int @default(0)
+  lastCompletedWeek   DateTime?
+  bestWeeks           Int @default(0)
   startDate           DateTime?
   isDayTrackingEnabled Boolean  @default(false)
   createdAt           DateTime  @default(now())
   streakRestoredAt DateTime?
+  
 
   user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   logs                HabitLog[]

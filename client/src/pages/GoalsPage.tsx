@@ -171,7 +171,7 @@ function CreateGoalModal({ onClose, onCreated }: CreateGoalModalProps) {
 
           <div>
             <label className="text-slate-400 text-sm mb-1.5 block">
-              Плановых часов в неделю
+              Оценка трудоёмкости (час)
               <span className="text-slate-500 ml-1">(необязательно)</span>
             </label>
             <input
@@ -357,12 +357,23 @@ export default function GoalsPage() {
                         <span className="text-slate-500 text-xs">
                           {HORIZONS.find(h => h.value === goal.horizon)?.label}
                         </span>
-                        {goal.deadline && (() => {
+                        {goal.deadline && goal.status !== 'completed' && (() => {
                           const { days, isOverdue } = getDaysLeft(goal.deadline)
+
                           return (
-                            <span className="text-xs flex items-center gap-1"
-                              style={{ color: isOverdue ? '#ef4444' : days <= 3 ? '#f59e0b' : '#94a3b8' }}>
-                              {isOverdue ? `Просрочено на ${Math.abs(days)} дн.` : `Осталось ${days} дн.`}
+                            <span
+                              className="text-xs flex items-center gap-1"
+                              style={{
+                                color: isOverdue
+                                  ? '#ef4444'
+                                  : days <= 3
+                                    ? '#f59e0b'
+                                    : '#94a3b8',
+                              }}
+                            >
+                              {isOverdue
+                                ? `Просрочено на ${Math.abs(days)} дн.`
+                                : `Осталось ${days} дн.`}
                             </span>
                           )
                         })()}

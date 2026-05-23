@@ -186,9 +186,9 @@ export default function LifeScopePage() {
           </div>
           <div>
             <p className="text-slate-400 text-xs mb-1">Баллы</p>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2"> 
               <span className="text-white font-semibold">{report.weekGold}</span>
-              <DeltaBadge delta={report.goldDelta} />
+              <DeltaBadge delta={Number(report.goldDelta)}/>
             </div>
           </div>
         </div>

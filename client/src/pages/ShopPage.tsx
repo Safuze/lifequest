@@ -207,7 +207,7 @@ export default function ShopPage() {
           <h1 className="text-2xl font-bold text-white flex items-center gap-2">
             <ShoppingBag size={24} className="text-indigo-400" /> Магазин
           </h1>
-          <p className="text-slate-400 text-sm mt-1">Кастомизация профиля за золото</p>
+          <p className="text-slate-400 text-sm mt-1">Кастомизация профиля за баллы</p>
         </div>
         <div className="px-4 py-2 rounded-xl flex items-center gap-2"
           style={{ backgroundColor: '#1e293b', border: '1px solid rgba(245,158,11,0.3)' }}>
@@ -249,7 +249,7 @@ export default function ShopPage() {
                 style={{ backgroundColor: '#0f172a' }}>
                 <div className="flex items-center gap-2">
                   <span className="text-white text-sm">
-                    {p.type === 'xp_bonus' ? 'XP' : 'Баллы'} • {' '}Lv.{p.level} • +{p.bonusPercent}%
+                    {p.type === 'xp_bonus' ? 'XP' : 'Баллы'} - {' '}Lv.{p.level}:    +{p.bonusPercent}%
                   </span>
                   {p.level >= 5 && (
                     <span className="text-yellow-400 text-xs font-bold">
@@ -272,7 +272,7 @@ export default function ShopPage() {
           { id: 'pomodoro_sound', label: 'Звуки' },
           { id: 'pomodoro_timer', label: 'Таймеры' },
           { id: 'booster_temp',    label: 'Бустеры'  },
-          { id: 'perk_permanent',  label: 'Перки'    },
+          { id: 'perk_permanent',  label: 'Бонусы'    },
           { id: 'qol_upgrade', label: 'Улучшения' },
           { id: 'pets', label: 'Питомцы' },
         ] as const).map(tab => (
@@ -904,10 +904,10 @@ export default function ShopPage() {
                     {isEquipping
                       ? '...'
                       : item.equipped
-                      ? '✕ Убрать'
+                      ? 'Убрать'
                       : isBackground
-                      ? '✓ Применить в профиле'
-                      : '✓ Надеть'}
+                      ? 'Применить в профиле'
+                      : 'Надеть'}
                   </button>
 
                 )

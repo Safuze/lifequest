@@ -408,7 +408,7 @@ export default function SettingsPage() {
           <AlertTriangle size={18} /> Опасная зона
         </h2>
         <p className="text-slate-400 text-sm mb-4">
-          Удаление аккаунта приведёт к безвозвратной потере всех данных: задач, привычек, целей, достижений и золота.
+          Удаление аккаунта приведёт к безвозвратной потере всех данных: задач, привычек, целей, достижений и баллов.
         </p>
         <button onClick={() => setShowDeleteModal(true)}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-all"

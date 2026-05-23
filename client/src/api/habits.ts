@@ -6,12 +6,14 @@ export interface Habit {
   trackingType: 'discrete' | 'continuous'
   frequency: string
   timesPerDay: number
+  timesPerWeek?: number
   currentStreak: number
   bestStreak: number
   startDate: string | null
   logs: { id: number; date: string; repetition: number }[]
   createdAt: string
   canRestoreStreak?: boolean
+  
 }
 
 export interface HabitTemplate {
@@ -53,7 +55,7 @@ export const habitsApi = {
   },
   create: async (data: {
     title: string; type: string; trackingType: string
-    frequency?: string; timesPerDay?: number; startDate?: string
+    frequency?: string; timesPerDay?: number; timesPerWeek?: number; startDate?: string
   }): Promise<{ habit: Habit }> => {
     const res = await apiClient.post('/habits', data)
     return res.data
@@ -67,8 +69,16 @@ export const habitsApi = {
     repetitionsTotal: number
     isFullyCompleted: boolean
     currentStreak: number
+
     xpEarned: number
     goldEarned: number
+
+    baseXp?: number
+    baseGold?: number
+
+    boostedXp?: number
+    boostedGold?: number
+
     achievements: AchievementItem[]
     levelUp?: LevelUp | null
   }> => {
@@ -87,4 +97,5 @@ export const habitsApi = {
     const res = await apiClient.get(`/habits/heatmap?days=${days}`)
     return res.data
   },
+  
 }

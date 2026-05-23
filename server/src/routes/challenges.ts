@@ -34,6 +34,9 @@ router.get('/', async (req: AuthRequest, res: Response) => {
 // Мои испытания
 router.get('/my', async (req: AuthRequest, res: Response) => {
   try {
+    // Обновляем прогресс при каждом запросе страницы
+    await updateUserChallenges(req.userId!)
+
     const userChallenges = await prisma.userChallenge.findMany({
       where: { userId: req.userId! },
       include: { challenge: true },

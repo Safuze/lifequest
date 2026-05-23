@@ -181,34 +181,31 @@ export const completeSession = async (req: AuthRequest, res: Response) => {
     })
     const cyclesBeforeLong = settings?.cyclesBeforeLong || 4
 
-    const userCycleData = await prisma.user.findUnique({
-      where: { id: req.userId! },
-      select: {
-        currentCycleProgress: true
+    const todayStart = new Date()
+    todayStart.setHours(0, 0, 0, 0)
+
+    const tomorrow = new Date(todayStart)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+
+    // считаем completed сессии сегодня
+    // текущая уже сохранена выше через update()
+    const completedTodayCount = await prisma.pomodoroSession.count({
+      where: {
+        userId: req.userId!,
+        status: 'completed',
+        startedAt: {
+          gte: todayStart,
+          lt: tomorrow
+        }
       }
     })
 
-    const currentProgress =
-      userCycleData?.currentCycleProgress || 0
-
-    const newCycleProgress = currentProgress + 1
+    const currentCycleProgress =
+      completedTodayCount % cyclesBeforeLong
 
     const isNewCycleCompleted =
-      newCycleProgress >= cyclesBeforeLong
-
-    // const todayStart = new Date()
-    // todayStart.setHours(0, 0, 0, 0) 
-
-    // // Считаем завершённые сессии сегодня ВКЛЮЧАЯ текущую
-    // const completedTodayCount = await prisma.pomodoroSession.count({
-    //   where: {
-    //     userId: req.userId!,
-    //     status: 'completed',
-    //     startedAt: { gte: todayStart }
-    //   }
-    // })
-
-    // const isNewCycleCompleted = completedTodayCount > 0 && completedTodayCount % cyclesBeforeLong === 0
+      completedTodayCount > 0 &&
+      currentCycleProgress === 0
 
     let cycleBonusXp = 0
     let cycleBonusGold = 0
@@ -284,10 +281,6 @@ export const completeSession = async (req: AuthRequest, res: Response) => {
           gold: {
             increment: finalGold
           },
-
-          currentCycleProgress: isNewCycleCompleted
-            ? 0
-            : newCycleProgress
         }
       })
 

@@ -294,7 +294,12 @@ interface HabitCardProps {
   onBreak: (id: number) => void
   onDelete: (id: number) => void
   onRestoreStreak: (id: number) => void
-  lastReward: { xp: number; gold: number } | null
+  lastReward: {
+    xp: number
+    gold: number
+    baseXp?: number
+    baseGold?: number
+  } | null
   heatmapView: 'month' | 'year'
   streakRestored: boolean
 }
@@ -337,12 +342,40 @@ function HabitCard({ habit, userGold, onLog, onBreak, onDelete, onRestoreStreak,
   const [expanded, setExpanded] = useState(false)
   const [timer, setTimer] = useState('')
   console.log(habit.canRestoreStreak)
-  const todayLogs = habit.logs.length
+  const now = new Date()
+
+  const startOfWeek = new Date(now)
+  startOfWeek.setDate(now.getDate() - now.getDay() + 1)
+  startOfWeek.setHours(0, 0, 0, 0)
+
+  const weeklyLogs = habit.logs.filter(log => {
+    const logDate = new Date(log.date)
+    return logDate >= startOfWeek
+  })
+
+  const todayLogs =
+    habit.frequency === 'weekly'
+      ? weeklyLogs.length
+      : habit.logs.filter(log =>
+          log.date.startsWith(new Date().toISOString().split('T')[0])
+        ).length
+
+  const weeklyProgress = habit.frequency === 'weekly' ? todayLogs : 0
   const isCompleted = habit.trackingType === 'discrete' && todayLogs >= habit.timesPerDay
 
   const streakStyle = habit.trackingType === 'discrete'
     ? getStreakBorderStyle(habit.currentStreak)
     : { borderColor: '#334155' }
+
+  const streak =
+    habit.frequency === 'weekly'
+      ? `${habit.completedWeeks} нед.`
+      : `${habit.currentStreak} дн.`
+
+  const best =
+    habit.frequency === 'weekly'
+      ? habit.bestWeeks
+      : habit.bestStreak
 
   // Обновляем счётчик для непрерывных привычек
   useEffect(() => {
@@ -382,11 +415,17 @@ function HabitCard({ habit, userGold, onLog, onBreak, onDelete, onRestoreStreak,
               <div className="flex items-center gap-3 text-xs text-slate-400">
                 <span className="flex items-center gap-1">
                   <Flame size={12} className="text-orange-400" />
-                  <span className="text-orange-400 font-medium">{habit.currentStreak}</span> дн.
+                  <span className="text-orange-400 font-medium">
+                    {streak}
+                  </span>
                 </span>
+
                 <span className="flex items-center gap-1">
                   <Trophy size={12} className="text-yellow-400" />
-                  Рекорд: <span className="text-yellow-400 font-medium">{habit.bestStreak}</span>
+                  Рекорд:
+                  <span className="text-yellow-400 font-medium">
+                    {best}
+                  </span>
                 </span>
               </div>
             )}
@@ -439,10 +478,13 @@ function HabitCard({ habit, userGold, onLog, onBreak, onDelete, onRestoreStreak,
           ) : (
             // ОБЫЧНЫЕ КНОПКИ
             <div className="flex items-center gap-3">
-              {habit.timesPerDay > 1 && (
+              {(
+                (habit.frequency === 'daily' && habit.timesPerDay > 1) ||
+                (habit.frequency === 'weekly')
+              ) && (
                 <div className="flex items-center gap-2 flex-1">
                   <div className="flex gap-1 flex-1">
-                    {Array.from({ length: habit.timesPerDay }).map((_, i) => (
+                    {Array.from({length: habit.frequency === 'weekly' ? habit.timesPerWeek || 1 : habit.timesPerDay}).map((_, i) => (
                       <div key={i}
                         className="h-1.5 flex-1 rounded-full transition-all"
                         style={{ backgroundColor: i < todayLogs ? '#22c55e' : '#334155' }}
@@ -450,7 +492,7 @@ function HabitCard({ habit, userGold, onLog, onBreak, onDelete, onRestoreStreak,
                     ))}
                   </div>
                   <span className="text-xs text-slate-400 shrink-0">
-                    {todayLogs}/{habit.timesPerDay}
+                    {todayLogs}/{habit.frequency === 'weekly' ? habit.timesPerWeek || 1 : habit.timesPerDay}
                   </span>
                 </div>
               )}
@@ -467,10 +509,17 @@ function HabitCard({ habit, userGold, onLog, onBreak, onDelete, onRestoreStreak,
                   minWidth: '110px',
                 }}>
                 {isCompleted
-                  ? '✓ Готово'
-                  : habit.timesPerDay > 1
-                    ? `+1 (${todayLogs}/${habit.timesPerDay})`
-                    : 'Отметить'}
+                  ? 'Готово'
+                  : (
+                      (habit.frequency === 'daily' && habit.timesPerDay > 1) ||
+                      habit.frequency === 'weekly'
+                    )
+                      ? `${todayLogs}/${
+                          habit.frequency === 'weekly'
+                            ? habit.timesPerWeek || 1
+                            : habit.timesPerDay
+                        }`
+                      : 'Отметить'}
               </button>
             </div>
           )
@@ -490,9 +539,65 @@ function HabitCard({ habit, userGold, onLog, onBreak, onDelete, onRestoreStreak,
 
         {/* Награда */}
         {lastReward && (lastReward.xp > 0 || lastReward.gold > 0) && (
-          <div className="mt-2 flex items-center gap-3 text-xs">
-            {lastReward.xp > 0 && <span className="text-indigo-400">+{lastReward.xp} XP</span>}
-            {lastReward.gold > 0 && <span className="text-yellow-400">+{lastReward.gold} Балла</span>}
+          <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
+
+            {/* XP */}
+            <div
+              className="px-2 py-1 rounded-lg"
+              style={{
+                backgroundColor:
+                  lastReward.baseXp &&
+                  lastReward.xp > lastReward.baseXp
+                    ? 'rgba(99,102,241,0.18)'
+                    : 'rgba(99,102,241,0.08)',
+
+                border:
+                  lastReward.baseXp &&
+                  lastReward.xp > lastReward.baseXp
+                    ? '1px solid rgba(99,102,241,0.4)'
+                    : '1px solid rgba(99,102,241,0.15)',
+              }}
+            >
+              <span className="text-indigo-300 font-medium">
+                +{lastReward.xp} XP
+              </span>
+
+              {lastReward.baseXp &&
+                lastReward.xp > lastReward.baseXp && (
+                  <span className="ml-1 text-indigo-400">
+                    ⚡ BOOST
+                  </span>
+                )}
+            </div>
+
+            {/* GOLD */}
+            <div
+              className="px-2 py-1 rounded-lg"
+              style={{
+                backgroundColor:
+                  lastReward.baseGold &&
+                  lastReward.gold > lastReward.baseGold
+                    ? 'rgba(245,158,11,0.18)'
+                    : 'rgba(245,158,11,0.08)',
+
+                border:
+                  lastReward.baseGold &&
+                  lastReward.gold > lastReward.baseGold
+                    ? '1px solid rgba(245,158,11,0.4)'
+                    : '1px solid rgba(245,158,11,0.15)',
+              }}
+            >
+              <span className="text-yellow-300 font-medium">
+                +{lastReward.gold} Балла
+              </span>
+
+              {lastReward.baseGold &&
+                lastReward.gold > lastReward.baseGold && (
+                  <span className="ml-1 text-yellow-400">
+                    ⚡ BOOST
+                  </span>
+                )}
+            </div>
           </div>
         )}
       </div>
@@ -528,6 +633,7 @@ function CreateHabitModal({ templates, onClose, onCreated }: CreateHabitModalPro
   const [startDate, setStartDate] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+  const [timesPerWeek, setTimesPerWeek] = useState(3)
 
   const [templateStartDate, setTemplateStartDate] = useState('')
   const [selectedTemplate, setSelectedTemplate] = useState<HabitTemplate | null>(null)
@@ -538,7 +644,17 @@ function CreateHabitModal({ templates, onClose, onCreated }: CreateHabitModalPro
     e.preventDefault()
     setIsLoading(true)
     try {
-      const payload: any = { title, type, trackingType, frequency, timesPerDay }
+      const payload: any = {
+        title,
+        type,
+        trackingType,
+        frequency,
+        timesPerDay,
+      }
+
+      if (frequency === 'weekly') {
+        payload.timesPerWeek = timesPerWeek
+      }
       if (trackingType === 'continuous' && startDate) {
         payload.startDate = new Date(startDate).toISOString()
       }
@@ -697,7 +813,32 @@ function CreateHabitModal({ templates, onClose, onCreated }: CreateHabitModalPro
                       </button>
                     ))}
                   </div>
+
                 </div>
+                {frequency === 'weekly' && (
+                  <div>
+                    <label className="text-slate-400 text-sm mb-1.5 block">
+                      Раз в неделю:
+                      <span className="text-white font-medium ml-1">
+                        {timesPerWeek}
+                      </span>
+                    </label>
+
+                    <input
+                      type="range"
+                      min={1}
+                      max={7}
+                      value={timesPerWeek}
+                      onChange={e => setTimesPerWeek(Number(e.target.value))}
+                      className="w-full accent-indigo-500"
+                    />
+
+                    <div className="flex justify-between text-xs text-slate-500 mt-1">
+                      <span>1 раз</span>
+                      <span>7 раз</span>
+                    </div>
+                  </div>
+                )}
               </>
             )}
 
@@ -814,7 +955,15 @@ export default function HabitsPage() {
   const [templates, setTemplates] = useState<HabitTemplate[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
-  const [lastRewards, setLastRewards] = useState<Record<number, { xp: number; gold: number }>>({})
+  const [lastRewards, setLastRewards] = useState<Record<number,
+  {
+    xp: number
+    gold: number
+    baseXp?: number
+    baseGold?: number
+  }
+  >
+  >({})
   const [heatmapView, setHeatmapView] = useState<'month' | 'year'>('month')
   const [breakConfirmId, setBreakConfirmId] = useState<number | null>(null)
   const [activeTab, setActiveTab] = useState<'habits' | 'heatmap'>('habits')
@@ -851,7 +1000,15 @@ export default function HabitsPage() {
         return { ...h, logs: [...h.logs, newLog], currentStreak: result.currentStreak }
       }))
       if (result.xpEarned > 0 || result.goldEarned > 0) {
-        setLastRewards(prev => ({ ...prev, [id]: { xp: result.xpEarned, gold: result.goldEarned } }))
+        setLastRewards(prev => ({
+          ...prev,
+          [id]: {
+            xp: result.xpEarned,
+            gold: result.goldEarned,
+            baseXp: result.baseXp,
+            baseGold: result.baseGold,
+          }
+        }))
         loadUser()
         setTimeout(() => {
           setLastRewards(prev => { const n = { ...prev }; delete n[id]; return n })
@@ -908,7 +1065,36 @@ export default function HabitsPage() {
 
   const discreteHabits = habits.filter(h => h.trackingType === 'discrete')
   const continuousHabits = habits.filter(h => h.trackingType === 'continuous')
-  const completedCount = discreteHabits.filter(h => h.logs.length >= h.timesPerDay).length
+  const completedCount = discreteHabits.filter(h => {
+
+    // WEEKLY
+    if (h.frequency === 'weekly') {
+      const now = new Date()
+
+      const startOfWeek = new Date(now)
+      startOfWeek.setDate(now.getDate() - now.getDay() + 1)
+      startOfWeek.setHours(0, 0, 0, 0)
+
+      const weeklyLogs = h.logs.filter(log => {
+        const logDate = new Date(log.date)
+        return logDate >= startOfWeek
+      })
+
+      // хотя бы 1 выполнение
+      return weeklyLogs.length > 0
+    }
+
+    // DAILY
+    const today = new Date().toISOString().split('T')[0]
+
+    const todayLogs = h.logs.filter(log =>
+      log.date.startsWith(today)
+    )
+
+    // хотя бы 1 выполнение
+    return todayLogs.length > 0
+
+  }).length
 
   if (isLoading) {
     return (

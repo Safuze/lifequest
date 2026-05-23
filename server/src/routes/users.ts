@@ -8,7 +8,6 @@ import { Hash } from 'node:crypto'
 import { createNotification } from './notifications'
 import { checkAchievementsForUser } from '../services/achievementService'
 import { LEVEL_NAMES, LEVEL_XP } from '../services/levelService'
-
 const router = Router()
 router.use(authMiddleware)
 
@@ -176,11 +175,12 @@ router.get('/profile', async (req: AuthRequest, res: Response) => {
       ))
 
     } else {
-      // неделя — 7 дней назад от начала сегодняшнего дня (UTC)
+      // последние 7 дней ВКЛЮЧАЯ сегодня
       const startOfTodayUTC = new Date(now)
       startOfTodayUTC.setUTCHours(0, 0, 0, 0)
 
-      since = new Date(startOfTodayUTC.getTime() - 7 * 24 * 60 * 60 * 1000)
+      since = new Date(startOfTodayUTC)
+      since.setUTCDate(since.getUTCDate() - 6)
     }
 
     // DEBUG
@@ -209,9 +209,23 @@ router.get('/profile', async (req: AuthRequest, res: Response) => {
         select: { id: true }
       }),
       prisma.habit.findMany({
-        where: { userId, trackingType: 'discrete' },
-        include: {
-          logs: { where: { date: { gte: since } } }
+        where: {
+          userId,
+          trackingType: 'discrete'
+        },
+        select: {
+          id: true,
+          timesPerDay: true,
+          currentStreak: true,
+          bestStreak: true,
+          logs: {
+            where: {
+              date: { gte: since }
+            },
+            select: {
+              date: true
+            }
+          }
         }
       }),
       prisma.goal.findMany({
@@ -241,16 +255,54 @@ router.get('/profile', async (req: AuthRequest, res: Response) => {
     const totalPomodoroMin = sessions.reduce((s, sess) => s + sess.actualDuration, 0)
     const tasksCompleted = completedTasks.length
 
-    const daysInPeriod = period === 'day' ? 1 : period === 'week' ? 7 : 30
-    console.log('since:', since.toISOString())
-    const habitsFullyDone = habits.filter(h => {
-      const expected = h.timesPerDay * daysInPeriod
-      return h.logs.length >= expected
-    }).length
+    const daysInPeriod =
+      period === 'day'
+        ? 1
+        : period === 'week'
+          ? 7
+          : 30
 
-    const habitsCompletion = habits.length > 0
-      ? Math.round((habitsFullyDone / habits.length) * 100)
-      : 0
+    let totalPercent = 0
+
+    for (let i = 0; i < daysInPeriod; i++) {
+      const currentDay = new Date()
+
+      currentDay.setUTCHours(0, 0, 0, 0)
+      currentDay.setUTCDate(currentDay.getUTCDate() - i)
+
+      const dateStr = currentDay.toISOString().split('T')[0]
+
+      let completedHabits = 0
+      let totalHabits = habits.length
+
+      for (const habit of habits) {
+        const logsForDay = habit.logs.filter(log => {
+          const logDate = new Date(log.date)
+          logDate.setUTCHours(0, 0, 0, 0)
+
+          return logDate.toISOString().split('T')[0] === dateStr
+        })
+
+        const isCompleted =
+          logsForDay.length >= habit.timesPerDay
+
+        if (isCompleted) {
+          completedHabits++
+        }
+      }
+
+      const percent =
+        totalHabits > 0
+          ? (completedHabits / totalHabits) * 100
+          : 0
+
+      totalPercent += percent
+    }
+
+    const habitsCompletion =
+      daysInPeriod > 0
+        ? Math.round(totalPercent / daysInPeriod)
+        : 0
 
     const allCompletedTasks = await prisma.task.findMany({
       where: { userId, status: 'done', completedAt: { not: null } },
@@ -288,15 +340,20 @@ router.get('/profile', async (req: AuthRequest, res: Response) => {
     const maxHabitStreak = habits.reduce((max, h) => Math.max(max, h.currentStreak), 0)
     const maxBestHabitStreak = habits.reduce((max, h) => Math.max(max, h.bestStreak), 0)
 
-    const goalsWithPlan = goals.filter(g => g.plannedHours && g.plannedHours > 0)
+    const goalSessions = await prisma.pomodoroSession.findMany({
+      where: {
+        userId,
+        status: 'completed',
+        goalId: { not: null },
+        completedAt: { gte: since },
+      },
+      select: { actualDuration: true, goalId: true }
+    })
 
-    const goalsProgress = goalsWithPlan.length > 0
-      ? Math.round(
-          goalsWithPlan.reduce((sum, g) =>
-            sum + Math.min((g.spentHours / g.plannedHours!) * 100, 100), 0
-          ) / goalsWithPlan.length
-        )
-      : 0
+    // Норма: сколько минут фокуса по целям ожидается за период
+    const goalFocusNorm = period === 'day' ? 240 : period === 'week' ? 1680 : 7000
+    const goalMinutes = goalSessions.reduce((s, sess) => s + sess.actualDuration, 0)
+    const goalsProgress = Math.min(Math.round((goalMinutes / goalFocusNorm) * 100), 100)
 
     const earnedXp = rewards
       .filter(r => r.rewardType === 'xp')
@@ -306,7 +363,7 @@ router.get('/profile', async (req: AuthRequest, res: Response) => {
       .filter(r => r.rewardType === 'gold')
       .reduce((s, r) => s + r.amount, 0)
 
-    const focusNorm = period === 'day' ? 60 : period === 'week' ? 420 : 1800
+    const focusNorm = period === 'day' ? 240 : period === 'week' ? 1680 : 7000
     const radarFocus = Math.min(Math.round((totalPomodoroMin / focusNorm) * 100), 100)
 
     const radarDiscipline = habitsCompletion
@@ -315,7 +372,7 @@ router.get('/profile', async (req: AuthRequest, res: Response) => {
     const taskNorm = period === 'day' ? 5 : period === 'week' ? 20 : 80
     const radarProductivity = Math.min(Math.round((tasksCompleted / taskNorm) * 100), 100)
 
-    const goldNorm = period === 'day' ? 50 : period === 'week' ? 200 : 800
+    const goldNorm = period === 'day' ? 150 : period === 'week' ? 1000 : 4000
     const radarGold = Math.min(Math.round((earnedGold / goldNorm) * 100), 100)
 
     let level = 0
@@ -572,14 +629,33 @@ router.get('/:id/public', async (req: AuthRequest, res: Response) => {
       return
     }
 
-    const since7days = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+    const since7days = new Date()
+    since7days.setUTCHours(0, 0, 0, 0)
+    since7days.setUTCDate(since7days.getUTCDate() - 6)
 
     const [achievements, habits, sessions, tasks, goals, rewards, inventory] = await Promise.all([
       prisma.achievement.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }}),
       prisma.habit.findMany({
-        where: { userId, trackingType: 'discrete' },
-        select: { title: true, currentStreak: true, bestStreak: true, timesPerDay: true },
-        orderBy: { currentStreak: 'desc' }, take: 5,
+        where: {
+          userId,
+          trackingType: 'discrete'
+        },
+        select: {
+          title: true,
+          currentStreak: true,
+          bestStreak: true,
+          timesPerDay: true,
+          logs: {
+            where: {
+              date: { gte: since7days }
+            },
+            select: {
+              date: true
+            }
+          }
+        },
+        orderBy: { currentStreak: 'desc' },
+        take: 5,
       }),
       prisma.pomodoroSession.findMany({
         where: { userId, status: 'completed', completedAt: { gte: since7days } },
@@ -607,21 +683,70 @@ router.get('/:id/public', async (req: AuthRequest, res: Response) => {
     const totalPomodoroMin7d = sessions.reduce((s, sess) => s + sess.actualDuration, 0)
     const tasksCompleted7d = tasks.length
     const earnedGold7d = rewards.filter(r => r.rewardType === 'gold').reduce((s, r) => s + r.amount, 0)
+    
+    let totalPercent = 0
+    const daysInPeriod = 7
 
-    const habitsFullyDone = habits.filter(h => h.currentStreak > 0).length
-    const habitsCompletion = habits.length > 0 ? Math.round((habitsFullyDone / habits.length) * 100) : 0
+    for (let i = 0; i < daysInPeriod; i++) {
+      const currentDay = new Date()
 
-    const goalsWithPlan = goals.filter(g => g.plannedHours && g.plannedHours > 0)
-    const goalsProgress = goalsWithPlan.length > 0
-      ? Math.round(goalsWithPlan.reduce((sum, g) => sum + Math.min((g.spentHours / g.plannedHours!) * 100, 100), 0) / goalsWithPlan.length)
-      : 0
+      currentDay.setUTCHours(0, 0, 0, 0)
+      currentDay.setUTCDate(currentDay.getUTCDate() - i)
+
+      const dateStr = currentDay.toISOString().split('T')[0]
+
+      let completedHabits = 0
+      const totalHabits = habits.length
+
+      for (const habit of habits) {
+        const logsForDay = habit.logs.filter(log => {
+          const logDate = new Date(log.date)
+
+          logDate.setUTCHours(0, 0, 0, 0)
+
+          return logDate.toISOString().split('T')[0] === dateStr
+        })
+
+        const isCompleted =
+          logsForDay.length >= habit.timesPerDay
+
+        if (isCompleted) {
+          completedHabits++
+        }
+      }
+
+      const percent =
+        totalHabits > 0
+          ? (completedHabits / totalHabits) * 100
+          : 0
+
+      totalPercent += percent
+    }
+
+    const habitsCompletion =
+      daysInPeriod > 0
+        ? Math.round(totalPercent / daysInPeriod)
+        : 0
+
+    const goalSessions7d = await prisma.pomodoroSession.findMany({
+      where: {
+        userId,
+        status: 'completed',
+        goalId: { not: null },
+        completedAt: { gte: since7days },
+      },
+      select: { actualDuration: true }
+    })
+
+    const goalMinutes7d = goalSessions7d.reduce((s, sess) => s + sess.actualDuration, 0)
+    const goalsProgress = Math.min(Math.round((goalMinutes7d / 1680) * 100), 100) // норма 7 часов за неделю
 
     const radar = {
-      focus: Math.min(Math.round((totalPomodoroMin7d / 420) * 100), 100),
+      focus: Math.min(Math.round((totalPomodoroMin7d / 1680) * 100), 100),
       discipline: habitsCompletion,
       progress: goalsProgress,
       productivity: Math.min(Math.round((tasksCompleted7d / 20) * 100), 100),
-      gold: Math.min(Math.round((earnedGold7d / 200) * 100), 100),
+      gold: Math.min(Math.round((earnedGold7d / 1000) * 100), 100),
     }
 
     res.json({
