@@ -168,7 +168,7 @@ export const SHOP_ITEMS: ShopItem[] = [
    
     background: {
       type: 'video',
-      value: '/video/minecraft.mp4',
+      value: '/backgrounds/minecraft.mp4',
       poster: '/backgrounds/minecraft.png'
     }
   },
