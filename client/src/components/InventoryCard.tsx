@@ -1,5 +1,5 @@
-import { SHOP_ITEMS } from '../../../server/src/data/shopItems'
-import { PETS } from '../../../server/src/data/pets'
+import { SHOP_ITEMS } from '../data/shopItems'
+import { PETS } from '../data/pets'
 interface RawInventoryItem {
   name: string
   itemType: string

@@ -5,7 +5,7 @@ import { useAuth } from '../hooks/useAuth'
 import { ArrowLeft, UserPlus, Check, Clock, CheckSquare, Flame, Lock, Trophy } from 'lucide-react'
 import { AchievementGrid } from '../components/AchievementGrid'
 import { getAvatarBorderStyle, getAvatarBorderClass, getProfileBgStyle, getProfileBgData } from '../utils/avatar'
-import { PETS } from '../../../server/src/data/pets'
+import { PETS } from '../data/pets'
 import { InventoryCard } from '../components/InventoryCard'
 import { LEVEL_NAMES, LEVEL_COLORS, LEVEL_XP } from '../data/levelData'
 

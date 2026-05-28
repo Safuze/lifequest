@@ -6,7 +6,7 @@ import { getAvatarBorderStyle, getAvatarBorderClass, getProfileBgStyle, getProfi
 import { InventoryCard } from '../components/InventoryCard'
 type Period = 'day' | 'week' | 'month'
 import { LEVEL_NAMES, LEVEL_COLORS } from '../data/levelData'
-import { PETS } from '../../../server/src/data/pets'
+import { PETS } from '../data/pets'
 
 interface ProfileAchievement {
   id: number

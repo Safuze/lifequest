@@ -1,4 +1,4 @@
-import { SHOP_ITEMS } from '../../../server/src/data/shopItems'
+import { SHOP_ITEMS } from '../data/shopItems'
 
 export type AvatarBorder = string // id из SHOP_ITEMS
 
