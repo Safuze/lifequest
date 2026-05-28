@@ -41,7 +41,7 @@ export function getProfileBgData(bgId: string) {
   if (!bgId || bgId === 'default') return null
 
   const item = SHOP_ITEMS.find(
-    i => i.category === 'background' && i.id === bgId
+    (i: any) => i.category === 'background' && i.id === bgId
   )
 
   return item?.background || null

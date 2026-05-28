@@ -267,7 +267,7 @@ interface TaskDetailModalProps {
   onDelete: (id: number) => void
 }
 
-function TaskDetailModal({ task, goals, onClose, onUpdate, onDelete }: TaskDetailModalProps) {
+function TaskDetailModal({ task, onClose, onUpdate, onDelete }: TaskDetailModalProps) {
   
   const navigate = useNavigate()
   const [newSubtask, setNewSubtask] = useState('')

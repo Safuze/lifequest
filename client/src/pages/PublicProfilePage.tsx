@@ -126,7 +126,7 @@ export default function PublicProfilePage() {
   )
 
   const { user, achievements, topHabits, totalPomodoroMin, totalSessions, tasksCompleted } = data
-  const activePet = PETS.find(p => p.id === user.activePetId)
+  const activePet = PETS.find((p: any) => p.id === user.activePetId)
   const isOwnProfile = currentUser?.id === user.id
   const levelColor = LEVEL_COLORS[Math.min(user.level, LEVEL_COLORS.length - 1)]
   const levelName = LEVEL_NAMES[Math.min(user.level, LEVEL_NAMES.length - 1)]

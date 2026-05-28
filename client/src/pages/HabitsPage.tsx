@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { habitsApi } from '../api/habits'
 import type { Habit, HabitTemplate} from '../api/habits'
 import { useAuth } from '../hooks/useAuth'
-import { Plus, Trash2, X, Flame, Trophy, RotateCcw, ChevronDown, ChevronUp, Calendar, AlertTriangle } from 'lucide-react'
+import { Plus, Trash2, X, Flame, Trophy, RotateCcw, ChevronDown, ChevronUp, Calendar } from 'lucide-react'
 import { dispatchRewards } from '../utils/dispatchRewards'
 
 function getLocalDateString(date?: Date): string {
@@ -349,7 +349,7 @@ function getStreakBorderStyle(streak: number): { borderColor: string; boxShadow?
   return { borderColor: '#334155' }
 }
 
-function HabitCard({ habit, userGold, onLog, onBreak, onDelete, onRestoreStreak, lastReward, heatmapView, streakRestored  }: HabitCardProps) {
+function HabitCard({ habit, onLog, onBreak, onDelete, onRestoreStreak, lastReward, heatmapView  }: HabitCardProps) {
   const [expanded, setExpanded] = useState(false)
   const [timer, setTimer] = useState('')
   console.log(habit.canRestoreStreak)
@@ -967,7 +967,7 @@ export default function HabitsPage() {
   }
   >
   >({})
-  const [heatmapView, setHeatmapView] = useState<'month' | 'year'>('month')
+  const [heatmapView] = useState<'month' | 'year'>('month')
   const [breakConfirmId, setBreakConfirmId] = useState<number | null>(null)
   const [activeTab, setActiveTab] = useState<'habits' | 'heatmap'>('habits')
   const [restoringStreakIds, setRestoringStreakIds] = useState<Set<number>>(new Set())

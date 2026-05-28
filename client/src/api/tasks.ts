@@ -14,6 +14,7 @@ export interface Task {
   completedAt?: string | null
   isPinned: boolean
   isFocusToday: boolean
+  parentId?: number | null
   timeSpent: number
   totalPomodoroMin: number
   subtasks?: { id: number; title: string; status: string }[]

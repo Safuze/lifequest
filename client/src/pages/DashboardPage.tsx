@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../hooks/useAuth'
 import apiClient from '../api/client'
 import { tasksApi } from '../api/tasks'
 import { Play, Target, Flame, Clock, CheckSquare, TrendingUp, ChevronRight, Star } from 'lucide-react'
@@ -49,7 +48,6 @@ interface DashboardData {
 
 export default function DashboardPage() {
   const navigate = useNavigate()
-  const { user } = useAuth()
   const [data, setData] = useState<DashboardData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [greeting, setGreeting] = useState('')

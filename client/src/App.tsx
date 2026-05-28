@@ -18,14 +18,6 @@ import SettingsPage from './pages/SettingsPage'
 import ShopPage from './pages/ShopPage'
 import ChallengesPage from './pages/ChallengesPage'
 
-const PlaceholderPage = ({ title }: { title: string }) => (
-  <div className="flex items-center justify-center h-64">
-    <div className="text-center">
-      <h1 className="text-2xl font-bold text-white mb-2">{title}</h1>
-      <p className="text-slate-400">В разработке...</p>
-    </div>
-  </div>
-)
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth()

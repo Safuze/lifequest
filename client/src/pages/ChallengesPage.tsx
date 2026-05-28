@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import apiClient from '../api/client'
 import { useAuth } from '../hooks/useAuth'
-import { Trophy, Clock, Target, Flame, CheckCircle, XCircle, Zap } from 'lucide-react'
+import { Trophy, Clock, Target, CheckCircle, XCircle, Zap } from 'lucide-react'
 
 interface Challenge {
   id: number; title: string; description: string

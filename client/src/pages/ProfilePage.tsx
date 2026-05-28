@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
 import apiClient from '../api/client'
-import { Trophy, Clock, CheckSquare, Flame, TrendingUp, Star, Package } from 'lucide-react'
+import { Trophy, Clock, CheckSquare, Flame, TrendingUp, Star } from 'lucide-react'
 import { AchievementGrid } from '../components/AchievementGrid'
 import { getAvatarBorderStyle, getAvatarBorderClass, getProfileBgStyle, getProfileBgData } from '../utils/avatar'
 import { InventoryCard } from '../components/InventoryCard'
 type Period = 'day' | 'week' | 'month'
-import { LEVEL_NAMES, LEVEL_COLORS } from '../data/levelData'
+import { LEVEL_COLORS } from '../data/levelData'
 import { PETS } from '../data/pets'
 
 interface ProfileAchievement {
@@ -18,13 +18,6 @@ interface ProfileAchievement {
   createdAt: string
 }
 
-
-const RARITY_COLORS: Record<string, string> = {
-  common:    '#22c55e',
-  rare:      '#4f46e5',
-  epic:      '#a855f7',
-  legendary: '#f59e0b',
-}
 function formatMinutes(min: number): string {
   if (min < 60) return `${min}м`
   return `${Math.floor(min / 60)}ч ${min % 60 > 0 ? `${min % 60}м` : ''}`
@@ -181,7 +174,7 @@ export default function ProfilePage() {
   }
 
   const { user, stats, radar, achievements, inventory } = data
-  const activePet = PETS.find(p => p.id === user.activePetId)
+  const activePet = PETS.find((p: any) => p.id === user.activePetId)
   const levelColor = LEVEL_COLORS[user.level] || '#64748b'
   const bgData = getProfileBgData(user.profileBg)
   const profileBgStyle =

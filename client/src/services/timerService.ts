@@ -32,9 +32,6 @@ function load(): Partial<StoredTimer> {
   catch { return {} }
 }
 
-function clearStorage() {
-  localStorage.removeItem(STORAGE_KEY)
-}
 
 function playBeep(type: 'work' | 'break') {
   try {

@@ -5,7 +5,7 @@ import { useAuth } from '../hooks/useAuth'
 import { Search, UserPlus, Check, X, Trophy, Users, Crown } from 'lucide-react'
 import { getAvatarBorderStyle, getAvatarBorderClass } from '../utils/avatar'
 import { LEVEL_NAMES, LEVEL_COLORS } from '../data/levelData'
-import { PETS } from '../../../server/src/data/pets'
+import { PETS } from '../data/pets'
 
 interface LeaderboardEntry {
   rank: number
@@ -288,7 +288,7 @@ export default function LeaderboardPage() {
 
                 {/* Аватар */}
                 <div
-                  className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 ${getAvatarBorderClass(entry.avatarBorder)}`}
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 ${getAvatarBorderClass(entry.avatarBorder || '')}`}
                   style={{
                     backgroundColor: `${levelColor}20`,
                     color: levelColor,

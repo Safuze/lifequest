@@ -347,7 +347,7 @@ export default function Layout() {
             {/* Аватар */}
             <button
               onClick={() => navigate('/profile')}
-              className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold ${getAvatarBorderClass(user?.avatarBorder)}`}
+              className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold ${getAvatarBorderClass(user?.avatarBorder || '')}`}
               style={{
                 backgroundColor: '#4f46e5',
                 ...getAvatarBorderStyle(user?.avatarBorder || 'default'),

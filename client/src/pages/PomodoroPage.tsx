@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useLocation } from 'react-router-dom'
 import { pomodoroApi } from '../api/pomodoro'
 import type { PomodoroSettings } from '../api/pomodoro'
@@ -11,7 +11,7 @@ import { useTimerStore } from '../stores/timerStore'
 import { timerService } from '../services/timerService'
 import type { TimerMode } from '../services/timerService'
 import { audioService } from '../services/audioService'
-import { SHOP_ITEMS } from '../../../server/src/data/shopItems'
+import { SHOP_ITEMS } from '../data/shopItems'
 export type TimerStyle = 'circle' | 'hourglass' | 'cheetah' | 'horse' | 'snail' | 'clock'
 
 
@@ -645,13 +645,13 @@ function SettingsPanel({
 // ============ Главный компонент ============
 export default function PomodoroPage() {
   const location = useLocation()
-  const { user, loadUser } = useAuth()
+  const { loadUser } = useAuth()
 
   // Zustand store — глобальное состояние таймера
   const {
     mode, timeLeft, modeDuration, isRunning, sessionId, selectedTaskId, taskSelected,
     todayMinutes, todaySessions, todayCycles, lastReward, autoSwitch,
-    setSelectedTaskId, setTaskSelected, setAutoSwitch, setLastReward,
+    setSelectedTaskId, setTaskSelected, setAutoSwitch,
   } = useTimerStore()
 
   const [pomodoroSettings, setPomodoroSettings] = useState<PomodoroSettings | null>(null)

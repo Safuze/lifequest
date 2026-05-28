@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import apiClient from '../api/client'
-import { Search, UserPlus, Check, X, Users, Trophy, UserMinus } from 'lucide-react'
+import { Search, UserPlus, Check, X, Users, UserMinus } from 'lucide-react'
 import { LEVEL_NAMES, LEVEL_COLORS } from '../data/levelData'
 
 interface Friend {
@@ -74,16 +74,6 @@ export default function FriendsPage() {
       await loadFriends()
     } catch (error) {
       console.error('Friend action error:', error)
-    }
-  }
-
-  const handleRemoveFriend = async (friendId: number) => {
-    if (!confirm('Удалить из друзей?')) return
-    try {
-      await apiClient.delete(`/users/friends/${friendId}`)
-      setFriends(prev => prev.filter(f => f.id !== friendId))
-    } catch (error) {
-      console.error('Remove friend error:', error)
     }
   }
 
