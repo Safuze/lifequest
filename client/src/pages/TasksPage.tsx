@@ -731,7 +731,6 @@ function RewardToast({ xp, gold, onDone }: { xp: number; gold: number; onDone: (
         border: '1px solid rgba(99,102,241,0.5)',
         animation: 'slideIn 0.3s ease-out',
       }}>
-      <div className="text-2xl">🎉</div>
       <div>
         <p className="text-white text-sm font-semibold">Задача выполнена!</p>
         <div className="flex items-center gap-3 mt-0.5">

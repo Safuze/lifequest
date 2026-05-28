@@ -883,7 +883,6 @@ function CreateHabitModal({ templates, onClose, onCreated }: CreateHabitModalPro
               <div className="space-y-4">
                 <div className="flex items-center gap-3 p-3 rounded-xl"
                   style={{ backgroundColor: '#0f172a', border: '1px solid #334155' }}>
-                  <span className="text-2xl">{selectedTemplate.type === 'anti' ? '🚫' : '✅'}</span>
                   <div>
                     <p className="text-white text-sm font-medium">{selectedTemplate.title}</p>
                     <p className="text-slate-500 text-xs">Непрерывное отслеживание</p>
@@ -1158,7 +1157,7 @@ export default function HabitsPage() {
                   }} />
               </div>
               {completedCount === discreteHabits.length && completedCount > 0 && (
-                <p className="text-green-400 text-sm mt-2 text-center">🎉 Все привычки выполнены!</p>
+                <p className="text-green-400 text-sm mt-2 text-center">Все привычки выполнены!</p>
               )}
             </div>
           )}
