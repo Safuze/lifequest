@@ -41,7 +41,7 @@ const ACHIEVEMENTS: AchievementDef[] = [
   { type: 'gold_500',    title: 'Первые накопления',          description: 'Накоплено 500 баллов за всё время',        icon: '🪙', rarity: 'rare'      },
   { type: 'gold_2000',   title: 'Богатей',         description: 'Накоплено 2000 баллов за всё время',       icon: '💰', rarity: 'epic'      },
   { type: 'gold_10000',  title: 'Казначей',           description: 'Накоплено 10000 баллов за всё время', icon: '💎', rarity: 'epic',      },
-  { type: 'gold_50000',  title: 'Коллекционер',          description: 'Накоплено 50000 баллов за всё время', icon: '🏦', rarity: 'legendary', },
+  { type: 'gold_25000',  title: 'Коллекционер',          description: 'Накоплено 50000 баллов за всё время', icon: '🏦', rarity: 'legendary', },
 
   // Уровни
   { type: 'level_2',     title: 'Бронза II',           description: 'Достигнут уровень Бронза II',   icon: '🔶🔶', rarity: 'common'    },

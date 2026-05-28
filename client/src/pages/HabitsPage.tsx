@@ -891,7 +891,7 @@ function CreateHabitModal({ templates, onClose, onCreated }: CreateHabitModalPro
 
                 <div>
                   <label className="text-slate-400 text-sm mb-1.5 block">
-                    📅 Дата начала
+                    Дата начала
                     <span className="text-slate-500 ml-1">(если началось раньше сегодня)</span>
                   </label>
                   <input type="date" value={templateStartDate}
@@ -928,7 +928,6 @@ function CreateHabitModal({ templates, onClose, onCreated }: CreateHabitModalPro
                     disabled={isLoading}
                     className="w-full flex items-center gap-3 p-3 rounded-xl text-left transition-all hover:border-indigo-500/50"
                     style={{ backgroundColor: '#0f172a', border: '1px solid #334155' }}>
-                    <span className="text-2xl shrink-0">{template.type === 'anti' ? '🚫' : '✅'}</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-white text-sm">{template.title}</p>
                       <p className="text-slate-500 text-xs">
