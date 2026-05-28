@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react'
 
 interface Achievement {
   type: string

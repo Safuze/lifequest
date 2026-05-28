@@ -268,6 +268,7 @@ interface TaskDetailModalProps {
 }
 
 function TaskDetailModal({ task, goals, onClose, onUpdate, onDelete }: TaskDetailModalProps) {
+  
   const navigate = useNavigate()
   const [newSubtask, setNewSubtask] = useState('')
   const [newDueDate, setNewDueDate] = useState(task.dueDate ? task.dueDate.split('T')[0] : '')
@@ -278,9 +279,44 @@ function TaskDetailModal({ task, goals, onClose, onUpdate, onDelete }: TaskDetai
     return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`
   })
   const [isAddingSubtask, setIsAddingSubtask] = useState(false)
+  const [isEditingTitle, setIsEditingTitle] = useState(false)
+  const [titleValue, setTitleValue] = useState(task.title)
+  const [isEditingDescription, setIsEditingDescription] = useState(false)
+  const [descriptionValue, setDescriptionValue] = useState(task.description || '')
+
+  useEffect(() => {
+    setTitleValue(task.title)
+  }, [task.id])
+
+  useEffect(() => {
+    setDescriptionValue(task.description || '')
+  }, [task.id, task.description])
 
   const priority = PRIORITY_CONFIG[task.priority]
   const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== 'done'
+
+  const saveTitle = async () => {
+    const newTitle = titleValue.trim()
+    if (!newTitle || newTitle === task.title) {
+      setIsEditingTitle(false)
+      return
+    }
+
+    await onUpdate(task.id, { title: newTitle })
+    setIsEditingTitle(false)
+  }
+
+  const saveDescription = async () => {
+    const newDescription = descriptionValue.trim()
+
+    if (newDescription === (task.description || '').trim()) {
+      setIsEditingDescription(false)
+      return
+    }
+
+    await onUpdate(task.id, { description: newDescription || null })
+    setIsEditingDescription(false)
+  }
 
   const addSubtask = async () => {
     if (!newSubtask.trim()) return
@@ -334,7 +370,29 @@ function TaskDetailModal({ task, goals, onClose, onUpdate, onDelete }: TaskDetai
         {/* Заголовок */}
         <div className="flex items-start justify-between gap-3 mb-4">
           <div className="flex-1 min-w-0">
-            <h2 className="text-white font-semibold text-lg leading-snug">{task.title}</h2>
+            {isEditingTitle ? (
+              <input
+                value={titleValue}
+                onChange={(e) => setTitleValue(e.target.value)}
+                onBlur={saveTitle}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') saveTitle()
+                  if (e.key === 'Escape') {
+                    setTitleValue(task.title)
+                    setIsEditingTitle(false)
+                  }
+                }}
+                autoFocus
+                className="w-full text-lg font-semibold bg-transparent text-white outline-none border-b border-indigo-500"
+              />
+            ) : (
+              <h2
+                className="text-white font-semibold text-lg leading-snug cursor-pointer hover:text-indigo-300"
+                onDoubleClick={() => setIsEditingTitle(true)}
+              >
+                {task.title}
+              </h2>
+            )}
             {task.goal && <p className="text-slate-400 text-sm mt-1">Цель: {task.goal.title}</p>}
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
@@ -406,9 +464,35 @@ function TaskDetailModal({ task, goals, onClose, onUpdate, onDelete }: TaskDetai
         </div>
 
         {/* Описание */}
-        {task.description && (
-          <div className="mb-4 p-3 rounded-lg" style={{ backgroundColor: '#0f172a', border: '1px solid #334155' }}>
-            <p className="text-slate-300 text-sm leading-relaxed">{task.description}</p>
+        {(task.description || isEditingDescription) && (
+          <div
+            className="mb-4 p-3 rounded-lg"
+            style={{ backgroundColor: '#0f172a', border: '1px solid #334155' }}
+          >
+            {isEditingDescription ? (
+              <textarea
+                value={descriptionValue}
+                onChange={(e) => setDescriptionValue(e.target.value)}
+                onBlur={saveDescription}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && e.ctrlKey) saveDescription()
+                  if (e.key === 'Escape') {
+                    setDescriptionValue(task.description || '')
+                    setIsEditingDescription(false)
+                  }
+                }}
+                autoFocus
+                className="w-full text-sm bg-transparent text-slate-300 outline-none resize-none"
+                placeholder="Добавить описание..."
+              />
+            ) : (
+              <p
+                className="text-slate-300 text-sm leading-relaxed cursor-pointer"
+                onDoubleClick={() => setIsEditingDescription(true)}
+              >
+                {task.description}
+              </p>
+            )}
           </div>
         )}
 
@@ -527,7 +611,7 @@ function TaskDetailModal({ task, goals, onClose, onUpdate, onDelete }: TaskDetai
   )
 }
 
-// ============ КАРТОЧКА ЗАДАЧИ ============
+// КАРТОЧКА ЗАДАЧИ
 interface TaskCardProps {
   task: Task
   onClick: () => void
@@ -659,7 +743,7 @@ function RewardToast({ xp, gold, onDone }: { xp: number; gold: number; onDone: (
   )
 }
 
-// ============ ГЛАВНАЯ СТРАНИЦА ============
+//  ГЛАВНАЯ СТРАНИЦА 
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [goals, setGoals] = useState<Goal[]>([])
@@ -726,7 +810,7 @@ const handleUpdate = useCallback(async (id: number, data: any) => {
     // если задача завершена
     if (data.status === 'done' && prevTask?.status !== 'done') {
 
-      // 💰 награда с бэка
+      // награда с бэка
       if (result.reward) {
         setTaskReward({
           taskId: id,
@@ -735,7 +819,7 @@ const handleUpdate = useCallback(async (id: number, data: any) => {
         })
       }
 
-      // 🔥 единый диспетчер
+      // единый диспетчер
       if (result.achievements?.length || result.levelUp) {
         dispatchRewards(result.achievements, result.levelUp)
       }

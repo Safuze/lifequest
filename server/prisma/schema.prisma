@@ -282,7 +282,8 @@ model PomodoroSettings {
   shortBreak      Int  @default(5)
   longBreak       Int  @default(15)
   cyclesBeforeLong Int @default(4)
-
+  currentCycleSessions Int @default(0)
+  lastSessionDate      DateTime?
   user            User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 

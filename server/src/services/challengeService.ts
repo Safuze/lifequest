@@ -1,12 +1,24 @@
 import { prisma } from '../prisma'
 import { getLevelFromXp } from './levelService'
-import { LEVEL_XP } from './levelService'
-type ProgressData = {
-  dailyLogs: { date: string; value: number }[]
+
+function getLocalDateKey(date: Date): string {
+  // Форматируем в UTC чтобы совпадало с тем как хранятся даты в БД
+  const y = date.getUTCFullYear()
+  const m = String(date.getUTCMonth() + 1).padStart(2, '0')
+  const d = String(date.getUTCDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
 }
 
-function getTodayStr(): string {
-  return new Date().toISOString().split('T')[0]
+function getWeekKey(date: Date): string {
+  const d = new Date(date)
+
+  const day = d.getUTCDay()
+  const diff = day === 0 ? -6 : 1 - day
+
+  d.setUTCDate(d.getUTCDate() + diff)
+  d.setUTCHours(0,0,0,0)
+
+  return getLocalDateKey(d)
 }
 
 // Пересчитываем прогресс конкретного испытания для пользователя
@@ -28,11 +40,11 @@ async function recalcUserChallenge(
   const daysPassed = Math.floor((now.getTime() - start.getTime()) / 86400000)
 
   // Дней осталось
-  const daysLeft = challenge.durationDays - daysPassed
+  const daysLeft = Math.max(0, challenge.durationDays - daysPassed)
 
   // Максимально возможный прогресс если выполнять все оставшиеся дни
   // successDays = текущий прогресс в днях + daysLeft
-  const currentSuccessDays = Math.round((progress / 100) * challenge.durationDays)
+  const currentSuccessDays = Math.floor((progress / 100) * challenge.durationDays)
   const maxPossibleDays = currentSuccessDays + daysLeft
   const maxPossibleProgress = Math.round((maxPossibleDays / challenge.durationDays) * 100)
 
@@ -50,20 +62,16 @@ async function calcCurrentProgress(
 ): Promise<number> {
   const { type, targetValue, durationDays } = challenge
   const start = new Date(uc.startedAt)
-  start.setHours(0, 0, 0, 0)
+  start.setUTCHours(0, 0, 0, 0)
   const end = new Date(uc.expiresAt)
-  end.setHours(23, 59, 59, 999)
+  end.setUTCHours(23, 59, 59, 999)
   const today = new Date()
 
   // Сколько дней прошло
-  const daysPassed = Math.min(
-    Math.floor((today.getTime() - start.getTime()) / 86400000) + 1,
-    durationDays
-  )
+  const daysPassed = Math.max(0, Math.min(Math.floor((today.getTime() - start.getTime()) / 86400000) + 1,durationDays))
 
   if (type === 'pomodoro_daily') {
     // Целевое: targetValue минут в день каждый день
-    const totalRequired = targetValue * durationDays
 
     const sessions = await prisma.pomodoroSession.findMany({
       where: {
@@ -77,7 +85,7 @@ async function calcCurrentProgress(
     // Группируем по дням
     const byDay: Record<string, number> = {}
     for (const s of sessions) {
-      const d = s.completedAt!.toISOString().split('T')[0]
+      const d = getLocalDateKey(s.completedAt!)
       byDay[d] = (byDay[d] || 0) + s.actualDuration
     }
 
@@ -103,7 +111,7 @@ async function calcCurrentProgress(
 
     const byDay: Record<string, number> = {}
     for (const t of tasks) {
-      const d = t.completedAt!.toISOString().split('T')[0]
+      const d = getLocalDateKey(t.completedAt!)
       byDay[d] = (byDay[d] || 0) + 1
     }
 
@@ -124,6 +132,8 @@ async function calcCurrentProgress(
       select: {
         id: true,
         timesPerDay: true,
+        timesPerWeek: true,
+        frequency: true,
       },
     })
 
@@ -143,30 +153,77 @@ async function calcCurrentProgress(
       },
     })
 
-    // day -> habitId -> count
     const byDay: Record<string, Record<number, number>> = {}
 
-    for (const log of logs) {
-      const day = log.date.toISOString().split('T')[0]
+    // WEEKLY
+    const byWeek: Record<string, Record<number, number>> = {}
 
-      if (!byDay[day]) {
-        byDay[day] = {}
+    for (const log of logs) {
+      const dayKey = getLocalDateKey(log.date)
+      const weekKey = getWeekKey(log.date)
+
+      // DAILY
+      if (!byDay[dayKey]) {
+        byDay[dayKey] = {}
       }
 
-      byDay[day][log.habitId] =
-        (byDay[day][log.habitId] || 0) + 1
+      byDay[dayKey][log.habitId] =
+        (byDay[dayKey][log.habitId] || 0) + 1
+
+      // WEEKLY
+      if (!byWeek[weekKey]) {
+        byWeek[weekKey] = {}
+      }
+
+      byWeek[weekKey][log.habitId] =
+        (byWeek[weekKey][log.habitId] || 0) + 1
     }
 
     let successDays = 0
 
-    for (const dayData of Object.values(byDay)) {
+    for (let i = 0; i < daysPassed; i++) {
+
+      const currentDate = new Date(start)
+      currentDate.setUTCDate(currentDate.getUTCDate() + i)
+      const dayKey = getLocalDateKey(currentDate)
+      const dayData = byDay[dayKey] || {}
+
       let completedHabitsCount = 0
 
-      for (const habit of habits) {
-        const completedTimes = dayData[habit.id] || 0
+      const currentWeekKey = getWeekKey(currentDate)
 
-        if (completedTimes >= habit.timesPerDay) {
-          completedHabitsCount++
+      for (const habit of habits) {
+
+        // DAILY
+        if (habit.frequency === 'daily') {
+          const completedTimes = dayData[habit.id] || 0
+
+          if (completedTimes >= habit.timesPerDay) {
+            completedHabitsCount++
+          }
+        }
+
+        // WEEKLY
+        if (habit.frequency === 'weekly') {
+
+          const completedWeekTimes =
+            byWeek[currentWeekKey]?.[habit.id] || 0
+
+          const targetWeekTimes = habit.timesPerWeek || 1
+
+          // weekly привычка считается выполненной
+          // только в текущий день,
+          // если недельная цель уже закрыта
+
+          const isToday =
+            dayKey === getLocalDateKey(today)
+
+          if (
+            isToday &&
+            completedWeekTimes >= targetWeekTimes
+          ) {
+            completedHabitsCount++
+          }
         }
       }
 
@@ -174,6 +231,7 @@ async function calcCurrentProgress(
         successDays++
       }
     }
+
     console.log({
         type,
         successDays,
@@ -198,11 +256,9 @@ export async function updateUserChallenges(userId: number): Promise<void> {
     where: { userId, status: 'active' },
     include: { challenge: true }
   })
-
   if (activeChallenges.length === 0) return
   for (const uc of activeChallenges) {
     const { progress, status } = await recalcUserChallenge(uc, uc.challenge)
-
     if (status !== uc.status || Math.abs(progress - Number(uc.progress)) > 0.5) {
       await prisma.userChallenge.update({
         where: { id: uc.id },
@@ -212,7 +268,6 @@ export async function updateUserChallenges(userId: number): Promise<void> {
           completedAt: status === 'completed' && !uc.completedAt ? new Date() : undefined,
         }
       })
-
       // Начисляем награду при завершении
       if (status === 'completed' && !uc.completedAt) {
         await prisma.$transaction(async (tx) => {
@@ -229,8 +284,10 @@ export async function updateUserChallenges(userId: number): Promise<void> {
           }
           await tx.rewardTransaction.createMany({
             data: [
-              { userId, sourceType: 'challenge', sourceId: uc.challengeId, rewardType: 'xp',   amount: uc.challenge.rewardXp },
-              { userId, sourceType: 'challenge', sourceId: uc.challengeId, rewardType: 'gold', amount: uc.challenge.rewardCredits },
+              { userId, sourceType: 'challenge', sourceId: uc.challengeId, 
+                rewardType: 'xp',   amount: uc.challenge.rewardXp },
+              { userId, sourceType: 'challenge', sourceId: uc.challengeId, 
+                rewardType: 'gold', amount: uc.challenge.rewardCredits },
             ]
           })
         })

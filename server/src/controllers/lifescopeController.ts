@@ -19,10 +19,10 @@ function generateRecommendations(data: {
   if (data.habitsCompletion < 50) {
     recs.push('Процент выполнения привычек ниже 50%. Попробуйте сократить список до 3-5 ключевых привычек.')
   }
-  if (data.tasksCompleted < 5) {
+  if (data.tasksCompleted < 7) {
     recs.push('Завершено мало задач за неделю. Разбивайте крупные задачи на подзадачи для более частого ощущения прогресса.')
   }
-  if (data.totalXp > 500) {
+  if (data.totalXp > 1000) {
     recs.push('Отличная неделя по количеству XP! Продолжайте в том же темпе.')
   }
   if (recs.length === 0) {
@@ -90,7 +90,7 @@ async function buildWeeklyReport(userId: number, weekStart: Date, weekEnd: Date)
     ? Math.round(habitStats.reduce((s, h) => s + h.completionRate, 0) / habitStats.length)
     : 0
 
-  // XP и золото
+  // XP и баллы
   const weekXp = rewards.filter(r => r.rewardType === 'xp').reduce((s, r) => s + r.amount, 0)
   const weekGold = rewards.filter(r => r.rewardType === 'gold').reduce((s, r) => s + r.amount, 0)
   const prevXp = prevRewards.filter(r => r.rewardType === 'xp').reduce((s, r) => s + r.amount, 0)
@@ -118,7 +118,7 @@ async function buildWeeklyReport(userId: number, weekStart: Date, weekEnd: Date)
     prevXp,
     prevGold,
     xpDelta: weekXp - prevXp,
-    goldDelta: weekGold - prevGold,
+    goldDelta: Number(weekGold - prevGold).toFixed(1),
     recommendations,
   }
 }

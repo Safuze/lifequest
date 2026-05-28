@@ -181,31 +181,16 @@ export const completeSession = async (req: AuthRequest, res: Response) => {
     })
     const cyclesBeforeLong = settings?.cyclesBeforeLong || 4
 
-    const todayStart = new Date()
-    todayStart.setHours(0, 0, 0, 0)
+    // Проверяем не устарел ли счётчик цикла
+    const lastSessionDate = settings?.lastSessionDate
+    const todayStr = new Date().toISOString().split('T')[0]
+    const lastSessionStr = lastSessionDate ? new Date(lastSessionDate).toISOString().split('T')[0] : null
 
-    const tomorrow = new Date(todayStart)
-    tomorrow.setDate(tomorrow.getDate() + 1)
+    // Если последняя сессия была не сегодня — счётчик цикла устарел, сбрасываем
+    const currentCycleSessions = (lastSessionStr === todayStr) ? (settings?.currentCycleSessions || 0) : 0
 
-    // считаем completed сессии сегодня
-    // текущая уже сохранена выше через update()
-    const completedTodayCount = await prisma.pomodoroSession.count({
-      where: {
-        userId: req.userId!,
-        status: 'completed',
-        startedAt: {
-          gte: todayStart,
-          lt: tomorrow
-        }
-      }
-    })
-
-    const currentCycleProgress =
-      completedTodayCount % cyclesBeforeLong
-
-    const isNewCycleCompleted =
-      completedTodayCount > 0 &&
-      currentCycleProgress === 0
+    const updatedCycleSessions = currentCycleSessions + 1
+    const isNewCycleCompleted = updatedCycleSessions >= cyclesBeforeLong
 
     let cycleBonusXp = 0
     let cycleBonusGold = 0
@@ -270,6 +255,13 @@ export const completeSession = async (req: AuthRequest, res: Response) => {
     const finalXp = boostedSessionXp + cycleBonusXp
     const finalGold = boostedSessionGold + cycleBonusGold
     await prisma.$transaction(async (tx) => {
+      await tx.pomodoroSettings.update({
+        where: { userId: req.userId! },
+        data: {
+          currentCycleSessions: isNewCycleCompleted ? 0 : updatedCycleSessions,
+          lastSessionDate: new Date(),
+        }
+      })
       const updatedUser = await tx.user.update({
         where: { id: req.userId! },
 
@@ -283,7 +275,7 @@ export const completeSession = async (req: AuthRequest, res: Response) => {
           },
         }
       })
-
+      
       // Автообновление уровня
       const newLevel = getLevelFromXp(updatedUser.xp)
 
@@ -379,7 +371,7 @@ export const getTodayStats = async (req: AuthRequest, res: Response) => {
       where: {
         userId: req.userId!,
         status: 'completed',
-        startedAt: { gte: today, lt: tomorrow }
+        completedAt: { gte: today, lt: tomorrow }
       }
     })
 

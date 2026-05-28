@@ -176,8 +176,8 @@ export default function ChallengesPage() {
                     {isJoining
                       ? 'Вступление...'
                       : canAfford
-                        ? `Вступить за ${ch.entryFee} кр.`
-                        : `Нужно ${ch.entryFee} кр.`}
+                        ? `Вступить за ${ch.entryFee} бал.`
+                        : `Нужно ${ch.entryFee} бал.`}
                   </button>
                 )}
               </div>
@@ -249,7 +249,7 @@ export default function ChallengesPage() {
                     {uc.status !== 'failed' && (
                       <span className="flex items-center gap-2">
                         <span className="text-indigo-400">+{uc.challenge.rewardXp} XP</span>
-                        <span className="text-yellow-400">+{uc.challenge.rewardCredits} кр.</span>
+                        <span className="text-yellow-400">+{uc.challenge.rewardCredits} Баллов</span>
                       </span>
                     )}
                   </div>

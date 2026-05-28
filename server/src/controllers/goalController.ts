@@ -8,7 +8,7 @@ export const createGoalSchema = z.object({
   category: z.enum(['учёба', 'работа', 'здоровье', 'хобби', 'личное', 'проект']).optional(),
   horizon: z.enum(['day', 'week', 'month', 'year', 'longterm']).optional().default('longterm'),
   plannedHours: z.number().positive().optional(),
-  deadline: z.string().optional(), // убираем .datetime() — принимаем любую строку
+  deadline: z.string().optional(), 
 })
 
 export const updateGoalSchema = z.object({
@@ -59,7 +59,7 @@ export const createGoal = async (req: AuthRequest, res: Response) => {
     const data = req.body
     const category = data.category || detectCategory(data.title)
     
-    // Парсим дату правильно — deadline может прийти как '2025-04-27' или ISO string
+    // Парсим дату 
     let deadline: Date | null = null
     if (data.deadline) {
       deadline = new Date(data.deadline)

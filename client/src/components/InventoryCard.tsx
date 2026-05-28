@@ -198,7 +198,7 @@ export function InventoryCard({ item }: Props) {
           </span>
 
           <span className="text-yellow-400 text-xs font-semibold">
-            {meta.price} 🪙
+            {meta.price} Баллов
           </span>
         </div>
       </div>

@@ -26,7 +26,7 @@ export interface ShopItem {
   description: string
   price: number
   rarity: ItemRarity
-  preview?: string // css-класс или значение для превью
+  preview?: string 
   background?: ProfileBackground
   soundConfig?: {
     soundId: string
@@ -53,7 +53,7 @@ export interface ShopItem {
 
 export const SHOP_ITEMS: ShopItem[] = [
   
-  // ── Обводки аватара ──
+  // Обводки аватара 
   {
     id: 'border_silver',
     category: 'avatar_border',
@@ -436,7 +436,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     }
   },
 
-  // ── Временные бустеры ──
+  // Временные бустеры
   {
     id: 'boost_xp_30',
     category: 'booster_temp',
@@ -478,13 +478,13 @@ export const SHOP_ITEMS: ShopItem[] = [
     boosterConfig: { type: 'xp_boost', multiplier: 3.0, durationMinutes: 180, stackable: false },
   },
 
-  // ── Постоянные перки ──
+  // Постоянные перки
   {
     id: 'perk_xp',
     category: 'perk_permanent',
     name: 'Добыча XP',
     description: 'Увеличивает весь получаемый XP',
-    price: 500,
+    price: 400,
     rarity: 'rare',
     preview: '#6366f1',
     perkConfig: {
@@ -497,7 +497,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     category: 'perk_permanent',
     name: 'Добыча баллов',
     description: 'Увеличивает все получаемые баллы',
-    price: 500,
+    price: 400,
     rarity: 'rare',
     preview: '#f59e0b',
     perkConfig: {

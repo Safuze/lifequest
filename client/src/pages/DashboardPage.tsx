@@ -36,6 +36,7 @@ function formatDuration(startDate: string): string {
 interface DashboardData {
   user: { name: string; xp: number; gold: number; level: number }
   todayTasks: any[]
+  tasksCompletedToday: number
   focusTask: any | null
   pomodoroMinutesToday: number
   pomodoroSessionsToday: number
@@ -111,7 +112,7 @@ export default function DashboardPage() {
           {
             icon: <CheckSquare size={18} />,
             label: 'Задач выполнено',
-            value: `${data.todayTasks.filter(t => t.status === 'done').length}/${data.todayTasks.length}`,
+            value: `${data.tasksCompletedToday}`,
             color: '#4f46e5',
             bg: 'rgba(79,70,229,0.15)',
             onClick: () => navigate('/tasks')

@@ -96,7 +96,6 @@ export const getTasks = async (req: AuthRequest, res: Response) => {
       critical: 4, high: 3, medium: 2, low: 1
     }
 
-    // JS сортировка работает правильно в отличие от Prisma
     const sortedTasks = [...tasksWithTime].sort((a, b) => {
       if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1
       if (a.isFocusToday !== b.isFocusToday) return a.isFocusToday ? -1 : 1
@@ -143,7 +142,6 @@ export const createTask = async (req: AuthRequest, res: Response) => {
     }
 
     // Проверка дневного лимита
-    // Проверка дневного лимита
     const todayStart = new Date()
     todayStart.setHours(0, 0, 0, 0)
 
@@ -162,7 +160,6 @@ export const createTask = async (req: AuthRequest, res: Response) => {
       where: {
         userId: req.userId!,
         parentId: null,
-        status: { not: 'done' },
         dueDate: {
           gte: targetDayStart,
           lt: targetDayEnd,
@@ -238,8 +235,16 @@ export const updateTask = async (req: AuthRequest, res: Response) => {
       where: { id: taskId, userId: req.userId! }
     })
     if (!existing) { res.status(404).json({ error: 'Задача не найдена' }); return }
+    const parsed = updateTaskSchema.safeParse(req.body)
 
-    const updateData: any = { ...req.body }
+    if (!parsed.success) {
+      res.status(400).json({
+        error: 'Некорректные данные',
+        details: parsed.error.flatten(),
+      })
+      return
+    }
+    const updateData: any = parsed.data
 
     let userBeforeLevel: number | null = null
 

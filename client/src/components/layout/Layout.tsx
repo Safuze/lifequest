@@ -29,10 +29,10 @@ const navItems = [
   { to: '/dashboard',   icon: LayoutDashboard, label: 'Главная'    },
   { to: '/goals',       icon: Target,          label: 'Цели'        },
   { to: '/tasks',       icon: CheckSquare,     label: 'Задачи'        },
-  { to: '/pomodoro',    icon: Timer,           label: 'Pomodoro'     },
+  { to: '/pomodoro',    icon: Timer,           label: 'Помодоро'     },
   { to: '/habits',      icon: Repeat,          label: 'Привычки'       },
-  { to: '/lifescope',   icon: BarChart3,       label: 'LifeScope'    },
-  { to: '/leaderboard', icon: Trophy,          label: 'Leaderboard'  },
+  { to: '/lifescope',   icon: BarChart3,       label: 'Аналитика'    },
+  { to: '/leaderboard', icon: Trophy,          label: 'Таблица лидеров'  },
   { to: '/friends',     icon: Users,           label: 'Друзья'      },
   { to: '/challenges',  icon: Swords,     label: 'Испытания'},
   { to: '/shop',        icon: ShoppingBag,     label: 'Магазин'         },
@@ -276,7 +276,7 @@ export default function Layout() {
             title={collapsed ? 'Settings' : undefined}
           >
             <Settings size={20} className="shrink-0" />
-            {!collapsed && <span className="text-sm font-medium">Settings</span>}
+            {!collapsed && <span className="text-sm font-medium">Настройки</span>}
           </NavLink>
 
           <button
@@ -317,7 +317,7 @@ export default function Layout() {
               </div>
             </div>
 
-            {/* Золото */}
+            {/* Баллы */}
             <div className="hidden sm:flex items-center gap-1.5">
               <span className="text-yellow-400 text-sm">Баллы: </span>
               <span className="text-yellow-400 text-sm font-medium">{Number(user?.gold).toFixed(1).replace(/\.0$/, '')}</span>

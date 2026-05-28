@@ -5,7 +5,18 @@ import { useAuth } from '../hooks/useAuth'
 import { Plus, Trash2, X, Flame, Trophy, RotateCcw, ChevronDown, ChevronUp, Calendar, AlertTriangle } from 'lucide-react'
 import { dispatchRewards } from '../utils/dispatchRewards'
 
-// ============ УТИЛИТЫ ============
+function getLocalDateString(date?: Date): string {
+  const d = date || new Date()
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+// функция для получения локальной даты из ISO строки лога
+function getLocalDateFromLog(isoString: string): string {
+  return getLocalDateString(new Date(isoString))
+}
 
 // Динамический счётчик для непрерывных привычек
 function formatDuration(startDate: string): string {
@@ -77,7 +88,7 @@ function HabitHeatmap({ days = 30 }: { days?: number }) {
     return 'rgba(129,102,241,1)'
   }
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = getLocalDateString()
 
   // Разбиваем на недели (строки по 7)
   const weeks: HeatmapDay[][] = []
@@ -183,8 +194,8 @@ function Heatmap({ logs, days = 30 }: { logs: { date: string }[]; days?: number 
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date(today)
     d.setDate(d.getDate() - i)
-    const dateStr = d.toISOString().split('T')[0]
-    const count = logs.filter(l => l.date.startsWith(dateStr)).length
+    const dateStr = getLocalDateString(d)  // локальная дата ячейки
+    const count = logs.filter(l => getLocalDateFromLog(l.date) === dateStr).length
     cells.push({ date: dateStr, count })
   }
 
@@ -345,7 +356,10 @@ function HabitCard({ habit, userGold, onLog, onBreak, onDelete, onRestoreStreak,
   const now = new Date()
 
   const startOfWeek = new Date(now)
-  startOfWeek.setDate(now.getDate() - now.getDay() + 1)
+  const day = now.getDay()
+  const diff = day === 0 ? -6 : 1 - day
+
+  startOfWeek.setDate(now.getDate() + diff)
   startOfWeek.setHours(0, 0, 0, 0)
 
   const weeklyLogs = habit.logs.filter(log => {
@@ -353,29 +367,18 @@ function HabitCard({ habit, userGold, onLog, onBreak, onDelete, onRestoreStreak,
     return logDate >= startOfWeek
   })
 
-  const todayLogs =
-    habit.frequency === 'weekly'
-      ? weeklyLogs.length
-      : habit.logs.filter(log =>
-          log.date.startsWith(new Date().toISOString().split('T')[0])
-        ).length
+  const todayStr = getLocalDateString()
+  const todayLogs = habit.frequency === 'weekly' ? weeklyLogs.length : habit.logs.filter(log => getLocalDateFromLog(log.date) === todayStr).length
 
-  const weeklyProgress = habit.frequency === 'weekly' ? todayLogs : 0
-  const isCompleted = habit.trackingType === 'discrete' && todayLogs >= habit.timesPerDay
+  const targetCount = habit.frequency === 'weekly' ? habit.timesPerWeek || 1 : habit.timesPerDay
 
-  const streakStyle = habit.trackingType === 'discrete'
-    ? getStreakBorderStyle(habit.currentStreak)
-    : { borderColor: '#334155' }
+  const isCompleted = habit.trackingType === 'discrete' && todayLogs >= targetCount
 
-  const streak =
-    habit.frequency === 'weekly'
-      ? `${habit.completedWeeks} нед.`
-      : `${habit.currentStreak} дн.`
+  const streakStyle = habit.trackingType === 'discrete' ? getStreakBorderStyle(habit.currentStreak) : { borderColor: '#334155' }
 
-  const best =
-    habit.frequency === 'weekly'
-      ? habit.bestWeeks
-      : habit.bestStreak
+  const streak = habit.frequency === 'weekly' ? `${habit.completedWeeks} нед.` : `${habit.currentStreak} дн.`
+
+  const best = habit.frequency === 'weekly' ? habit.bestWeeks : habit.bestStreak
 
   // Обновляем счётчик для непрерывных привычек
   useEffect(() => {
@@ -473,7 +476,7 @@ function HabitCard({ habit, userGold, onLog, onBreak, onDelete, onRestoreStreak,
                 border: '1px solid rgba(245,158,11,0.3)'
               }}>
               <RotateCcw size={14} />
-              Восстановить стрик за<strong>50</strong>баллов
+              Восстановить серию за<strong>50</strong>баллов
             </button>
           ) : (
             // ОБЫЧНЫЕ КНОПКИ
@@ -638,7 +641,7 @@ function CreateHabitModal({ templates, onClose, onCreated }: CreateHabitModalPro
   const [templateStartDate, setTemplateStartDate] = useState('')
   const [selectedTemplate, setSelectedTemplate] = useState<HabitTemplate | null>(null)
 
-  const maxDate = new Date().toISOString().split('T')[0]
+  const maxDate = getLocalDateString()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -994,11 +997,10 @@ export default function HabitsPage() {
   const handleLog = async (id: number) => {
     try {
       const result = await habitsApi.log(id)
-      setHabits(prev => prev.map(h => {
-        if (h.id !== id) return h
-        const newLog = { id: Date.now(), date: new Date().toISOString(), repetition: result.repetitionsDone }
-        return { ...h, logs: [...h.logs, newLog], currentStreak: result.currentStreak }
-      }))
+
+      // Перезагружаем все привычки с сервера — гарантированно свежие данные
+      await loadHabits()
+
       if (result.xpEarned > 0 || result.goldEarned > 0) {
         setLastRewards(prev => ({
           ...prev,
@@ -1014,12 +1016,16 @@ export default function HabitsPage() {
           setLastRewards(prev => { const n = { ...prev }; delete n[id]; return n })
         }, 3000)
       }
-      // Показываем модалки
+
       if (result.achievements?.length || result.levelUp) {
         dispatchRewards(result.achievements, result.levelUp)
       }
     } catch (error: any) {
       console.error('Log error:', error.response?.data?.error)
+      // Показываем ошибку пользователю
+      if (error.response?.data?.error) {
+        alert(error.response.data.error)
+      }
     }
   }
 
@@ -1069,30 +1075,24 @@ export default function HabitsPage() {
 
     // WEEKLY
     if (h.frequency === 'weekly') {
-      const now = new Date()
+      const todayStr = getLocalDateString()
 
-      const startOfWeek = new Date(now)
-      startOfWeek.setDate(now.getDate() - now.getDay() + 1)
-      startOfWeek.setHours(0, 0, 0, 0)
+      const hasTodayLog = h.logs.some(
+        log => getLocalDateFromLog(log.date) === todayStr
+      )
 
-      const weeklyLogs = h.logs.filter(log => {
-        const logDate = new Date(log.date)
-        return logDate >= startOfWeek
-      })
-
-      // хотя бы 1 выполнение
-      return weeklyLogs.length > 0
+      return hasTodayLog
     }
 
     // DAILY
-    const today = new Date().toISOString().split('T')[0]
+    const todayStr = getLocalDateString()
 
-    const todayLogs = h.logs.filter(log =>
-      log.date.startsWith(today)
+    const todayLogs = h.logs.filter(
+      log => getLocalDateFromLog(log.date) === todayStr
     )
 
-    // хотя бы 1 выполнение
-    return todayLogs.length > 0
+    // выполнена только если достигнута цель дня
+    return todayLogs.length >= h.timesPerDay
 
   }).length
 

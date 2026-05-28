@@ -14,7 +14,6 @@ interface StoredTimer {
   sessionId: number | null
   taskId: number | null
   taskSelected: boolean
-  // sessionCount: number
   pausedTimeLeft: number  // сколько осталось в момент паузы
   modeDuration: number    // полная длительность текущего режима
 }
@@ -191,7 +190,6 @@ class TimerService {
           mode: currentMode,
           modeDuration: durSec,
           pausedTimeLeft: 0,
-          // sessionCount: store.sessionCount,
         })
 
         this.startTick()
@@ -212,9 +210,7 @@ class TimerService {
     store.setIsRunning(false)
 
     // Сохраняем сколько осталось в момент паузы
-    const remaining = saved.endEpoch
-      ? Math.max(0, Math.round((saved.endEpoch - Date.now()) / 1000))
-      : store.timeLeft
+    const remaining = saved.endEpoch ? Math.max(0, Math.round((saved.endEpoch - Date.now()) / 1000)) : store.timeLeft
 
     store.setTimeLeft(remaining)
     save({ isRunning: false, endEpoch: 0, pausedTimeLeft: remaining })
@@ -295,7 +291,7 @@ class TimerService {
 
       if ('Notification' in window && Notification.permission === 'granted') {
         new Notification('LifeQuest', {
-          body: curMode === 'work' ? '🎉 Сессия завершена! Время перерыва.' : '⏰ Перерыв закончился!',
+          body: curMode === 'work' ? 'Сессия завершена! Время перерыва.' : 'Перерыв закончился!',
           icon: '/favicon.ico',
         })
       }
@@ -319,28 +315,6 @@ class TimerService {
             )
           }
 
-          // let newCount = (saved.sessionCount ?? store.sessionCount) + 1
-          // this.loadUserFn?.()
-          // const statsData = await pomodoroApi.getTodayStats()
-
-          // store.setTodayStats(
-          //   statsData.totalMinutes,
-          //   statsData.sessionsCount,
-          //   statsData.completedCycles
-          // )
-
-          // const cyclesBeforeLong = Math.max(2, this.settings?.cyclesBeforeLong || 4)
-
-          // const isLongBreak = newCount >= cyclesBeforeLong
-
-          // const nextMode: TimerMode = isLongBreak ? 'longBreak' : 'shortBreak'
-
-          // if (isLongBreak) {
-          //   newCount = 0
-          // }
-
-          // store.setSessionCount(newCount)
-
           this.loadUserFn?.()
 
           const statsData = await pomodoroApi.getTodayStats()
@@ -351,10 +325,7 @@ class TimerService {
             statsData.completedCycles
           )
 
-          const nextMode: TimerMode =
-            result.cycleBonus
-              ? 'longBreak'
-              : 'shortBreak'
+          const nextMode: TimerMode = result.cycleBonus ? 'longBreak' : 'shortBreak'
 
           const nextDurSec = this.getDur(nextMode) * 60
 
@@ -492,10 +463,7 @@ class TimerService {
           return
         }
 
-        const result = await pomodoroApi.completeSession(
-          sid,
-          actualMinutes
-        )
+        const result = await pomodoroApi.completeSession(sid, actualMinutes)
 
         store.setLastReward(result.reward)
 
@@ -516,11 +484,7 @@ class TimerService {
         // Обновляем статистику
         const statsData = await pomodoroApi.getTodayStats()
 
-        store.setTodayStats(
-          statsData.totalMinutes,
-          statsData.sessionsCount,
-          statsData.completedCycles
-        )
+        store.setTodayStats(statsData.totalMinutes, statsData.sessionsCount, statsData.completedCycles)
 
         // Полностью очищаем текущую сессию
         store.setSessionId(null)
@@ -535,11 +499,7 @@ class TimerService {
         store.setMode(nextMode)
         store.setTimeLeft(nextDurSec)
         store.setModeDuration(nextDurSec)
-        // const cyclesBeforeLong = Math.max(2, this.settings?.cyclesBeforeLong || 4)
-        // let nextCount = store.sessionCount + 1
-        // if (nextCount >= cyclesBeforeLong) {
-        //   nextCount = 0
-        // }
+
         save({
           mode: nextMode,
           isRunning: false,
@@ -547,7 +507,6 @@ class TimerService {
           endEpoch: 0,
           pausedTimeLeft: nextDurSec,
           modeDuration: nextDurSec,
-          // sessionCount: nextCount,
         })
       } catch (err) {
         console.error('finishEarly error:', err)

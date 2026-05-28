@@ -41,39 +41,16 @@ router.get('/catalog', async (req: AuthRequest, res: Response) => {
 
       return {
         ...item,
-
-        owned:
-          purchasedIds.has(item.id) ||
-          item.category === 'perk_permanent',
-
-        equipped:
-          item.category === 'avatar_border'
-            ? user?.avatarBorder === item.id
-            : item.category === 'background'
-              ? user?.profileBg === item.id
-              : item.category === 'pomodoro_sound'
-                ? user?.activePomodoroSound === item.id
-                : item.category === 'pomodoro_timer'
-                  ? user?.activePomodoroTimer === item.id
-                  : false,
+        owned: purchasedIds.has(item.id) || item.category === 'perk_permanent',
+        equipped: item.category === 'avatar_border' ? user?.avatarBorder === item.id : item.category === 'background' ? user?.profileBg === item.id : 
+        item.category === 'pomodoro_sound' ? user?.activePomodoroSound === item.id : item.category === 'pomodoro_timer' ? user?.activePomodoroTimer === item.id : false,
 
         // ДЛЯ FRONTEND
         level: currentLevel,
-
         maxLevel: 5,
-
-        bonusPercent:
-          perk?.bonusPercent ||
-          currentLevel * (item.perkConfig?.bonusPercent || 0),
-
+        bonusPercent: perk?.bonusPercent || currentLevel * (item.perkConfig?.bonusPercent || 0),
         perkActive: perk?.isActive || false,
-
-        nextPrice:
-          item.category === 'perk_permanent'
-            ? currentLevel >= 5
-              ? null
-              : PERK_PRICES[currentLevel]
-            : null,
+        nextPrice: item.category === 'perk_permanent' ? currentLevel >= 5 ? null : PERK_PRICES[currentLevel] : null,
       }
     })
 
@@ -107,7 +84,7 @@ router.post('/buy', async (req: AuthRequest, res: Response) => {
     let finalPrice = item.price
     let currentLevel = 0
 
-    // ===== ПЕРКИ =====
+    // ПЕРКИ
 
     if (item.category === 'perk_permanent') {
 
@@ -133,23 +110,22 @@ router.post('/buy', async (req: AuthRequest, res: Response) => {
       finalPrice = PERK_PRICES[currentLevel]
     }
 
-    // ===== ПРОВЕРКА ЗОЛОТА =====
+    // ПРОВЕРКА БАЛЛОВ 
 
     if (user.gold < finalPrice) {
       res.status(400).json({
-        error: `Нужно ${finalPrice} 🪙, у вас ${user.gold}`
+        error: `Нужно ${finalPrice} баллов, у вас ${user.gold}`
       })
       return
     }
 
-    // ===== РАСХОДУЕМЫЕ ПРЕДМЕТЫ =====
+    // РАСХОДУЕМЫЕ ПРЕДМЕТЫ 
 
     const isConsumable =
       item.category === 'booster_temp' ||
       item.category === 'perk_permanent'
 
-    // ===== КОСМЕТИКА =====
-
+    // КОСМЕТИКА
     if (!isConsumable) {
 
       const existing = await prisma.inventoryItem.findFirst({
@@ -167,7 +143,7 @@ router.post('/buy', async (req: AuthRequest, res: Response) => {
       }
     }
 
-    // ===== ТРАНЗАКЦИЯ =====
+    // ТРАНЗАКЦИЯ
 
     await prisma.$transaction(async (tx) => {
 
@@ -195,7 +171,7 @@ router.post('/buy', async (req: AuthRequest, res: Response) => {
       }
     })
 
-    // ===== АКТИВАЦИЯ БУСТЕРОВ =====
+    // АКТИВАЦИЯ БУСТЕРОВ 
 
     if (item.boosterConfig) {
 
@@ -207,7 +183,7 @@ router.post('/buy', async (req: AuthRequest, res: Response) => {
       )
     }
 
-    // ===== ПЕРКИ =====
+    // ПЕРКИ 
 
     if (item.perkConfig) {
 
@@ -383,7 +359,7 @@ router.post('/pets/buy', async (req: AuthRequest, res: Response) => {
     })
     if (!user) { res.status(404).json({ error: 'Не найден' }); return }
     if (user.gold < pet.price) {
-      res.status(400).json({ error: `Нужно ${pet.price} 🪙, у вас ${user.gold}` })
+      res.status(400).json({ error: `Нужно ${pet.price} баллов, у вас ${user.gold}` })
       return
     }
 

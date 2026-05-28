@@ -31,12 +31,6 @@ const RARITY_LABELS: Record<string, string> = {
   legendary: 'Легендарное',
 }
 
-
-interface RewardModalProps {
-  queue: ModalItem[]
-  onNext: () => void
-}
-
 function AchievementModal({ item, onClose }: { item: AchievementItem; onClose: () => void }) {
   const color = RARITY_COLORS[item.rarity] || '#4f46e5'
 
@@ -164,41 +158,37 @@ function LevelUpModal({ item, onClose }: { item: LevelUpItem; onClose: () => voi
 // Глобальный менеджер очереди — вставляется в Layout один раз
 export function RewardModalManager() {
   const [queue, setQueue] = useState<ModalItem[]>([])
-
   const handleEvent = useCallback((e: Event) => {
     const { achievements, levelUp } = (e as CustomEvent).detail || {}
     const items: ModalItem[] = []
-
     if (levelUp) {
       items.push({ kind: 'levelup', data: levelUp })
     }
-    const filteredAchievements = (achievements || []).filter((a: AchievementItem) => a.type !== 'level_up')
+    
+    const filteredAchievements = (achievements || []).filter((a: AchievementItem) => 
+      !(levelUp && a.type === 'level_up')
+    )
     if (filteredAchievements.length) {
       filteredAchievements.forEach((a: AchievementItem) => {
         items.push({ kind: 'achievement', data: a })
       })
     }
-
     if (items.length > 0) {
       setQueue(prev => [...prev, ...items])
     }
   }, [])
-  
   useEffect(() => {
     window.addEventListener('rewards', handleEvent as EventListener)
     return () => window.removeEventListener('rewards', handleEvent as EventListener)
   }, [handleEvent])
-
   const handleNext = useCallback(() => {
     setQueue(prev => prev.slice(1))
   }, [])
-
   if (queue.length === 0) return null
-
   const current = queue[0]
-
   if (current.kind === 'achievement') {
     return <AchievementModal item={current.data} onClose={handleNext} />
   }
   return <LevelUpModal item={current.data} onClose={handleNext} />
 }
+

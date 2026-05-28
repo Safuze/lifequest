@@ -34,6 +34,14 @@ const HABIT_TEMPLATES = [
   { title: 'Не пить алкоголь',    type: 'anti',     trackingType: 'continuous', timesPerDay: 1, category: 'здоровье' },
 ]
 
+const toLocalDateString = (date: Date) => {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+
+  return `${y}-${m}-${d}`
+}
+
 export const getTemplates = async (req: AuthRequest, res: Response) => {
   res.json({ templates: HABIT_TEMPLATES })
 }
@@ -94,36 +102,33 @@ export const getHabits = async (req: AuthRequest, res: Response) => {
           where: { habitId: habit.id, date: { gte: twoDaysAgoStart, lte: twoDaysAgoEnd } }
         }),
       ])
-      const isTodayCompleted = habit.frequency === 'weekly' ? todayLogs.length > 0 : todayLogs.length >= habit.timesPerDay
+      const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 })
+      const weekEnd = endOfDay(new Date())
+
+      const weekLogs = await prisma.habitLog.count({
+        where: {
+          habitId: habit.id,
+          date: {
+            gte: weekStart,
+            lte: weekEnd,
+          },
+        },
+      })
+
+      const isTodayCompleted = habit.frequency === 'weekly' ? weekLogs > 0 : todayLogs.length >= habit.timesPerDay
       const isYesterdayCompleted = habit.frequency === 'weekly' ? yesterdayLogs.length > 0 : yesterdayLogs.length >= habit.timesPerDay
       const wasTwoDaysAgoCompleted = habit.frequency === 'weekly' ? twoDaysAgoLogs.length > 0 : twoDaysAgoLogs.length >= habit.timesPerDay
 
       let currentStreak = habit.currentStreak
       
 
-      // Логика:
-      // - Сегодня уже отмечено → восстановление не нужно
-      // - Вчера не было отметки И позавчера была → можно восстановить
-      // - Вчера была отметка → стрик не прерван, восстановление не нужно
-      // - Стрик уже восстанавливался сегодня → не показываем
+      // Логика
       const alreadyRestoredToday = habit.streakRestoredAt
         ? new Date(habit.streakRestoredAt) >= todayStart
         : false
-
-      const canRestore =
-        currentStreak > 0 &&
-        !isTodayCompleted &&
-        !isYesterdayCompleted &&
-        wasTwoDaysAgoCompleted &&
-        !alreadyRestoredToday
-
+      const canRestore =  currentStreak > 0 && !isTodayCompleted && !isYesterdayCompleted && wasTwoDaysAgoCompleted && !alreadyRestoredToday
       // Если пользователь пропустил день и не восстановил стрик вовремя — обнуляем
-      const shouldResetStreak =
-        currentStreak > 0 &&
-        !isTodayCompleted &&
-        !isYesterdayCompleted &&
-        !wasTwoDaysAgoCompleted
-
+      const shouldResetStreak = currentStreak > 0 && !isTodayCompleted && !isYesterdayCompleted && !wasTwoDaysAgoCompleted
       if (shouldResetStreak) {
         await prisma.habit.update({
           where: { id: habit.id },
@@ -136,14 +141,7 @@ export const getHabits = async (req: AuthRequest, res: Response) => {
         currentStreak = 0
       }
       
-      console.log({
-        habitId: habit.id,
-        isTodayCompleted,
-        isYesterdayCompleted,
-        wasTwoDaysAgoCompleted,
-        currentStreak,
-        alreadyRestoredToday
-      })
+      
       return { ...habit, currentStreak, canRestoreStreak: canRestore }
     }))
 
@@ -169,10 +167,7 @@ export const createHabit = async (req: AuthRequest, res: Response) => {
       return
     }
     const data = createHabitSchema.parse(req.body)
-    if (
-      data.frequency === 'weekly' &&
-      (!data.timesPerWeek || data.timesPerWeek < 2)
-    ) {
+    if (data.frequency === 'weekly' &&(!data.timesPerWeek || data.timesPerWeek < 2)) {
       res.status(400).json({
         error: 'Недельная привычка должна выполняться минимум 2 раза в неделю',
       })
@@ -270,16 +265,12 @@ export const logHabit = async (req: AuthRequest, res: Response) => {
     }
 
     const nextRep = todayLogs + 1
-    console.log('CREATING HABIT LOG', {
-      habitId: habit.id,
-      now: new Date().toISOString()
-    })
     
     await prisma.habitLog.create({
       data: { habitId, date: new Date(), repetition: nextRep }
     })
 
-    const isCompleted = habit.frequency === 'weekly' ? true : nextRep >= habit.timesPerDay
+    const isCompleted = nextRep >= habit.timesPerDay
     let weekCompleted = false
     let xpEarned = 0
     let goldEarned = 0
@@ -293,17 +284,22 @@ export const logHabit = async (req: AuthRequest, res: Response) => {
       })
 
       if (habit.frequency === 'weekly') {
-        const weekStart = startOfWeek(new Date(), {
-          weekStartsOn: 1,
+        const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 })
+
+        const alreadyLoggedThisWeek = await prisma.habitLog.findFirst({
+          where: {
+            habitId,
+            date: { gte: weekStart }
+          }
         })
 
-        const weekEnd = endOfDay(
-          new Date(
-            weekStart.getTime() +
-            6 * 24 * 60 * 60 * 1000
-          )
-        )
-
+        if (habit.frequency === 'weekly' && alreadyLoggedThisWeek && nextRep > 1) {
+          res.status(400).json({
+            error: 'Weekly привычка уже засчитана на эту неделю'
+          })
+          return
+        }
+        const weekEnd = endOfDay(new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000))
         const weeklyLogs = await prisma.habitLog.count({
           where: {
             habitId,
@@ -313,43 +309,26 @@ export const logHabit = async (req: AuthRequest, res: Response) => {
             },
           },
         })
+        const alreadyCompletedThisWeek = habit.lastCompletedWeek && startOfWeek(new Date(habit.lastCompletedWeek), { weekStartsOn: 1 }).getTime() === weekStart.getTime()
+        weekCompleted = weeklyLogs >= (habit.timesPerWeek || 1)
+        if (alreadyCompletedThisWeek) {
+          weekCompleted = false
+        }
+        if (weekCompleted && !alreadyCompletedThisWeek) {
+          newStreak = habit.currentStreak + 1
 
-        weekCompleted =
-          weeklyLogs >= (habit.timesPerWeek || 1)
-
-        if (weekCompleted) {
-          const alreadyCompletedThisWeek =
-            habit.lastCompletedWeek &&
-            habit.lastCompletedWeek >= weekStart
-
-          if (!alreadyCompletedThisWeek) {
-            newStreak = habit.currentStreak + 1
-
-            await prisma.habit.update({
-              where: { id: habitId },
-              data: {
-                currentStreak: newStreak,
-
-                bestStreak: Math.max(
-                  newStreak,
-                  habit.bestStreak
-                ),
-
-                completedWeeks: {
-                  increment: 1,
-                },
-
-                bestWeeks: Math.max(
-                  habit.bestWeeks,
-                  habit.completedWeeks + 1
-                ),
-
-                lastCompletedWeek: new Date(),
-              },
-            })
-          } else {
-            newStreak = habit.currentStreak
-          }
+          await prisma.habit.update({
+            where: { id: habitId },
+            data: {
+              currentStreak: newStreak,
+              bestStreak: Math.max(newStreak, habit.bestStreak),
+              completedWeeks: { increment: 1 },
+              bestWeeks: Math.max(habit.bestWeeks, habit.completedWeeks + 1),
+              lastCompletedWeek: weekStart, 
+            },
+          })
+        } else {
+          newStreak = habit.currentStreak
         }
       }
     
@@ -449,51 +428,18 @@ export const logHabit = async (req: AuthRequest, res: Response) => {
         })
 
         // Достижения за стрик
-        const milestones = [
-          { days: 7,   type: 'streak_7',   title: '7 дней подряд!',            icon: '📅', rarity: 'common'    },
-          { days: 30,  type: 'streak_30',  title: 'Месяц без остановки!',       icon: '🗓️', rarity: 'rare'      },
-          { days: 90,  type: 'streak_90',  title: 'Квартал дисциплины!',        icon: '💪', rarity: 'epic'      },
-          { days: 365, type: 'streak_365', title: 'Год привычки — Легенда!',    icon: '👑', rarity: 'legendary' },
-        ]
-        if (habit.frequency !== 'weekly') {
-          for (const m of milestones) {
-            if (newStreak >= m.days) {
-              const key = `${m.type}_habit_${habitId}`
-              const ex = await tx.achievement.findFirst({ where: { userId: req.userId!, type: key } })
-              if (!ex) {
-                const a = await tx.achievement.create({
-                  data: {
-                    userId: req.userId!,
-                    type: key,
-                    title: m.title,
-                    description: `${m.days} дней стрика по привычке`,
-                    icon: m.icon,
-                    rarity: m.rarity,
-                  }
-                })
-                newAchievements.push(a)
-              }
-            }
-          }
-        }
       })
       const userAfter = await prisma.user.findUnique({
         where: { id: req.userId! },
         select: { level: true }
       })
 
-      levelUp =
-        userBefore?.level !== undefined &&
-        userAfter?.level !== undefined &&
-        userAfter.level > userBefore.level
-          ? {
-              level: userAfter.level,
-              levelName: getLevelName(userAfter.level)
-            }
-          : null
+      levelUp = userBefore?.level !== undefined && userAfter?.level !== undefined && userAfter.level > userBefore.level ? {
+        level: userAfter.level, levelName: getLevelName(userAfter.level)
+      }: null
       const extraAchievements = await checkAchievementsForUser(req.userId!)
       newAchievements.push(...extraAchievements) 
-          }
+      }
 
     res.json({
       success: true,
@@ -550,7 +496,7 @@ export const restoreStreak = async (req: AuthRequest, res: Response) => {
 
     if (!habit) { res.status(404).json({ error: 'Не найдена' }); return }
     if (!user || user.gold < COST) {
-      res.status(400).json({ error: `Нужно ${COST} 🪙` })
+      res.status(400).json({ error: `Нужно ${COST} баллов` })
       return
     }
 
@@ -588,13 +534,21 @@ export const restoreStreak = async (req: AuthRequest, res: Response) => {
 export const getHeatmap = async (req: AuthRequest, res: Response) => {
   try {
     const days = parseInt(req.query.days as string || '30')
-    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
-    since.setHours(0, 0, 0, 0)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const since = new Date(today.getTime() - (days - 1) * 24 * 60 * 60 * 1000)
 
     // Все привычки пользователя
     const habits = await prisma.habit.findMany({
-      where: { userId: req.userId!, trackingType: 'discrete' },
-      select: { id: true }
+      where: {
+        userId: req.userId!,
+        trackingType: 'discrete'
+      },
+
+      select: {
+        id: true,
+        timesPerDay: true
+      }
     })
     const totalHabits = habits.length
     if (totalHabits === 0) { res.json({ heatmap: [] }); return }
@@ -608,19 +562,34 @@ export const getHeatmap = async (req: AuthRequest, res: Response) => {
     })
 
     // Группируем по дате
-    const byDate: Record<string, Set<number>> = {}
+    const logsByDateAndHabit: Record<string, Record<number, number>> = {}
+
     for (const log of logs) {
-      const dateStr = log.date.toISOString().split('T')[0]
-      if (!byDate[dateStr]) byDate[dateStr] = new Set()
-      byDate[dateStr].add(log.habitId)
+      const dateStr = toLocalDateString(log.date)
+
+      if (!logsByDateAndHabit[dateStr]) {
+        logsByDateAndHabit[dateStr] = {}
+      }
+
+      logsByDateAndHabit[dateStr][log.habitId] =
+        (logsByDateAndHabit[dateStr][log.habitId] || 0) + 1
     }
 
     // Строим массив дней
     const heatmap: { date: string; completedCount: number; totalCount: number; percent: number }[] = []
     for (let i = days - 1; i >= 0; i--) {
-      const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000)
-      const dateStr = d.toISOString().split('T')[0]
-      const completed = byDate[dateStr]?.size ?? 0
+      const d = new Date(today.getTime() - i * 24 * 60 * 60 * 1000)
+      const dateStr = toLocalDateString(d)
+      let completed = 0
+
+      for (const habit of habits) {
+        const count =
+          logsByDateAndHabit[dateStr]?.[habit.id] || 0
+
+        if (count >= habit.timesPerDay) {
+          completed++
+        }
+      }
       const percent = totalHabits > 0 ? Math.round((completed / totalHabits) * 100) : 0
       heatmap.push({ date: dateStr, completedCount: completed, totalCount: totalHabits, percent })
     }

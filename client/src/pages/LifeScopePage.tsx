@@ -288,7 +288,7 @@ export default function LifeScopePage() {
             backgroundColor: activeTab === 'current' ? '#4f46e5' : '#1e293b',
             color: activeTab === 'current' ? '#fff' : '#94a3b8',
           }}>
-          📋 Текущая неделя
+          Текущая неделя
         </button>
         <button onClick={() => setActiveTab('archive')}
           className="flex-1 py-2.5 text-sm font-medium transition-all"
@@ -296,7 +296,7 @@ export default function LifeScopePage() {
             backgroundColor: activeTab === 'archive' ? '#4f46e5' : '#1e293b',
             color: activeTab === 'archive' ? '#fff' : '#94a3b8',
           }}>
-          🗂 Архив
+          Архив
         </button>
       </div>
 

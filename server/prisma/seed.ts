@@ -11,8 +11,8 @@ async function main() {
         targetValue: 240,
         durationDays: 30,
         entryFee: 200,
-        rewardXp: 1250,
-        rewardCredits: 750, // 550 прибыли 
+        rewardXp: 1400,
+        rewardCredits: 900, // 700 прибыли 
       },
       {
         title: 'Марафон задач',
@@ -21,8 +21,8 @@ async function main() {
         targetValue: 5,
         durationDays: 14,
         entryFee: 100,
-        rewardXp: 500,
-        rewardCredits: 300, // 200 прибыли 
+        rewardXp: 600,
+        rewardCredits: 400, // 300 прибыли 
       },
       {
         title: 'Привычки 21 день',
@@ -31,8 +31,8 @@ async function main() {
         targetValue: 5,
         durationDays: 21,
         entryFee: 150,
-        rewardXp: 750,
-        rewardCredits: 500, // 350 прибыли 
+        rewardXp: 850,
+        rewardCredits: 600, // 450 прибыли 
       },
       {
         title: '3 задачи в день',

@@ -3,11 +3,11 @@ const SOUND_SOURCES: Record<string, string | null> = {
   none: null,
   sound_white: '/sounds/white.mp3',
   sound_lofi: '/sounds/lofi.mp3',
-  sound_nature: '/sounds/priroda.mp3',
-  sound_waves: '/sounds/z_uki-belogo-morya-shtil-legkiy-nakat-morskoy-_olny-bbm-2015.mp3',
+  sound_nature: '/sounds/nature.mp3',
+  sound_waves: '/sounds/waves.mp3',
   sound_rain: '/sounds/rain.mp3',
-  sound_fire: '/sounds/sound-effects-library-camp-fire-burning.mp3',
-  sound_night: '/sounds/cicada_night_forest.mp3',
+  sound_fire: '/sounds/fire.mp3',
+  sound_night: '/sounds/night.mp3',
 }
 
 class AudioService {

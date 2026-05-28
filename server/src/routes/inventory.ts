@@ -39,7 +39,7 @@ router.post('/equip', async (req: AuthRequest, res: Response) => {
       return
     }
 
-    // ===== ПИТОМЕЦ =====
+    // ПИТОМЕЦ
 
     if (item.itemType === 'pet') {
 
@@ -58,7 +58,7 @@ router.post('/equip', async (req: AuthRequest, res: Response) => {
       return
     }
 
-    // ===== ОСТАЛЬНАЯ КОСМЕТИКА =====
+    // ОСТАЛЬНАЯ КОСМЕТИКА 
 
     await prisma.inventoryItem.updateMany({
       where: {

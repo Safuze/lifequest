@@ -6,10 +6,10 @@ const ALL_ACHIEVEMENT_DEFS = [
   { type: 'tasks_200',   title: 'Продуктивист',      description: 'Выполнено 200 задач',          icon: '🤖', rarity: 'epic',      },
   { type: 'tasks_1000',  title: 'Мастер задач',     description: 'Выполнено 1000 задач',         icon: '🏆', rarity: 'legendary', },
   // Фокус
-  { type: 'focus_10h',    title: 'Сосредоточенный',   description: '5 часов в фокусе',             icon: '🎯', rarity: 'common',        },
-  { type: 'focus_50h',   title: 'Концентрация на уровне',     description: '25 часов в фокусе',            icon: '🔥', rarity: 'rare',          },
-  { type: 'focus_200h',  title: 'Глубокий фокус',      description: '100 часов в фокусе',           icon: '🧘', rarity: 'epic',          },
-  { type: 'focus_1000h',  title: 'В потоке', description: '500 часов в фокусе',           icon: '⌛', rarity: 'legendary',     },
+  { type: 'focus_10h',    title: 'Сосредоточенный',   description: '10 часов в фокусе',             icon: '🎯', rarity: 'common',        },
+  { type: 'focus_50h',   title: 'Концентрация на уровне',     description: '50 часов в фокусе',            icon: '🔥', rarity: 'rare',          },
+  { type: 'focus_200h',  title: 'Глубокий фокус',      description: '200 часов в фокусе',           icon: '🧘', rarity: 'epic',          },
+  { type: 'focus_1000h',  title: 'В потоке', description: '1000 часов в фокусе',           icon: '⌛', rarity: 'legendary',     },
   { type: 'sessions_25', title: 'Любитель помодоро',     description: '25 помодоро-сессий',            icon: '⏱',  rarity: 'common',        },
   { type: 'sessions_100', title: 'Практик помодоро',         description: '100 помодоро-сессий',            icon: '⏰', rarity: 'rare',          },
   { type: 'sessions_500', title: 'Мастер помодоро',         description: '500 помодоро-сессий',            icon: '⏰', rarity: 'epic',          },
@@ -24,7 +24,7 @@ const ALL_ACHIEVEMENT_DEFS = [
   { type: 'friend_5',    title: 'Дружелюбный',          description: '5 друзей',                     icon: '👥', rarity: 'rare',         },
   { type: 'friend_25',   title: 'Душа компании',        description: '25 друзей',                    icon: '🌟', rarity: 'epic',         },
   { type: 'friend_100',  title: 'Популярный',      description: '100 друзей',                   icon: '🌐', rarity: 'legendary',    },
-  // Золото
+  // Баллы
   { type: 'gold_500',    title: 'Первые накопления',           description: 'Заработано 500 баллов',         icon: '🪙', rarity: 'common',       },
   { type: 'gold_2000',   title: 'Богатей',          description: 'Заработано 2000 баллов',        icon: '💰', rarity: 'rare',         },
   { type: 'gold_10000',  title: 'Казначей',           description: 'Заработано 10000 баллов',       icon: '💎', rarity: 'epic',         },
@@ -107,7 +107,7 @@ export function AchievementGrid({ earned, showLocked = true }: AchievementGridPr
       {enrichedEarned.length > 0 && (
         <div>
           <h4 className="text-white font-medium text-sm mb-3 flex items-center gap-2">
-            <span className="text-green-400">✓</span> Получено ({enrichedEarned.length})
+            Получено ({enrichedEarned.length})
           </h4>
           <div className="grid grid-cols-2 gap-3">
             {enrichedEarned.map(ach => {
@@ -138,7 +138,7 @@ export function AchievementGrid({ earned, showLocked = true }: AchievementGridPr
       {showLocked && locked.length > 0 && (
         <div>
           <h4 className="text-slate-500 font-medium text-sm mb-3 flex items-center gap-2">
-            <span>🔒</span> Не получено ({locked.length})
+            Не получено ({locked.length})
           </h4>
           <div className="grid grid-cols-2 gap-3">
             {locked.map(def => {

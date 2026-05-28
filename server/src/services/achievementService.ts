@@ -37,7 +37,7 @@ const ACHIEVEMENTS: AchievementDef[] = [
   { type: 'friend_25',   title: 'Душа компании',       description: '25 друзей',                  icon: '🌟', rarity: 'epic',     },
   { type: 'friend_100',  title: 'Популярный',     description: '100 друзей',                 icon: '🌐', rarity: 'legendary' },
 
-  // Золото
+  // Баллы
   { type: 'gold_500',    title: 'Первые накопления',          description: 'Накоплено 500 баллов за всё время',        icon: '🪙', rarity: 'rare'      },
   { type: 'gold_2000',   title: 'Богатей',         description: 'Накоплено 2000 баллов за всё время',       icon: '💰', rarity: 'epic'      },
   { type: 'gold_10000',  title: 'Казначей',           description: 'Накоплено 10000 баллов за всё время', icon: '💎', rarity: 'epic',      },
@@ -106,7 +106,7 @@ export async function checkAndAwardAchievements(
     { type: 'friend_25',   condition: (context.friendsCount ?? 0) >= 25  },
     { type: 'friend_100',  condition: (context.friendsCount ?? 0) >= 100 },
 
-    // Золото
+    // Баллы
     { type: 'gold_500',    condition: (context.totalGoldEarned ?? 0) >= 500 },
     { type: 'gold_2000',   condition: (context.totalGoldEarned ?? 0) >= 2000 },
     { type: 'gold_10000',  condition: (context.totalGoldEarned ?? 0) >= 10000 },

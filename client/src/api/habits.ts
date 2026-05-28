@@ -13,7 +13,8 @@ export interface Habit {
   logs: { id: number; date: string; repetition: number }[]
   createdAt: string
   canRestoreStreak?: boolean
-  
+  completedWeeks?: number
+  bestWeeks?: number
 }
 
 export interface HabitTemplate {

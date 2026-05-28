@@ -207,7 +207,7 @@ export default function ShopPage() {
           <h1 className="text-2xl font-bold text-white flex items-center gap-2">
             <ShoppingBag size={24} className="text-indigo-400" /> Магазин
           </h1>
-          <p className="text-slate-400 text-sm mt-1">Кастомизация профиля за баллы</p>
+          <p className="text-slate-400 text-sm mt-1">Кастомизация за баллы</p>
         </div>
         <div className="px-4 py-2 rounded-xl flex items-center gap-2"
           style={{ backgroundColor: '#1e293b', border: '1px solid rgba(245,158,11,0.3)' }}>
@@ -267,7 +267,7 @@ export default function ShopPage() {
       {/* Табы */}
       <div className="flex rounded-xl overflow-hidden" style={{ border: '1px solid #334155' }}>
         {([
-          { id: 'avatar_border', label: 'Обводка аватара' },
+          { id: 'avatar_border', label: 'Рамка аватара' },
           { id: 'background',    label: 'Фон' },
           { id: 'pomodoro_sound', label: 'Звуки' },
           { id: 'pomodoro_timer', label: 'Таймеры' },

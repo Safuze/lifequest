@@ -2,7 +2,6 @@ import { Router, Response } from 'express'
 import { authMiddleware, AuthRequest } from '../middleware/authMiddleware'
 import { prisma } from '../prisma'
 import { updateUserChallenges } from '../services/challengeService'
-import { LEVEL_XP } from '../services/levelService'
 
 const router = Router()
 router.use(authMiddleware)
@@ -65,7 +64,7 @@ router.post('/join/:id', async (req: AuthRequest, res: Response) => {
       select: { gold: true }
     })
     if (!user || user.gold < challenge.entryFee) {
-      res.status(400).json({ error: `Нужно ${challenge.entryFee} кредитов для участия` })
+      res.status(400).json({ error: `Нужно ${challenge.entryFee} баллов для участия` })
       return
     }
 
@@ -87,7 +86,15 @@ router.post('/join/:id', async (req: AuthRequest, res: Response) => {
     }
 
     const now = new Date()
-    const expiresAt = new Date(now.getTime() + challenge.durationDays * 24 * 60 * 60 * 1000)
+
+    // начало сегодняшнего дня
+    const startedAt = new Date(now)
+    startedAt.setHours(0, 0, 0, 0)
+
+    // конец последнего дня испытания
+    const expiresAt = new Date(startedAt)
+    expiresAt.setDate(expiresAt.getDate() + challenge.durationDays - 1)
+    expiresAt.setHours(23, 59, 59, 999)
 
     await prisma.$transaction(async (tx) => {
       await tx.user.update({
@@ -100,12 +107,12 @@ router.post('/join/:id', async (req: AuthRequest, res: Response) => {
           challengeId,
           status: 'active',
           progress: 0,
-          startedAt: now,
+          startedAt,
           expiresAt,
         }
       })
     })
-
+    await updateUserChallenges(req.userId!)
     res.json({ success: true, message: `Вы вступили в испытание "${challenge.title}"` })
   } catch (error) {
     res.status(500).json({ error: 'Ошибка сервера' })

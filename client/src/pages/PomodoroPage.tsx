@@ -339,7 +339,6 @@ function TimerVisual({ progress, timeLeft, mode, isRunning, timerStyle, modeDura
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span className="text-4xl font-bold text-white font-mono">{formatTime(timeLeft)}</span>
           <span className="text-slate-400 text-xs mt-1">
-            {mode === 'work' ? ' Фокус' : mode === 'shortBreak' ? ' Перерыв' : ' Длинный'}
           </span>
           {isRunning && mode === 'work' && <span className="text-indigo-400 text-xs mt-1 animate-pulse">● Фокус</span>}
           {isRunning && mode !== 'work' && <span className="text-green-400 text-xs mt-1 animate-pulse">● Перерыв</span>}

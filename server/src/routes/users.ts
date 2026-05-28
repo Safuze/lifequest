@@ -2,15 +2,19 @@ import { Router } from 'express'
 import { authMiddleware, AuthRequest } from '../middleware/authMiddleware'
 import { prisma } from '../prisma'
 import { Response } from 'express'
-import { startOfDay, subDays, startOfWeek, startOfMonth } from 'date-fns'
 import bcrypt from 'bcryptjs'
-import { Hash } from 'node:crypto'
 import { createNotification } from './notifications'
 import { checkAchievementsForUser } from '../services/achievementService'
 import { LEVEL_NAMES, LEVEL_XP } from '../services/levelService'
 const router = Router()
 router.use(authMiddleware)
+const toLocalDateString = (date: Date) => {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
 
+  return `${y}-${m}-${d}`
+}
 router.patch('/me', async (req: AuthRequest, res: Response) => {
   try {
     const { goldDelta } = req.body
@@ -23,7 +27,7 @@ router.patch('/me', async (req: AuthRequest, res: Response) => {
     if (!user) { res.status(404).json({ error: 'Not found' }); return }
 
     if (user.gold + goldDelta < 0) {
-      res.status(400).json({ error: 'Недостаточно золота' })
+      res.status(400).json({ error: 'Недостаточно баллов' })
       return
     }
 
@@ -41,11 +45,15 @@ router.patch('/me', async (req: AuthRequest, res: Response) => {
 router.get('/dashboard', async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId!
-    const today = new Date()
-    const dayStart = new Date(today.setHours(0, 0, 0, 0))
-    const dayEnd = new Date(today.setHours(23, 59, 59, 999))
+    const now = new Date()
 
-    const [user, todayTasks, focusTask, pomodoroStats, habits, activeGoals] = await Promise.all([
+    const dayStart = new Date(now)
+    dayStart.setUTCHours(0, 0, 0, 0)
+
+    const dayEnd = new Date(now)
+    dayEnd.setUTCHours(23, 59, 59, 999)
+
+    const [user, todayTasks, tasksCompletedToday, focusTask, pomodoroStats, habits, activeGoals,] = await Promise.all([
       prisma.user.findUnique({
         where: { id: userId },
         select: { id: true, name: true, xp: true, gold: true, level: true, avatarBorder: true, activePetId: true }
@@ -56,13 +64,42 @@ router.get('/dashboard', async (req: AuthRequest, res: Response) => {
           userId,
           parentId: null,
           OR: [
-            { dueDate: { gte: dayStart, lte: dayEnd } },
-            { isFocusToday: true }
+            {
+              dueDate: {
+                gte: dayStart,
+                lte: dayEnd
+              }
+            },
+            {
+              isFocusToday: true
+            }
           ]
         },
-        orderBy: [{ isPinned: 'desc' }, { isFocusToday: 'desc' }, { priority: 'desc' }],
+
+        orderBy: [
+          { isPinned: 'desc' },
+          { isFocusToday: 'desc' },
+          { priority: 'desc' },
+          { createdAt: 'desc' }
+        ],
+
         take: 7,
-        include: { goal: { select: { title: true } } }
+        include: {
+          goal: {
+            select: { title: true }
+          }
+        }
+      }),
+      // Выполненные сегодня задачи
+      prisma.task.count({
+        where: {
+          userId,
+          status: 'done',
+          completedAt: {
+            gte: dayStart,
+            lte: dayEnd
+          }
+        }
       }),
       // Фокус-задача
       prisma.task.findFirst({
@@ -93,7 +130,7 @@ router.get('/dashboard', async (req: AuthRequest, res: Response) => {
         where: { userId, status: 'active' },
         take: 3,
         include: { _count: { select: { tasks: true } } }
-      })
+      }),      
     ])
 
     // Стрик задач — считаем дни подряд когда была хоть одна завершённая задача
@@ -104,14 +141,30 @@ router.get('/dashboard', async (req: AuthRequest, res: Response) => {
     })
 
     let taskStreak = 0
-    const checkedDays = new Set<string>()
-    for (const t of taskStreakDays) {
-      const d = t.completedAt!.toISOString().split('T')[0]
-      if (!checkedDays.has(d)) {
-        checkedDays.add(d)
-        const prev = new Date(t.completedAt!)
-        prev.setDate(prev.getDate() - checkedDays.size + 1)
+
+    const uniqueDays = [
+      ...new Set(
+        taskStreakDays.map(t => {
+          const d = new Date(t.completedAt!)
+          d.setUTCHours(0, 0, 0, 0)
+
+          return d.toISOString()
+        })
+      )
+    ]
+
+    let expectedDate = new Date()
+    expectedDate.setUTCHours(0, 0, 0, 0)
+
+    for (const day of uniqueDays) {
+      const currentDay = new Date(day)
+
+      if (currentDay.getTime() === expectedDate.getTime()) {
         taskStreak++
+
+        expectedDate.setUTCDate(
+          expectedDate.getUTCDate() - 1
+        )
       } else {
         break
       }
@@ -124,6 +177,7 @@ router.get('/dashboard', async (req: AuthRequest, res: Response) => {
     res.json({
       user,
       todayTasks,
+      tasksCompletedToday,
       focusTask,
       pomodoroMinutesToday: pomodoroStats._sum.actualDuration || 0,
       pomodoroSessionsToday: pomodoroStats._count || 0,
@@ -133,9 +187,7 @@ router.get('/dashboard', async (req: AuthRequest, res: Response) => {
         type: h.type,
         trackingType: h.trackingType,
         currentStreak: h.currentStreak,
-        isCompletedToday: h.trackingType === 'discrete'
-          ? h.logs.length >= h.timesPerDay
-          : false,
+        isCompletedToday: h.frequency === 'weekly' ? h.logs.length > 0 : h.trackingType === 'discrete' ? h.logs.length >= h.timesPerDay : false,
         logsToday: h.logs.length,
         timesPerDay: h.timesPerDay,
         startDate: h.startDate,
@@ -159,11 +211,11 @@ router.get('/profile', async (req: AuthRequest, res: Response) => {
     const now = new Date()
     let since: Date
 
-    // === ВСЕГДА считаем через UTC ===
+    // считаем через UTC ===
     if (period === 'day') {
       // начало текущего дня (UTC)
       since = new Date(now)
-      since.setUTCHours(0, 0, 0, 0)
+      since.setHours(0, 0, 0, 0)
 
     } else if (period === 'month') {
       // начало месяца (UTC)
@@ -177,21 +229,11 @@ router.get('/profile', async (req: AuthRequest, res: Response) => {
     } else {
       // последние 7 дней ВКЛЮЧАЯ сегодня
       const startOfTodayUTC = new Date(now)
-      startOfTodayUTC.setUTCHours(0, 0, 0, 0)
+      startOfTodayUTC.setHours(0, 0, 0, 0)
 
       since = new Date(startOfTodayUTC)
-      since.setUTCDate(since.getUTCDate() - 6)
+      since.setDate(since.getDate() - 6)
     }
-
-    // DEBUG
-    console.log(
-      'Profile period:',
-      period,
-      'since:',
-      since.toISOString(),
-      'now:',
-      now.toISOString()
-    )
 
     const [user, achievements, sessions, completedTasks, habits, goals, inventory, rewards] = await Promise.all([
       
@@ -216,6 +258,7 @@ router.get('/profile', async (req: AuthRequest, res: Response) => {
         select: {
           id: true,
           timesPerDay: true,
+          frequency: true,
           currentStreak: true,
           bestStreak: true,
           logs: {
@@ -244,9 +287,6 @@ router.get('/profile', async (req: AuthRequest, res: Response) => {
         select: { rewardType: true, amount: true }
       })
     ])
-    console.log('REWARDS RAW:', rewards)
-    console.log('SESSIONS RAW:', sessions)
-    console.log('TASKS RAW:', completedTasks)
     if (!user) {
       res.status(404).json({ error: 'Не найден' })
       return
@@ -267,10 +307,10 @@ router.get('/profile', async (req: AuthRequest, res: Response) => {
     for (let i = 0; i < daysInPeriod; i++) {
       const currentDay = new Date()
 
-      currentDay.setUTCHours(0, 0, 0, 0)
-      currentDay.setUTCDate(currentDay.getUTCDate() - i)
+      currentDay.setHours(0, 0, 0, 0)
+      currentDay.setDate(currentDay.getDate() - i)
 
-      const dateStr = currentDay.toISOString().split('T')[0]
+      const dateStr = toLocalDateString(currentDay)
 
       let completedHabits = 0
       let totalHabits = habits.length
@@ -280,11 +320,13 @@ router.get('/profile', async (req: AuthRequest, res: Response) => {
           const logDate = new Date(log.date)
           logDate.setUTCHours(0, 0, 0, 0)
 
-          return logDate.toISOString().split('T')[0] === dateStr
+          return toLocalDateString(logDate) === dateStr
         })
 
         const isCompleted =
-          logsForDay.length >= habit.timesPerDay
+          habit.frequency === 'weekly'
+            ? logsForDay.length > 0
+            : logsForDay.length >= habit.timesPerDay
 
         if (isCompleted) {
           completedHabits++
@@ -369,7 +411,7 @@ router.get('/profile', async (req: AuthRequest, res: Response) => {
     const radarDiscipline = habitsCompletion
     const radarProgress = goalsProgress
 
-    const taskNorm = period === 'day' ? 5 : period === 'week' ? 20 : 80
+    const taskNorm = period === 'day' ? 5 : period === 'week' ? 30 : 120
     const radarProductivity = Math.min(Math.round((tasksCompleted / taskNorm) * 100), 100)
 
     const goldNorm = period === 'day' ? 150 : period === 'week' ? 1000 : 4000
@@ -644,6 +686,7 @@ router.get('/:id/public', async (req: AuthRequest, res: Response) => {
           title: true,
           currentStreak: true,
           bestStreak: true,
+          frequency: true,
           timesPerDay: true,
           logs: {
             where: {
@@ -693,7 +736,7 @@ router.get('/:id/public', async (req: AuthRequest, res: Response) => {
       currentDay.setUTCHours(0, 0, 0, 0)
       currentDay.setUTCDate(currentDay.getUTCDate() - i)
 
-      const dateStr = currentDay.toISOString().split('T')[0]
+      const dateStr = toLocalDateString(currentDay)
 
       let completedHabits = 0
       const totalHabits = habits.length
@@ -704,11 +747,13 @@ router.get('/:id/public', async (req: AuthRequest, res: Response) => {
 
           logDate.setUTCHours(0, 0, 0, 0)
 
-          return logDate.toISOString().split('T')[0] === dateStr
+          return toLocalDateString(logDate) === dateStr
         })
 
         const isCompleted =
-          logsForDay.length >= habit.timesPerDay
+          habit.frequency === 'weekly'
+            ? logsForDay.length > 0
+            : logsForDay.length >= habit.timesPerDay
 
         if (isCompleted) {
           completedHabits++
@@ -739,7 +784,7 @@ router.get('/:id/public', async (req: AuthRequest, res: Response) => {
     })
 
     const goalMinutes7d = goalSessions7d.reduce((s, sess) => s + sess.actualDuration, 0)
-    const goalsProgress = Math.min(Math.round((goalMinutes7d / 1680) * 100), 100) // норма 7 часов за неделю
+    const goalsProgress = Math.min(Math.round((goalMinutes7d / 1680) * 100), 100) 
 
     const radar = {
       focus: Math.min(Math.round((totalPomodoroMin7d / 1680) * 100), 100),

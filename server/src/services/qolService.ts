@@ -5,7 +5,6 @@ const TASK_SLOT_PRICES   = [40, 50, 60, 70, 80, 90,  100, 110, 120, 130]
 
 const HABIT_SLOTS_DEFAULT = 10
 const TASK_SLOTS_DEFAULT  = 20
-const DAILY_TASK_DEFAULT  = 10
 
 export const HABIT_SLOTS_MAX = 20
 export const TASK_SLOTS_MAX  = 30
@@ -35,7 +34,7 @@ export async function buyHabitSlot(userId: number): Promise<{ error?: string; ne
 
   const price = habitNextPrice(user.habitSlots)
   if (!price) return { error: 'Максимум достигнут' }
-  if (user.gold < price) return { error: `Нужно ${price} 🪙` }
+  if (user.gold < price) return { error: `Нужно ${price} баллов` }
 
   const updated = await prisma.user.update({
     where: { id: userId },
@@ -55,7 +54,7 @@ export async function buyTaskSlot(userId: number): Promise<{ error?: string; new
 
   const price = taskNextPrice(user.taskSlots)
   if (!price) return { error: 'Максимум достигнут' }
-  if (user.gold < price) return { error: `Нужно ${price} 🪙` }
+  if (user.gold < price) return { error: `Нужно ${price} баллов` }
 
   const updated = await prisma.user.update({
     where: { id: userId },

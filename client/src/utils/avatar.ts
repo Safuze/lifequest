@@ -20,7 +20,6 @@ export function getAvatarBorderStyle(borderId: string, size: 'sm' | 'md' | 'lg' 
       outline: `${w}px solid transparent`,
       boxShadow: `0 0 0 ${w}px transparent`,
       background: 'transparent',
-      // Используем CSS переменную для градиента через border-image
     },
   }
 
@@ -37,20 +36,6 @@ export function getAvatarBorderClass(borderId: string): string {
   if (borderId === 'border_rainbow') return 'rainbow-border'
   return ''
 }
-
-// Стиль фона профиля
-// export function getProfileBgStyle(bgId: string): React.CSSProperties {
-//   const bgs: Record<string, React.CSSProperties> = {
-//     default:     { backgroundColor: '#0f172a' },
-//     bg_midnight: { background: 'linear-gradient(135deg, #0f0c29, #302b63, #24243e)' },
-//     bg_forest:   { background: 'linear-gradient(135deg, #1a2f1a, #2d4a2d, #0f172a)' },
-//     bg_sunset:   { background: 'linear-gradient(135deg, #f093fb, #f5576c, #4facfe)' },
-//     bg_ocean:    { background: 'linear-gradient(135deg, #43b89c, #0c1a2e, #1a5276)' },
-//     bg_aurora:   { background: 'linear-gradient(135deg, #a8edea, #fed6e3, #d299c2)' },
-//     bg_galaxy:   { background: 'linear-gradient(135deg, #0a0a1a, #1a0a2e, #2d1b69, #0a0a1a)' },
-//   }
-//   return bgs[bgId] || bgs.default
-// }
 
 export function getProfileBgData(bgId: string) {
   if (!bgId || bgId === 'default') return null
