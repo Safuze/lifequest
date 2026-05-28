@@ -1,6 +1,6 @@
-import type { TimerStyle } from '../../../shared/types/pomodoro'
 export type ItemRarity = 'common' | 'rare' | 'epic' | 'legendary'
 export type ItemCategory = 'avatar_border' | 'background' | 'booster_temp' | 'perk_permanent' | 'pet' | 'pomodoro_sound' | 'pomodoro_timer'
+export type TimerStyle = 'circle' | 'hourglass' | 'cheetah' | 'horse' | 'snail' | 'clock'
 
 type ProfileBackground =
   | {

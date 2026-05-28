@@ -12,7 +12,7 @@ import { timerService } from '../services/timerService'
 import type { TimerMode } from '../services/timerService'
 import { audioService } from '../services/audioService'
 import { SHOP_ITEMS } from '../../../server/src/data/shopItems'
-import type { TimerStyle } from '../../../shared/types/pomodoro'
+export type TimerStyle = 'circle' | 'hourglass' | 'cheetah' | 'horse' | 'snail' | 'clock'
 
 
 const SOUND_ITEMS = [
