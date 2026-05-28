@@ -27,8 +27,11 @@ const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3000;
 app.use((0, helmet_1.default)());
 app.use((0, cors_1.default)({
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
-    credentials: true
+    origin: [
+        'http://localhost:5173',
+        'https://client-production-cda1.up.railway.app'
+    ],
+    credentials: true,
 }));
 app.listen(PORT);
 app.use(express_1.default.json());
