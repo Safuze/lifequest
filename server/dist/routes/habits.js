@@ -1,0 +1,18 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const habitController_1 = require("../controllers/habitController");
+const authMiddleware_1 = require("../middleware/authMiddleware");
+const validateMiddleware_1 = require("../middleware/validateMiddleware");
+const router = (0, express_1.Router)();
+router.use(authMiddleware_1.authMiddleware);
+router.get('/templates', habitController_1.getTemplates);
+router.get('/', habitController_1.getHabits);
+router.post('/', (0, validateMiddleware_1.validate)(habitController_1.createHabitSchema), habitController_1.createHabit);
+router.delete('/:id', habitController_1.deleteHabit);
+router.post('/:id/log', habitController_1.logHabit);
+router.post('/:id/break', habitController_1.breakContinuousHabit);
+router.post('/:id/restore-streak', habitController_1.restoreStreak);
+router.get('/:id/heatmap', habitController_1.getHeatmap);
+router.get('/heatmap', habitController_1.getHeatmap);
+exports.default = router;

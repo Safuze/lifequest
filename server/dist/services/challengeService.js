@@ -1,0 +1,236 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.updateUserChallenges = updateUserChallenges;
+const prisma_1 = require("../prisma");
+const levelService_1 = require("./levelService");
+function getLocalDateKey(date) {
+    // Форматируем в UTC чтобы совпадало с тем как хранятся даты в БД
+    const y = date.getUTCFullYear();
+    const m = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(date.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
+function getWeekKey(date) {
+    const d = new Date(date);
+    const day = d.getUTCDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    d.setUTCDate(d.getUTCDate() + diff);
+    d.setUTCHours(0, 0, 0, 0);
+    return getLocalDateKey(d);
+}
+// Пересчитываем прогресс конкретного испытания для пользователя
+async function recalcUserChallenge(uc, challenge) {
+    const now = new Date();
+    const progress = await calcCurrentProgress(uc, challenge);
+    // Испытание просрочено
+    if (now > uc.expiresAt) {
+        return { progress, status: progress >= 100 ? 'completed' : 'failed' };
+    }
+    // Считаем сколько дней уже прошло
+    const start = new Date(uc.startedAt);
+    start.setHours(0, 0, 0, 0);
+    const daysPassed = Math.floor((now.getTime() - start.getTime()) / 86400000);
+    // Дней осталось
+    const daysLeft = Math.max(0, challenge.durationDays - daysPassed);
+    // Максимально возможный прогресс если выполнять все оставшиеся дни
+    // successDays = текущий прогресс в днях + daysLeft
+    const currentSuccessDays = Math.floor((progress / 100) * challenge.durationDays);
+    const maxPossibleDays = currentSuccessDays + daysLeft;
+    const maxPossibleProgress = Math.round((maxPossibleDays / challenge.durationDays) * 100);
+    // Если даже при идеальном выполнении оставшихся дней не наберём 100% — провал
+    if (maxPossibleProgress < 100) {
+        return { progress, status: 'failed' };
+    }
+    return { progress, status: 'active' };
+}
+async function calcCurrentProgress(uc, challenge) {
+    const { type, targetValue, durationDays } = challenge;
+    const start = new Date(uc.startedAt);
+    start.setUTCHours(0, 0, 0, 0);
+    const end = new Date(uc.expiresAt);
+    end.setUTCHours(23, 59, 59, 999);
+    const today = new Date();
+    // Сколько дней прошло
+    const daysPassed = Math.max(0, Math.min(Math.floor((today.getTime() - start.getTime()) / 86400000) + 1, durationDays));
+    if (type === 'pomodoro_daily') {
+        // Целевое: targetValue минут в день каждый день
+        const sessions = await prisma_1.prisma.pomodoroSession.findMany({
+            where: {
+                userId: uc.userId,
+                status: 'completed',
+                completedAt: { gte: start, lte: end },
+            },
+            select: { actualDuration: true, completedAt: true }
+        });
+        // Группируем по дням
+        const byDay = {};
+        for (const s of sessions) {
+            const d = getLocalDateKey(s.completedAt);
+            byDay[d] = (byDay[d] || 0) + s.actualDuration;
+        }
+        // Считаем дни когда выполнен дневной план
+        let successDays = 0;
+        for (const mins of Object.values(byDay)) {
+            if (mins >= targetValue)
+                successDays++;
+        }
+        return Math.min(Math.round((successDays / durationDays) * 100), 100);
+    }
+    if (type === 'tasks_daily') {
+        // Целевое: targetValue задач в день каждый день
+        const tasks = await prisma_1.prisma.task.findMany({
+            where: {
+                userId: uc.userId,
+                status: 'done',
+                completedAt: { gte: start, lte: end },
+            },
+            select: { completedAt: true }
+        });
+        const byDay = {};
+        for (const t of tasks) {
+            const d = getLocalDateKey(t.completedAt);
+            byDay[d] = (byDay[d] || 0) + 1;
+        }
+        let successDays = 0;
+        for (const count of Object.values(byDay)) {
+            if (count >= targetValue)
+                successDays++;
+        }
+        return Math.min(Math.round((successDays / durationDays) * 100), 100);
+    }
+    if (type === 'habit_daily') {
+        const habits = await prisma_1.prisma.habit.findMany({
+            where: {
+                userId: uc.userId,
+                trackingType: 'discrete',
+            },
+            select: {
+                id: true,
+                timesPerDay: true,
+                timesPerWeek: true,
+                frequency: true,
+            },
+        });
+        const logs = await prisma_1.prisma.habitLog.findMany({
+            where: {
+                habit: {
+                    userId: uc.userId,
+                },
+                date: {
+                    gte: start,
+                    lte: end,
+                },
+            },
+            select: {
+                habitId: true,
+                date: true,
+            },
+        });
+        const byDay = {};
+        // WEEKLY
+        const byWeek = {};
+        for (const log of logs) {
+            const dayKey = getLocalDateKey(log.date);
+            const weekKey = getWeekKey(log.date);
+            // DAILY
+            if (!byDay[dayKey]) {
+                byDay[dayKey] = {};
+            }
+            byDay[dayKey][log.habitId] =
+                (byDay[dayKey][log.habitId] || 0) + 1;
+            // WEEKLY
+            if (!byWeek[weekKey]) {
+                byWeek[weekKey] = {};
+            }
+            byWeek[weekKey][log.habitId] =
+                (byWeek[weekKey][log.habitId] || 0) + 1;
+        }
+        let successDays = 0;
+        for (let i = 0; i < daysPassed; i++) {
+            const currentDate = new Date(start);
+            currentDate.setUTCDate(currentDate.getUTCDate() + i);
+            const dayKey = getLocalDateKey(currentDate);
+            const dayData = byDay[dayKey] || {};
+            let completedHabitsCount = 0;
+            const currentWeekKey = getWeekKey(currentDate);
+            for (const habit of habits) {
+                // DAILY
+                if (habit.frequency === 'daily') {
+                    const completedTimes = dayData[habit.id] || 0;
+                    if (completedTimes >= habit.timesPerDay) {
+                        completedHabitsCount++;
+                    }
+                }
+                // WEEKLY
+                if (habit.frequency === 'weekly') {
+                    const completedWeekTimes = byWeek[currentWeekKey]?.[habit.id] || 0;
+                    const targetWeekTimes = habit.timesPerWeek || 1;
+                    // weekly привычка считается выполненной
+                    // только в текущий день,
+                    // если недельная цель уже закрыта
+                    const isToday = dayKey === getLocalDateKey(today);
+                    if (isToday &&
+                        completedWeekTimes >= targetWeekTimes) {
+                        completedHabitsCount++;
+                    }
+                }
+            }
+            if (completedHabitsCount >= targetValue) {
+                successDays++;
+            }
+        }
+        console.log({
+            type,
+            successDays,
+            durationDays,
+        });
+        return Math.min(Math.round((successDays / durationDays) * 100), 100);
+    }
+    return 0;
+}
+// Главная функция — вызывается после каждого события
+async function updateUserChallenges(userId) {
+    const activeChallenges = await prisma_1.prisma.userChallenge.findMany({
+        where: { userId, status: 'active' },
+        include: { challenge: true }
+    });
+    if (activeChallenges.length === 0)
+        return;
+    for (const uc of activeChallenges) {
+        const { progress, status } = await recalcUserChallenge(uc, uc.challenge);
+        if (status !== uc.status || Math.abs(progress - Number(uc.progress)) > 0.5) {
+            await prisma_1.prisma.userChallenge.update({
+                where: { id: uc.id },
+                data: {
+                    progress,
+                    status,
+                    completedAt: status === 'completed' && !uc.completedAt ? new Date() : undefined,
+                }
+            });
+            // Начисляем награду при завершении
+            if (status === 'completed' && !uc.completedAt) {
+                await prisma_1.prisma.$transaction(async (tx) => {
+                    const updatedUser = await tx.user.update({
+                        where: { id: userId },
+                        data: {
+                            xp: { increment: uc.challenge.rewardXp },
+                            gold: { increment: uc.challenge.rewardCredits },
+                        }
+                    });
+                    const newLevel = (0, levelService_1.getLevelFromXp)(updatedUser.xp);
+                    if (newLevel !== updatedUser.level) {
+                        await tx.user.update({ where: { id: userId }, data: { level: newLevel } });
+                    }
+                    await tx.rewardTransaction.createMany({
+                        data: [
+                            { userId, sourceType: 'challenge', sourceId: uc.challengeId,
+                                rewardType: 'xp', amount: uc.challenge.rewardXp },
+                            { userId, sourceType: 'challenge', sourceId: uc.challengeId,
+                                rewardType: 'gold', amount: uc.challenge.rewardCredits },
+                        ]
+                    });
+                });
+            }
+        }
+    }
+}

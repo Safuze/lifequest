@@ -1,0 +1,10 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const lifescopeController_1 = require("../controllers/lifescopeController");
+const authMiddleware_1 = require("../middleware/authMiddleware");
+const router = (0, express_1.Router)();
+router.use(authMiddleware_1.authMiddleware);
+router.get('/current', lifescopeController_1.getCurrentReport);
+router.get('/archive', lifescopeController_1.getArchive);
+exports.default = router;

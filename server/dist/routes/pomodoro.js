@@ -1,0 +1,15 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const pomodoroController_1 = require("../controllers/pomodoroController");
+const authMiddleware_1 = require("../middleware/authMiddleware");
+const validateMiddleware_1 = require("../middleware/validateMiddleware");
+const router = (0, express_1.Router)();
+router.use(authMiddleware_1.authMiddleware);
+router.get('/settings', pomodoroController_1.getSettings);
+router.patch('/settings', (0, validateMiddleware_1.validate)(pomodoroController_1.settingsSchema), pomodoroController_1.updateSettings);
+router.get('/active', pomodoroController_1.getActiveSession);
+router.get('/today-stats', pomodoroController_1.getTodayStats);
+router.post('/sessions', (0, validateMiddleware_1.validate)(pomodoroController_1.createSessionSchema), pomodoroController_1.startSession);
+router.patch('/sessions/:id/complete', (0, validateMiddleware_1.validate)(pomodoroController_1.completeSessionSchema), pomodoroController_1.completeSession);
+exports.default = router;
