@@ -68,7 +68,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     category: 'avatar_border',
     name: 'Золотая',
     description: 'Блестящая золотая обводка',
-    price: 300,
+    price: 250,
     rarity: 'rare',
     preview: '#f59e0b',
   },
@@ -77,7 +77,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     category: 'avatar_border',
     name: 'Огненная',
     description: 'Пылающая огненная обводка',
-    price: 500,
+    price: 350,
     rarity: 'rare',
     preview: '#ef4444',
   },
@@ -86,7 +86,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     category: 'avatar_border',
     name: 'Неоновая',
     description: 'Мистическая неоновая обводка',
-    price: 800,
+    price: 600,
     rarity: 'epic',
     preview: '#a855f7',
   },
@@ -95,7 +95,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     category: 'avatar_border',
     name: 'Ледяная',
     description: 'Кристальная ледяная обводка',
-    price: 1100,
+    price: 1000,
     rarity: 'epic',
     preview: '#06b6d4',
   },
@@ -115,7 +115,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     category: 'background',
     name: 'Тёплый камин',
     description: 'Яркий фон огненных цветов',
-    price: 150,
+    price: 100,
     rarity: 'common',
     background: {
       type: 'gradient',
@@ -127,7 +127,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     category: 'background',
     name: 'Аврора',
     description: 'Переливающееся северное сияние',
-    price: 200,
+    price: 150,
     rarity: 'common',
     background: {
       type: 'gradient',
@@ -139,7 +139,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     category: 'background',
     name: 'Природа',
     description: 'Ярко зеленный фон',
-    price: 250,
+    price: 200,
     rarity: 'common',
     background: {
       type: 'image',
@@ -177,7 +177,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     category: 'background',
     name: 'Затмение',
     description: 'Живой фон яркого светящегося затмения',
-    price: 600,
+    price: 500,
     rarity: 'rare',
    
     background: {
@@ -191,7 +191,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     category: 'background',
     name: 'Исландский пейзаж',
     description: 'Домик в горах на живом фоне',
-    price: 800,
+    price: 700,
     rarity: 'rare',
    
     background: {
@@ -219,7 +219,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     category: 'background',
     name: 'Глубокий космос',
     description: 'Космический живой фон',
-    price: 1300,
+    price: 1200,
     rarity: 'epic',
     background: {
       type: 'video',
@@ -232,7 +232,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     category: 'background',
     name: 'Черная дыра',
     description: 'Живой фон черной дыры в открытом космосе',
-    price: 1600,
+    price: 1500,
     rarity: 'epic',
     background: {
       type: 'video',
@@ -259,7 +259,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     category: 'background',
     name: 'Зачарованное дерево',
     description: 'Светящееся цветение на живом синем фоне',
-    price: 2500,
+    price: 2000,
     rarity: 'legendary',
    
     background: {

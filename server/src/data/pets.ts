@@ -11,8 +11,8 @@ export interface Pet {
 
 export const PETS: Pet[] = [
   // Common
-  { id: 'pet_frog',    name: 'Лягушонок',   image: '/pets/frog.png', rarity: 'common',    price: 100,  description: 'Маленький и любопытный спутник' },
-  { id: 'pet_hamster', name: 'Хомячок',     image: '/pets/hamster.png', rarity: 'common',    price: 150,  description: 'Запасливый и энергичный' },
+  { id: 'pet_frog',    name: 'Лягушонок',   image: '/pets/frog.png', rarity: 'common',    price: 50,  description: 'Маленький и любопытный спутник' },
+  { id: 'pet_hamster', name: 'Хомячок',     image: '/pets/hamster.png', rarity: 'common',    price: 100,  description: 'Запасливый и энергичный' },
   { id: 'pet_cat',  name: 'Кот',      image: '/pets/cat.png', rarity: 'common',    price: 200,  description: 'Независимый любитель уюта' },
   { id: 'pet_dog',  name: 'Пес',      image: '/pets/dog.png', rarity: 'common',    price: 200,  description: 'Верный друг на каждый день' },
   
@@ -25,7 +25,7 @@ export const PETS: Pet[] = [
   // Epic
   { id: 'pet_tiger',   name: 'Тигр',         image: '/pets/tiger.png', rarity: 'epic',      price: 1000, description: 'Свирепый и целеустремлённый. Не отвлекается' },
   { id: 'pet_phoenix', name: 'Феникс',      image: '/pets/phoenix.png', rarity: 'epic',      price: 1500, description: 'Возрождается из пепла, чтобы трудится' },
-  { id: 'pet_unicorn', name: 'Единорог',    image: '/pets/unicorn.png', rarity: 'epic', price: 2500, description: 'Мифическое создание с чистой душой и символ достижений' },
+  { id: 'pet_unicorn', name: 'Единорог',    image: '/pets/unicorn.png', rarity: 'epic', price: 2000, description: 'Мифическое создание с чистой душой и символ достижений' },
 
   // Legendary
   { id: 'pet_dragon',  name: 'Дракон',      image: '/pets/dragon.png', rarity: 'legendary', price: 5000, description: 'Могущественный повелитель огня и легендарный страж продуктивности' },

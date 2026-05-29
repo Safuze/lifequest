@@ -1049,7 +1049,7 @@ export default function HabitsPage() {
 
   const handleRestoreStreak = async (id: number) => {
     if (restoringStreakIds.has(id)) return // уже восстанавливается
-    if (!confirm('Восстановить стрик за 50 баллов?')) return
+    if (!confirm('Восстановить серию за 50 баллов?')) return
     
     // Немедленно блокируем кнопку
     setRestoringStreakIds(prev => new Set([...prev, id]))
@@ -1177,7 +1177,7 @@ export default function HabitsPage() {
               {/* Непрерывные сверху */}
               {continuousHabits.length > 0 && (
                 <div>
-                  <p className="text-slate-500 text-xs uppercase tracking-wide mb-2">⏱ Непрерывные</p>
+                  <p className="text-slate-500 text-xs uppercase tracking-wide mb-2">Непрерывные</p>
                   {continuousHabits.map(habit => (
                     <HabitCard key={habit.id} habit={habit}
                       userGold={user?.gold || 0}
@@ -1197,7 +1197,7 @@ export default function HabitsPage() {
               {discreteHabits.length > 0 && (
                 <div>
                   {continuousHabits.length > 0 && (
-                    <p className="text-slate-500 text-xs uppercase tracking-wide mb-2">☑️ Ежедневные</p>
+                    <p className="text-slate-500 text-xs uppercase tracking-wide mb-2">Ежедневные</p>
                   )}
                   {discreteHabits.map(habit => (
                     <HabitCard key={habit.id} habit={habit}
