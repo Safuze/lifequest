@@ -55,6 +55,20 @@ async function recalcUserChallenge(
   const currentSuccessDays = Math.floor((progress / 100) * challenge.durationDays)
   const maxPossibleDays = currentSuccessDays + daysLeft
   const maxPossibleProgress = Math.round((maxPossibleDays / challenge.durationDays) * 100)
+  console.log('CHALLENGE DEBUG', {
+    challengeId: uc.challengeId,
+    userId: uc.userId,
+    progress,
+    durationDays: challenge.durationDays,
+    currentSuccessDays,
+    daysPassed,
+    daysLeft,
+    maxPossibleDays,
+    maxPossibleProgress,
+    now,
+    startedAt: uc.startedAt,
+    expiresAt: uc.expiresAt,
+  })
   if (maxPossibleProgress < 100) {
     return { progress, status: 'failed' }
   }
