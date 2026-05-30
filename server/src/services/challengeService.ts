@@ -139,7 +139,13 @@ async function calcCurrentProgress(
     for (const count of Object.values(byDay)) {
       if (count >= targetValue) successDays++
     }
-
+    console.log('TASKS DAILY DEBUG', {
+      challengeType: type,
+      targetValue,
+      successDays,
+      durationDays,
+      byDay,
+    })
     return Math.min(Math.round((successDays / durationDays) * 100), 100)
   }
 
@@ -272,7 +278,11 @@ async function calcCurrentProgress(
 
 // Главная функция — вызывается после каждого события
 export async function updateUserChallenges(userId: number): Promise<void> {
+
+  console.log('UPDATE CHALLENGES CALLED', userId)
+
   const activeChallenges = await prisma.userChallenge.findMany({
+
     where: { userId, status: 'active' },
     include: { challenge: true }
   })
