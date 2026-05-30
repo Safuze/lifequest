@@ -146,9 +146,10 @@ router.get('/dashboard', async (req: AuthRequest, res: Response) => {
       ...new Set(
         taskStreakDays.map(t => {
           const d = new Date(t.completedAt!)
-          d.setUTCHours(0, 0, 0, 0)
-
-          return d.toISOString()
+          // d.setUTCHours(0, 0, 0, 0)
+          // return d.toISOString()
+          d.setHours(0, 0, 0, 0)
+          return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
         })
       )
     ]
@@ -599,7 +600,6 @@ router.patch('/friends/:id', async (req: AuthRequest, res: Response) => {
     try {
       const a1 = await checkAchievementsForUser(fs.senderId)
       const a2 = await checkAchievementsForUser(fs.receiverId)
-
       achievements = [...(a1 || []), ...(a2 || [])]
       } catch (e) {
         console.error('Achievement error:', e)
@@ -640,6 +640,7 @@ router.get('/friends', async (req: AuthRequest, res: Response) => {
 
     const friends = accepted.map(f => {
       const friend = f.senderId === req.userId! ? f.receiver : f.sender
+      
       return { ...friend, friendshipId: f.id }
     })
 
@@ -821,6 +822,7 @@ router.delete('/friends/:id', async (req: AuthRequest, res: Response) => {
         status: 'accepted'
       }
     })
+    
     res.json({ success: true })
   } catch (error) {
     res.status(500).json({ error: 'Ошибка сервера' })

@@ -1,13 +1,21 @@
 import { prisma } from '../prisma'
 import { getLevelFromXp } from './levelService'
 
+// function getLocalDateKey(date: Date): string {
+//   // Форматируем в UTC чтобы совпадало с тем как хранятся даты в БД
+//   const y = date.getUTCFullYear()
+//   const m = String(date.getUTCMonth() + 1).padStart(2, '0')
+//   const d = String(date.getUTCDate()).padStart(2, '0')
+//   return `${y}-${m}-${d}`
+// }
 function getLocalDateKey(date: Date): string {
-  // Форматируем в UTC чтобы совпадало с тем как хранятся даты в БД
-  const y = date.getUTCFullYear()
-  const m = String(date.getUTCMonth() + 1).padStart(2, '0')
-  const d = String(date.getUTCDate()).padStart(2, '0')
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+
   return `${y}-${m}-${d}`
 }
+
 
 function getWeekKey(date: Date): string {
   const d = new Date(date)
@@ -47,8 +55,6 @@ async function recalcUserChallenge(
   const currentSuccessDays = Math.floor((progress / 100) * challenge.durationDays)
   const maxPossibleDays = currentSuccessDays + daysLeft
   const maxPossibleProgress = Math.round((maxPossibleDays / challenge.durationDays) * 100)
-
-  // Если даже при идеальном выполнении оставшихся дней не наберём 100% — провал
   if (maxPossibleProgress < 100) {
     return { progress, status: 'failed' }
   }

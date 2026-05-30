@@ -383,7 +383,6 @@ export default function ProfilePage() {
 
               {pets.length === 0 ? (
                 <div className="text-center py-6">
-                  <p className="text-3xl mb-2">🔒</p>
                   <p className="text-slate-400 text-sm">Нет питомцев</p>
                   <p className="text-slate-600 text-xs mt-1">
                     Купи первого в магазине
@@ -417,7 +416,6 @@ export default function ProfilePage() {
 
               {cosmeticItems.length === 0 ? (
                 <div className="text-center py-6">
-                  <p className="text-3xl mb-2">🎒</p>
                   <p className="text-slate-400 text-sm">
                     Косметика не куплена
                   </p>
