@@ -1,6 +1,6 @@
 import { prisma } from '../prisma'
 import { getLevelFromXp } from './levelService'
-
+console.log('CHALLENGE SERVICE LOADED')
 // function getLocalDateKey(date: Date): string {
 //   // Форматируем в UTC чтобы совпадало с тем как хранятся даты в БД
 //   const y = date.getUTCFullYear()
