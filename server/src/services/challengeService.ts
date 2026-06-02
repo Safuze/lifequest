@@ -1,5 +1,7 @@
 import { prisma } from '../prisma'
 import { getLevelFromXp } from './levelService'
+import { startOfLocalDay, endOfLocalDay, localDateKey } from '../utils/date'
+
 console.log('CHALLENGE SERVICE LOADED')
 // function getLocalDateKey(date: Date): string {
 //   // Форматируем в UTC чтобы совпадало с тем как хранятся даты в БД
@@ -8,25 +10,25 @@ console.log('CHALLENGE SERVICE LOADED')
 //   const d = String(date.getUTCDate()).padStart(2, '0')
 //   return `${y}-${m}-${d}`
 // }
-function getLocalDateKey(date: Date): string {
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
-
-  return `${y}-${m}-${d}`
-}
 
 
 function getWeekKey(date: Date): string {
   const d = new Date(date)
 
-  const day = d.getUTCDay()
-  const diff = day === 0 ? -6 : 1 - day
+  const day = d.getDay()
 
-  d.setUTCDate(d.getUTCDate() + diff)
-  d.setUTCHours(0,0,0,0)
+  const diff =
+    day === 0
+      ? -6
+      : 1 - day
 
-  return getLocalDateKey(d)
+  d.setDate(
+    d.getDate() + diff
+  )
+
+  d.setHours(0,0,0,0)
+
+  return localDateKey(d)
 }
 
 // Пересчитываем прогресс конкретного испытания для пользователя
@@ -81,14 +83,23 @@ async function calcCurrentProgress(
   challenge: { type: string; targetValue: number; durationDays: number }
 ): Promise<number> {
   const { type, targetValue, durationDays } = challenge
-  const start = new Date(uc.startedAt)
-  start.setUTCHours(0, 0, 0, 0)
-  const end = new Date(uc.expiresAt)
-  end.setUTCHours(23, 59, 59, 999)
   const today = new Date()
-
+  
   // Сколько дней прошло
-  const daysPassed = Math.max(0, Math.min(Math.floor((today.getTime() - start.getTime()) / 86400000) + 1,durationDays))
+  const challengeStart = startOfLocalDay(uc.startedAt)
+  const challengeEnd = endOfLocalDay(today)
+
+  challengeStart.setHours(0, 0, 0, 0)
+
+  const daysPassed = Math.max(
+    0,
+    Math.min(
+      Math.floor(
+        (today.getTime() - challengeStart.getTime()) / 86400000
+      ) + 1,
+      durationDays
+    )
+  )
 
   if (type === 'pomodoro_daily') {
     // Целевое: targetValue минут в день каждый день
@@ -97,7 +108,7 @@ async function calcCurrentProgress(
       where: {
         userId: uc.userId,
         status: 'completed',
-        completedAt: { gte: start, lte: end },
+        completedAt: { gte: challengeStart, lte: challengeEnd },
       },
       select: { actualDuration: true, completedAt: true }
     })
@@ -105,7 +116,7 @@ async function calcCurrentProgress(
     // Группируем по дням
     const byDay: Record<string, number> = {}
     for (const s of sessions) {
-      const d = getLocalDateKey(s.completedAt!)
+      const d = localDateKey(s.completedAt!)
       byDay[d] = (byDay[d] || 0) + s.actualDuration
     }
 
@@ -124,14 +135,14 @@ async function calcCurrentProgress(
       where: {
         userId: uc.userId,
         status: 'done',
-        completedAt: { gte: start, lte: end },
+        completedAt: { gte: challengeStart, lte: challengeEnd },
       },
       select: { completedAt: true }
     })
 
     const byDay: Record<string, number> = {}
     for (const t of tasks) {
-      const d = getLocalDateKey(t.completedAt!)
+      const d = localDateKey(t.completedAt!)
       byDay[d] = (byDay[d] || 0) + 1
     }
 
@@ -169,8 +180,8 @@ async function calcCurrentProgress(
           userId: uc.userId,
         },
         date: {
-          gte: start,
-          lte: end,
+          gte: challengeStart,
+          lte: challengeEnd,
         },
       },
       select: {
@@ -185,7 +196,7 @@ async function calcCurrentProgress(
     const byWeek: Record<string, Record<number, number>> = {}
 
     for (const log of logs) {
-      const dayKey = getLocalDateKey(log.date)
+      const dayKey = localDateKey(log.date)
       const weekKey = getWeekKey(log.date)
 
       // DAILY
@@ -209,9 +220,11 @@ async function calcCurrentProgress(
 
     for (let i = 0; i < daysPassed; i++) {
 
-      const currentDate = new Date(start)
-      currentDate.setUTCDate(currentDate.getUTCDate() + i)
-      const dayKey = getLocalDateKey(currentDate)
+      const currentDate = new Date(challengeStart)
+      currentDate.setDate(
+        currentDate.getDate() + i
+      )
+      const dayKey = localDateKey(currentDate)
       const dayData = byDay[dayKey] || {}
 
       let completedHabitsCount = 0
@@ -242,7 +255,7 @@ async function calcCurrentProgress(
           // если недельная цель уже закрыта
 
           const isToday =
-            dayKey === getLocalDateKey(today)
+            dayKey === localDateKey(today)
 
           if (
             isToday &&
