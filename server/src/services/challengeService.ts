@@ -286,6 +286,16 @@ export async function updateUserChallenges(userId: number): Promise<void> {
     where: { userId, status: 'active' },
     include: { challenge: true }
   })
+  console.log(
+    'ACTIVE CHALLENGES',
+    activeChallenges.length,
+    activeChallenges.map(c => ({
+      id: c.id,
+      challengeId: c.challengeId,
+      status: c.status,
+      progress: c.progress
+    }))
+  )
   if (activeChallenges.length === 0) return
   for (const uc of activeChallenges) {
     const { progress, status } = await recalcUserChallenge(uc, uc.challenge)
