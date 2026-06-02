@@ -534,11 +534,10 @@ export const getHeatmap = async (req: AuthRequest, res: Response) => {
 
       select: {
         id: true,
-        timesPerDay: true
+        timesPerDay: true,
+        createdAt: true
       }
     })
-    const totalHabits = habits.length
-    if (totalHabits === 0) { res.json({ heatmap: [] }); return }
 
     const habitIds = habits.map(h => h.id)
 
@@ -567,12 +566,11 @@ export const getHeatmap = async (req: AuthRequest, res: Response) => {
     for (let i = days - 1; i >= 0; i--) {
       const d = new Date(today.getTime() - i * 24 * 60 * 60 * 1000)
       const dateStr = localDateKey(d)
+      const activeHabits = habits.filter(h => startOfLocalDay(h.createdAt) <= d)
+      const totalHabits = activeHabits.length
       let completed = 0
-
-      for (const habit of habits) {
-        const count =
-          logsByDateAndHabit[dateStr]?.[habit.id] || 0
-
+      for (const habit of activeHabits) {
+        const count = logsByDateAndHabit[dateStr]?.[habit.id] || 0
         if (count >= habit.timesPerDay) {
           completed++
         }
