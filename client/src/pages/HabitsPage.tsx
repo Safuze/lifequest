@@ -1082,17 +1082,18 @@ export default function HabitsPage() {
     } catch (error: any) {
       alert(error.response?.data?.error || 'Ошибка')
       // Если ошибка — разблокируем
-      setRestoringStreakIds(prev => { const n = new Set(prev); n.delete(id); return n })
+      setRestoringStreakIds(prev => { const next = new Set(prev); next.delete(id); return next})
     }
     // При успехе — НЕ разблокируем, кнопка остаётся скрытой до следующего дня
   }
 
   const discreteHabits = habits.filter(h => h.trackingType === 'discrete')
   const continuousHabits = habits.filter(h => h.trackingType === 'continuous')
-  const completedCount = discreteHabits.filter(h => {
+  const completedCount = discreteHabits.reduce((total, h) => {
 
-    // WEEKLY
+    // weekly
     if (h.frequency === 'weekly') {
+
       const now = new Date()
 
       const startOfWeek = new Date(now)
@@ -1102,24 +1103,23 @@ export default function HabitsPage() {
       startOfWeek.setDate(now.getDate() + diff)
       startOfWeek.setHours(0, 0, 0, 0)
 
-      const weeklyLogs = h.logs.filter(log => {
-        return new Date(log.date) >= startOfWeek
-      })
+      const weeklyLogs = h.logs.filter(
+        log => new Date(log.date) >= startOfWeek
+      )
 
-      return weeklyLogs.length >= (h.timesPerWeek || 1)
+      return total + weeklyLogs.length
     }
 
-    // DAILY
+    // daily
     const todayStr = getLocalDateString()
 
     const todayLogs = h.logs.filter(
       log => getLocalDateFromLog(log.date) === todayStr
     )
 
-    // выполнена только если достигнута цель дня
-    return todayLogs.length >= h.timesPerDay
+    return total + todayLogs.length
 
-  }).length
+  }, 0)
 
   if (isLoading) {
     return (
@@ -1129,6 +1129,13 @@ export default function HabitsPage() {
     )
   }
 
+  const totalTarget = discreteHabits.reduce((total, h) => {
+    if (h.frequency === 'weekly') {
+      return total + (h.timesPerWeek || 1)
+    }
+    return total + h.timesPerDay
+  }, 0)
+
   return (
     <div className="max-w-2xl mx-auto space-y-5">
       
@@ -1136,9 +1143,10 @@ export default function HabitsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Привычки</h1>
+          
           {discreteHabits.length > 0 && (
             <p className="text-slate-400 text-sm mt-1">
-              {completedCount}/{discreteHabits.length} выполнено сегодня
+              {completedCount}/{totalTarget} выполнено сегодня
             </p>
           )}
         </div>
@@ -1178,7 +1186,7 @@ export default function HabitsPage() {
               <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
                 <div className="h-full rounded-full transition-all duration-500"
                   style={{
-                    width: `${discreteHabits.length > 0 ? (completedCount / discreteHabits.length) * 100 : 0}%`,
+                    width: `${totalTarget > 0 ? (completedCount / totalTarget) * 100 : 0}%`,
                     backgroundColor: completedCount === discreteHabits.length && completedCount > 0 ? '#22c55e' : '#4f46e5'
                   }} />
               </div>
@@ -1266,7 +1274,9 @@ export default function HabitsPage() {
         <CreateHabitModal
           templates={templates}
           onClose={() => setShowCreateModal(false)}
-          onCreated={habit => setHabits(prev => [...prev, habit])}
+          onCreated={async () => {
+            await loadHabits()
+          }}
         />
       )}
 
