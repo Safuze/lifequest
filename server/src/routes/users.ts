@@ -6,6 +6,8 @@ import bcrypt from 'bcryptjs'
 import { createNotification } from './notifications'
 import { checkAchievementsForUser } from '../services/achievementService'
 import { LEVEL_NAMES, LEVEL_XP } from '../services/levelService'
+import { startOfLocalDay, endOfLocalDay, localDateKey } from '../utils/date'
+
 const router = Router()
 router.use(authMiddleware)
 const toLocalDateString = (date: Date) => {
@@ -45,13 +47,9 @@ router.patch('/me', async (req: AuthRequest, res: Response) => {
 router.get('/dashboard', async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId!
-    const now = new Date()
 
-    const dayStart = new Date(now)
-    dayStart.setUTCHours(0, 0, 0, 0)
-
-    const dayEnd = new Date(now)
-    dayEnd.setUTCHours(23, 59, 59, 999)
+    const dayStart = startOfLocalDay()
+    const dayEnd = endOfLocalDay()
 
     const [user, todayTasks, tasksCompletedToday, focusTask, pomodoroStats, habits, activeGoals,] = await Promise.all([
       prisma.user.findUnique({
@@ -145,26 +143,27 @@ router.get('/dashboard', async (req: AuthRequest, res: Response) => {
     const uniqueDays = [
       ...new Set(
         taskStreakDays.map(t => {
-          const d = new Date(t.completedAt!)
-          // d.setUTCHours(0, 0, 0, 0)
-          // return d.toISOString()
-          d.setHours(0, 0, 0, 0)
-          return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+          return localDateKey(new Date(t.completedAt!))
         })
       )
     ]
 
-    let expectedDate = new Date()
-    expectedDate.setUTCHours(0, 0, 0, 0)
+    let expectedDate = startOfLocalDay()
 
     for (const day of uniqueDays) {
-      const currentDay = new Date(day)
+      const [year, month, date] = day.split('-').map(Number)
+
+      const currentDay = new Date(
+        year,
+        month - 1,
+        date
+      )
 
       if (currentDay.getTime() === expectedDate.getTime()) {
         taskStreak++
 
-        expectedDate.setUTCDate(
-          expectedDate.getUTCDate() - 1
+        expectedDate.setDate(
+          expectedDate.getDate() - 1
         )
       } else {
         break
@@ -359,8 +358,8 @@ router.get('/profile', async (req: AuthRequest, res: Response) => {
 
     for (const task of allCompletedTasks) {
       const d = task.completedAt!
-      const dateStr = d.toISOString().split('T')[0]
-
+      // const dateStr = d.toISOString().split('T')[0]
+      const dateStr = toLocalDateString(d)
       if (!seenDays.has(dateStr)) {
         if (prevDate === null) {
           seenDays.add(dateStr)
