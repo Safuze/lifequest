@@ -21,3 +21,15 @@ export function localDateKey(date: Date) {
     date.getDate()
   ).padStart(2, '0')}`
 }
+
+export const startOfLocalWeek = (date = new Date()) => {
+  const d = startOfLocalDay(date)
+
+  const day = d.getDay()
+
+  const diff = day === 0 ? 6 : day - 1
+
+  d.setDate(d.getDate() - diff)
+
+  return d
+}

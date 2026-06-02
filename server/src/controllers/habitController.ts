@@ -2,12 +2,12 @@ import { Response } from 'express'
 import { z } from 'zod'
 import { prisma } from '../prisma'
 import { AuthRequest } from '../middleware/authMiddleware'
-import { startOfDay, endOfDay, startOfWeek, subDays } from 'date-fns'
+import { subDays } from 'date-fns'
 import { checkAchievementsForUser } from '../services/achievementService'
 import { getLevelFromXp, getLevelName } from '../services/levelService'
 import { applyBoosters } from '../services/boosterService'
 import { updateUserChallenges } from '../services/challengeService'
-
+import { startOfLocalDay, endOfLocalDay, localDateKey, startOfLocalWeek } from '../utils/date'
 export const createHabitSchema = z.object({
   title: z.string().min(1).max(100),
   type: z.enum(['positive', 'anti']),
@@ -34,14 +34,6 @@ const HABIT_TEMPLATES = [
   { title: 'Не пить алкоголь',    type: 'anti',     trackingType: 'continuous', timesPerDay: 1, category: 'здоровье' },
 ]
 
-const toLocalDateString = (date: Date) => {
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
-
-  return `${y}-${m}-${d}`
-}
-
 export const getTemplates = async (req: AuthRequest, res: Response) => {
   res.json({ templates: HABIT_TEMPLATES })
 }
@@ -49,8 +41,8 @@ export const getTemplates = async (req: AuthRequest, res: Response) => {
 export const getHabits = async (req: AuthRequest, res: Response) => {
   try {
     const today = new Date()
-    const dayStart = startOfDay(today)
-    const dayEnd = endOfDay(today)
+    const dayStart = startOfLocalDay(today)
+    const dayEnd = endOfLocalDay(today)
 
     const habits = await prisma.habit.findMany({
       where: { userId: req.userId! },
@@ -74,22 +66,17 @@ export const getHabits = async (req: AuthRequest, res: Response) => {
       const now = new Date()
       
       // Начало и конец сегодня
-      const todayStart = new Date(now)
-      todayStart.setHours(0, 0, 0, 0)
-      const todayEnd = new Date(now)
-      todayEnd.setHours(23, 59, 59, 999)
+      const todayStart = startOfLocalDay(now)
+      const todayEnd = endOfLocalDay(now)
 
       // Начало и конец вчера
-      const yesterdayStart = new Date(todayStart)
-      yesterdayStart.setDate(yesterdayStart.getDate() - 1)
-      const yesterdayEnd = new Date(yesterdayStart)
-      yesterdayEnd.setHours(23, 59, 59, 999)
+      const yesterdayStart = startOfLocalDay(new Date(todayStart.getTime() - 86400000))
+      const yesterdayEnd = endOfLocalDay(new Date(todayStart.getTime() - 86400000))
 
       // Начало и конец позавчера
-      const twoDaysAgoStart = new Date(yesterdayStart)
-      twoDaysAgoStart.setDate(twoDaysAgoStart.getDate() - 1)
-      const twoDaysAgoEnd = new Date(twoDaysAgoStart)
-      twoDaysAgoEnd.setHours(23, 59, 59, 999)
+      const twoDaysAgoStart = startOfLocalDay(new Date(todayStart.getTime() - 2 * 86400000))
+
+      const twoDaysAgoEnd = endOfLocalDay(new Date(todayStart.getTime() - 2 * 86400000))
 
       const [todayLogs, yesterdayLogs, twoDaysAgoLogs] = await Promise.all([
         prisma.habitLog.findMany({
@@ -102,8 +89,8 @@ export const getHabits = async (req: AuthRequest, res: Response) => {
           where: { habitId: habit.id, date: { gte: twoDaysAgoStart, lte: twoDaysAgoEnd } }
         }),
       ])
-      const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 })
-      const weekEnd = endOfDay(new Date())
+      const weekStart = startOfLocalWeek()
+      const weekEnd = endOfLocalDay(new Date())
 
       const weekLogs = await prisma.habitLog.count({
         where: {
@@ -142,7 +129,11 @@ export const getHabits = async (req: AuthRequest, res: Response) => {
       }
       
       
-      return { ...habit, currentStreak, canRestoreStreak: canRestore }
+      return {
+        ...habit, currentStreak, canRestoreStreak: canRestore, weeklyProgress:
+          habit.frequency === 'weekly' ? weekLogs : undefined,
+          weeklyTarget: habit.frequency === 'weekly' ? habit.timesPerWeek: undefined,
+      }
     }))
 
     res.json({ habits: habitsWithMeta })
@@ -213,6 +204,8 @@ export const deleteHabit = async (req: AuthRequest, res: Response) => {
   }
 }
 
+
+
 export const logHabit = async (req: AuthRequest, res: Response) => {
   try {
     
@@ -227,8 +220,8 @@ export const logHabit = async (req: AuthRequest, res: Response) => {
       return
     }
 
-    const today = startOfDay(new Date())
-    const todayEnd = endOfDay(new Date())
+    const today = startOfLocalDay()
+    const todayEnd = endOfLocalDay()
 
     const todayLogs = await prisma.habitLog.count({
       where: { habitId, date: { gte: today, lte: todayEnd } }
@@ -264,10 +257,10 @@ export const logHabit = async (req: AuthRequest, res: Response) => {
       return
     }
 
-    const nextRep = todayLogs + 1
+    const nextRep = habit.frequency === 'weekly' ? 1 : todayLogs + 1
     
     await prisma.habitLog.create({
-      data: { habitId, date: new Date(), repetition: nextRep }
+      data: { habitId, date: startOfLocalDay(), repetition: nextRep }
     })
 
     const isCompleted = nextRep >= habit.timesPerDay
@@ -284,7 +277,7 @@ export const logHabit = async (req: AuthRequest, res: Response) => {
       })
 
       if (habit.frequency === 'weekly') {
-        const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 })
+        const weekStart = startOfLocalWeek()
 
         const alreadyLoggedThisWeek = await prisma.habitLog.findFirst({
           where: {
@@ -299,7 +292,7 @@ export const logHabit = async (req: AuthRequest, res: Response) => {
           })
           return
         }
-        const weekEnd = endOfDay(new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000))
+        const weekEnd = endOfLocalDay(new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000))
         const weeklyLogs = await prisma.habitLog.count({
           where: {
             habitId,
@@ -309,7 +302,7 @@ export const logHabit = async (req: AuthRequest, res: Response) => {
             },
           },
         })
-        const alreadyCompletedThisWeek = habit.lastCompletedWeek && startOfWeek(new Date(habit.lastCompletedWeek), { weekStartsOn: 1 }).getTime() === weekStart.getTime()
+        const alreadyCompletedThisWeek = habit.lastCompletedWeek && startOfLocalWeek(new Date(habit.lastCompletedWeek)).getTime() === weekStart.getTime()
         weekCompleted = weeklyLogs >= (habit.timesPerWeek || 1)
         if (alreadyCompletedThisWeek) {
           weekCompleted = false
@@ -333,8 +326,8 @@ export const logHabit = async (req: AuthRequest, res: Response) => {
       }
     
     if (habit.frequency !== 'weekly') {
-      const yesterdayStart = startOfDay(subDays(new Date(), 1))
-      const yesterdayEnd = endOfDay(subDays(new Date(), 1))
+      const yesterdayStart = startOfLocalDay(subDays(new Date(), 1))
+      const yesterdayEnd = endOfLocalDay(subDays(new Date(), 1))
 
       const yesterdayLog = await prisma.habitLog.findFirst({
         where: {
@@ -346,13 +339,10 @@ export const logHabit = async (req: AuthRequest, res: Response) => {
         },
       })
 
-      const todayStart = startOfDay(new Date())
-      const todayEnd = endOfDay(new Date())
+      const todayStart = startOfLocalDay()
+      const todayEnd = endOfLocalDay()
 
-      const restoredToday = habit.streakRestoredAt
-        ? new Date(habit.streakRestoredAt) >= today &&
-          new Date(habit.streakRestoredAt) <= todayEnd
-        : false
+      const restoredToday = habit.streakRestoredAt ? new Date(habit.streakRestoredAt) >= todayStart && new Date(habit.streakRestoredAt) <= todayEnd : false
 
       const hadValidYesterday =
         !!yesterdayLog || restoredToday
@@ -502,10 +492,8 @@ export const restoreStreak = async (req: AuthRequest, res: Response) => {
 
     // Проверяем что стрик не восстанавливался сегодня
     if (habit.streakRestoredAt) {
-      const restoredDay = new Date(habit.streakRestoredAt)
-      restoredDay.setHours(0, 0, 0, 0)
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
+      const restoredDay = startOfLocalDay(new Date(habit.streakRestoredAt))
+      const today = startOfLocalDay()
       if (restoredDay.getTime() === today.getTime()) {
         res.status(400).json({ error: 'Стрик уже восстанавливался сегодня' })
         return
@@ -534,8 +522,7 @@ export const restoreStreak = async (req: AuthRequest, res: Response) => {
 export const getHeatmap = async (req: AuthRequest, res: Response) => {
   try {
     const days = parseInt(req.query.days as string || '30')
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
+    const today = startOfLocalDay()
     const since = new Date(today.getTime() - (days - 1) * 24 * 60 * 60 * 1000)
 
     // Все привычки пользователя
@@ -565,7 +552,7 @@ export const getHeatmap = async (req: AuthRequest, res: Response) => {
     const logsByDateAndHabit: Record<string, Record<number, number>> = {}
 
     for (const log of logs) {
-      const dateStr = toLocalDateString(log.date)
+      const dateStr = localDateKey(log.date)
 
       if (!logsByDateAndHabit[dateStr]) {
         logsByDateAndHabit[dateStr] = {}
@@ -579,7 +566,7 @@ export const getHeatmap = async (req: AuthRequest, res: Response) => {
     const heatmap: { date: string; completedCount: number; totalCount: number; percent: number }[] = []
     for (let i = days - 1; i >= 0; i--) {
       const d = new Date(today.getTime() - i * 24 * 60 * 60 * 1000)
-      const dateStr = toLocalDateString(d)
+      const dateStr = localDateKey(d)
       let completed = 0
 
       for (const habit of habits) {

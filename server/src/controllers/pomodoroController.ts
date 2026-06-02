@@ -152,102 +152,47 @@ export const completeSession = async (req: AuthRequest, res: Response) => {
       hasFocusBonus = task?.isFocusToday === true
     }
     
-    const {
-      xp: boostedSessionXp,
-      gold: boostedSessionGold,
-    } = await applyBoosters({
-      userId: req.userId!,
-      baseXp: xpForSession,
-      baseGold: goldForSession,
-      hasFocusBonus,
-    })
-
+    const { xp: boostedSessionXp, gold: boostedSessionGold,} = 
+      await applyBoosters({userId: req.userId!, baseXp: xpForSession, baseGold: goldForSession, hasFocusBonus,})
     await prisma.pomodoroSession.update({
       where: { id: sessionId },
-      data: {
-        status: actualDuration > 0 ? 'completed' : 'cancelled',
-        actualDuration,
-        completedAt: new Date(),
-
-        // сохраняем реальные награды сессии
-        earnedXp: boostedSessionXp,
-        earnedGold: boostedSessionGold,
+      data: { status: actualDuration > 0 ? 'completed' : 'cancelled', actualDuration, completedAt: new Date(),
+        earnedXp: boostedSessionXp, earnedGold: boostedSessionGold,
       }
     })
-
     // Проверяем завершение цикла
-    const settings = await prisma.pomodoroSettings.findUnique({
-      where: { userId: req.userId! }
-    })
+    const settings = await prisma.pomodoroSettings.findUnique({where: { userId: req.userId! }})
     const cyclesBeforeLong = settings?.cyclesBeforeLong || 4
-
     // Проверяем не устарел ли счётчик цикла
     const lastSessionDate = settings?.lastSessionDate
     const todayStr = new Date().toISOString().split('T')[0]
     const lastSessionStr = lastSessionDate ? new Date(lastSessionDate).toISOString().split('T')[0] : null
-
     // Если последняя сессия была не сегодня — счётчик цикла устарел, сбрасываем
     const currentCycleSessions = (lastSessionStr === todayStr) ? (settings?.currentCycleSessions || 0) : 0
-
     const updatedCycleSessions = currentCycleSessions + 1
     const isNewCycleCompleted = updatedCycleSessions >= cyclesBeforeLong
-
     let cycleBonusXp = 0
     let cycleBonusGold = 0
-
     if (isNewCycleCompleted) {
       // Алгоритм: бонус = сумма XP всех сессий текущего цикла / 4
-      // Берём XP последних cyclesBeforeLong сессий из RewardTransaction
       const recentSessions = await prisma.pomodoroSession.findMany({
-        where: {
-          userId: req.userId!,
-          status: 'completed',
-        },
-        orderBy: {
-          completedAt: 'desc'
-        },
-
-        // текущая сессия уже сохранена,
-        // поэтому берём весь цикл
-        take: cyclesBeforeLong,
+        where: { userId: req.userId!, status: 'completed',},
+        orderBy: { completedAt: 'desc' },
+        take: cyclesBeforeLong, // текущая сессия уже сохранена, поэтому берём весь цикл
         })
-
-        const totalCycleXp = recentSessions.reduce(
-          (sum, s) => {
-            const baseXp = Math.max(
-              1,
-              Math.floor(s.actualDuration * BASE_XP_PER_MIN)
-            )
-
+        const totalCycleXp = recentSessions.reduce((sum, s) => {
+            const baseXp = Math.max(1,Math.floor(s.actualDuration * BASE_XP_PER_MIN))
             return sum + baseXp
-          },
-          0
+          },0
         )
-
-        const totalCycleGold = recentSessions.reduce(
-          (sum, s) => {
-            const baseGold = Math.max(
-              0.1,
-              s.actualDuration * BASE_GOLD_PER_MIN
-            )
-
+        const totalCycleGold = recentSessions.reduce((sum, s) => {
+            const baseGold = Math.max(0.1, s.actualDuration * BASE_GOLD_PER_MIN)
             return sum + baseGold
-          },
-          0
+          },0
         )
-
-        cycleBonusXp = Math.max(
-          1,
-          Math.round(totalCycleXp / 4)
-        )
-
-        cycleBonusGold = Math.max(
-          0.1,
-          totalCycleGold / 4
-        )
+        cycleBonusXp = Math.max(1, Math.round(totalCycleXp / 4))
+        cycleBonusGold = Math.max(0.1, totalCycleGold / 4)
     }
-
-    
     const userBefore = await prisma.user.findUnique({
       where: { id: req.userId! },
       select: { level: true }
@@ -264,38 +209,29 @@ export const completeSession = async (req: AuthRequest, res: Response) => {
       })
       const updatedUser = await tx.user.update({
         where: { id: req.userId! },
-
-        data: {
-          xp: {
-            increment: finalXp
-          },
-
-          gold: {
-            increment: finalGold
-          },
-        }
+        data: { xp: {increment: finalXp}, gold: {increment: finalGold},}
       })
-      
       // Автообновление уровня
       const newLevel = getLevelFromXp(updatedUser.xp)
-
       if (newLevel !== updatedUser.level) {
         await tx.user.update({ where: { id: req.userId! }, data: { level: newLevel } })
       }
-
       // RewardTransaction
       const rewardRows: any[] = [
-        { userId: req.userId!, sessionId, sourceType: 'pomodoro', sourceId: sessionId, rewardType: 'xp', amount: boostedSessionXp  },
-        { userId: req.userId!, sessionId, sourceType: 'pomodoro', sourceId: sessionId, rewardType: 'gold', amount: boostedSessionGold  },
+        { userId: req.userId!, sessionId, sourceType: 'pomodoro', 
+          sourceId: sessionId, rewardType: 'xp', amount: boostedSessionXp  },
+        { userId: req.userId!, sessionId, sourceType: 'pomodoro', 
+          sourceId: sessionId, rewardType: 'gold', amount: boostedSessionGold  },
       ]
       if (isNewCycleCompleted) {
         rewardRows.push(
-          { userId: req.userId!, sessionId, sourceType: 'cycle_bonus', sourceId: sessionId, rewardType: 'xp', amount: cycleBonusXp },
-          { userId: req.userId!, sessionId, sourceType: 'cycle_bonus', sourceId: sessionId, rewardType: 'gold', amount: cycleBonusGold },
+          { userId: req.userId!, sessionId, sourceType: 'cycle_bonus', 
+            sourceId: sessionId, rewardType: 'xp', amount: cycleBonusXp },
+          { userId: req.userId!, sessionId, sourceType: 'cycle_bonus', 
+            sourceId: sessionId, rewardType: 'gold', amount: cycleBonusGold },
         )
       }
       await tx.rewardTransaction.createMany({ data: rewardRows })
-
       // Обновляем время задачи
       if (session.taskId) {
         await tx.task.update({
@@ -303,7 +239,6 @@ export const completeSession = async (req: AuthRequest, res: Response) => {
           data: { timeSpent: { increment: actualDuration } }
         })
       }
-
       // Обновляем часы цели
       if (session.goalId) {
         await tx.goal.update({
