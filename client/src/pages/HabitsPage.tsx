@@ -22,34 +22,54 @@ function getLocalDateFromLog(isoString: string): string {
 function formatDuration(startDate: string): string {
   const start = new Date(startDate)
   const now = new Date()
+
   const diffMs = now.getTime() - start.getTime()
   const diffSec = Math.floor(diffMs / 1000)
   const diffMin = Math.floor(diffSec / 60)
   const diffHour = Math.floor(diffMin / 60)
-  const diffDay = Math.floor(diffHour / 24)
-  const diffMonth = Math.floor(diffDay / 30.44)
-  const diffYear = Math.floor(diffMonth / 12)
 
   if (diffMin < 1) return `${diffSec} сек.`
   if (diffHour < 1) return `${diffMin} мин.`
-  if (diffDay < 1) {
-    const h = diffHour
-    const m = diffMin % 60
-    return m > 0 ? `${h} час. ${m} мин.` : `${h} час.`
-  }
-  if (diffMonth < 1) {
-    const d = diffDay
+
+  const totalDays = Math.floor(diffHour / 24)
+
+  if (totalDays < 30) {
     const h = diffHour % 24
-    return h > 0 ? `${d} дн. ${h} час.` : `${d} дн.`
+    return h > 0
+      ? `${totalDays} дн. ${h} час.`
+      : `${totalDays} дн.`
   }
-  if (diffYear < 1) {
-    const mo = diffMonth
-    const d = diffDay % 30
-    return d > 0 ? `${mo} мес. ${d} дн.` : `${mo} мес.`
+
+  let years = now.getFullYear() - start.getFullYear()
+  let months = now.getMonth() - start.getMonth()
+  let days = now.getDate() - start.getDate()
+
+  if (days < 0) {
+    months--
+
+    const prevMonth = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      0
+    )
+
+    days += prevMonth.getDate()
   }
-  const y = diffYear
-  const mo = diffMonth % 12
-  return mo > 0 ? `${y} г. ${mo} мес.` : `${y} г.`
+
+  if (months < 0) {
+    years--
+    months += 12
+  }
+
+  if (years === 0) {
+    return days > 0
+      ? `${months} мес. ${days} дн.`
+      : `${months} мес.`
+  }
+
+  return months > 0
+    ? `${years} г. ${months} мес.`
+    : `${years} г.`
 }
 
 interface HeatmapDay {
@@ -1073,13 +1093,20 @@ export default function HabitsPage() {
 
     // WEEKLY
     if (h.frequency === 'weekly') {
-      const todayStr = getLocalDateString()
+      const now = new Date()
 
-      const hasTodayLog = h.logs.some(
-        log => getLocalDateFromLog(log.date) === todayStr
-      )
+      const startOfWeek = new Date(now)
+      const day = now.getDay()
+      const diff = day === 0 ? -6 : 1 - day
 
-      return hasTodayLog
+      startOfWeek.setDate(now.getDate() + diff)
+      startOfWeek.setHours(0, 0, 0, 0)
+
+      const weeklyLogs = h.logs.filter(log => {
+        return new Date(log.date) >= startOfWeek
+      })
+
+      return weeklyLogs.length >= (h.timesPerWeek || 1)
     }
 
     // DAILY
