@@ -213,7 +213,7 @@ export default function PublicProfilePage() {
                   </span>
                   <span className="text-slate-500 text-xs">ID: #{user.id}</span>
                   {!user.isPrivate && (
-                    <span className="text-slate-500 text-xs">{daysInApp} дн. в игре</span>
+                    <span className="text-slate-500 text-xs">Стаж пользования: {daysInApp} дн.</span>
                   )}
                 </div>
               </div>
