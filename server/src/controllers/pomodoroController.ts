@@ -262,8 +262,6 @@ export const completeSession = async (req: AuthRequest, res: Response) => {
           }
         : null
     const newAchievements = await checkAchievementsForUser(req.userId!)
-
-
     res.json({
       session,
       reward: { xp: finalXp, gold: Number(finalGold.toFixed(1)) },

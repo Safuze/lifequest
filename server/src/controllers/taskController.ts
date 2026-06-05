@@ -6,7 +6,7 @@ import { checkAchievementsForUser } from '../services/achievementService'
 import { getLevelFromXp, getLevelName } from '../services/levelService'
 import { applyBoosters } from '../services/boosterService'
 import { updateUserChallenges } from '../services/challengeService'
-
+import { startOfLocalDay, endOfLocalDay } from '../utils/date'
 export const createTaskSchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().optional(),
@@ -65,9 +65,10 @@ export const getTasks = async (req: AuthRequest, res: Response) => {
 
     if (date) {
       const dateStr = date as string
-      const startOfDay = new Date(dateStr + 'T00:00:00.000Z')
-      const endOfDay = new Date(dateStr + 'T23:59:59.999Z')
-      where.dueDate = { gte: startOfDay, lte: endOfDay }
+      const [y, m, d] = dateStr.split('-').map(Number)
+      // строим начало локального дня для запрошенной даты
+      const base = new Date(Date.UTC(y, m - 1, d, 12, 0, 0)) // полдень как опорная точка
+      where.dueDate = { gte: startOfLocalDay(base), lte: endOfLocalDay(base) }
     }
 
     const tasks = await prisma.task.findMany({
@@ -142,19 +143,12 @@ export const createTask = async (req: AuthRequest, res: Response) => {
     }
 
     // Проверка дневного лимита
-    const todayStart = new Date()
-    todayStart.setHours(0, 0, 0, 0)
+    const todayStart = startOfLocalDay()
+    const tomorrow = endOfLocalDay()
 
-    const tomorrow = new Date(todayStart)
-    tomorrow.setDate(tomorrow.getDate() + 1)
-
-    // Дата, на которую создается задача
     const limitDate = taskDueDate || new Date()
-    const targetDayStart = new Date(limitDate)
-    targetDayStart.setHours(0, 0, 0, 0)
-
-    const targetDayEnd = new Date(targetDayStart)
-    targetDayEnd.setDate(targetDayEnd.getDate() + 1)
+    const targetDayStart = startOfLocalDay(limitDate)
+    const targetDayEnd = endOfLocalDay(limitDate)
 
     const todayCount = await prisma.task.count({
       where: {
@@ -162,7 +156,7 @@ export const createTask = async (req: AuthRequest, res: Response) => {
         parentId: null,
         dueDate: {
           gte: targetDayStart,
-          lt: targetDayEnd,
+          lte: targetDayEnd
         },
       }
     })
@@ -192,7 +186,7 @@ export const createTask = async (req: AuthRequest, res: Response) => {
     // Фокус только если критическая И срок сегодня (или срока нет)
     const shouldBeFocus =
       isCritical &&
-      (!limitDate || (limitDate >= todayStart && limitDate < tomorrow))
+      (!limitDate || (limitDate >= todayStart && limitDate <= tomorrow))
 
     if (shouldBeFocus) {
       await prisma.task.updateMany({
@@ -244,10 +238,48 @@ export const updateTask = async (req: AuthRequest, res: Response) => {
       })
       return
     }
+
     const updateData: any = parsed.data
 
-    let userBeforeLevel: number | null = null
+    // Если меняется dueDate — проверяем дневной лимит на новую дату
+    if (updateData.dueDate !== undefined && updateData.dueDate !== null) {
+      const newDue = new Date(updateData.dueDate)
+      const targetDayStart = startOfLocalDay(newDue)
+      const targetDayEnd = endOfLocalDay(newDue)
+      // считаем дату, на которую задача указывала ДО переноса
+      const oldDue = existing.dueDate ? new Date(existing.dueDate) : null
+      const oldDayStart = oldDue ? new Date(oldDue) : null
+      if (oldDayStart) oldDayStart.setHours(0, 0, 0, 0)
 
+      // если день реально меняется — проверяем лимит целевого дня
+      const dayChanged = !oldDayStart || oldDayStart.getTime() !== targetDayStart.getTime()
+
+      if (dayChanged) {
+        const user = await prisma.user.findUnique({
+          where: { id: req.userId! },
+          select: { dailyTaskLimit: true }
+        })
+        const maxDaily = user?.dailyTaskLimit ?? 10
+
+        const dayCount = await prisma.task.count({
+          where: {
+            userId: req.userId!,
+            parentId: null,
+            id: { not: taskId }, // не считаем саму переносимую задачу
+            dueDate: { gte: targetDayStart, lte: targetDayEnd },
+          }
+        })
+
+        if (dayCount >= maxDaily) {
+          res.status(400).json({
+            error: `Достигнут дневной лимит задач (${maxDaily}) на выбранную дату.`
+          })
+          return
+        }
+      }
+    }
+    
+    let userBeforeLevel: number | null = null
     let finalXp: number | null = null
     let finalGold: number | null = null
     let levelUp: { level: number; levelName: string } | null = null
@@ -332,14 +364,12 @@ export const updateTask = async (req: AuthRequest, res: Response) => {
       }
     }
     
-    const newAchievements = await checkAchievementsForUser(req.userId!)
-    
     if (existing.status === 'done' && req.body.status && req.body.status !== 'done') {
-      res.status(400).json({
-        error: 'Нельзя изменить статус выполненной задачи'
-      })
+      res.status(400).json({ error: 'Нельзя изменить статус выполненной задачи' })
       return
     }
+
+    
 
     if (req.body.isFocusToday === true) {
       await prisma.task.updateMany({
@@ -357,6 +387,9 @@ export const updateTask = async (req: AuthRequest, res: Response) => {
         sessions: { where: { status: 'completed' }, select: { actualDuration: true } },
       }
     })
+
+    // достижения проверяем после того как статус задачи уже done в БД
+    const newAchievements = await checkAchievementsForUser(req.userId!)
 
     res.json({
       task: {

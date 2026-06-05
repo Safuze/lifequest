@@ -200,30 +200,14 @@ router.get('/profile', async (req: AuthRequest, res: Response) => {
     const now = new Date()
     let since: Date
 
-    // считаем через UTC ===
     if (period === 'day') {
-      // начало текущего дня (UTC)
-      since = new Date(now)
-      since.setHours(0, 0, 0, 0)
-
+      since = startOfLocalDay()
     } else if (period === 'month') {
-      // начало месяца (UTC)
-      since = new Date(Date.UTC(
-        now.getUTCFullYear(),
-        now.getUTCMonth(),
-        1,
-        0, 0, 0, 0
-      ))
-
+      since = new Date(startOfLocalDay().getTime() - 29 * 86400000)
     } else {
-      // последние 7 дней ВКЛЮЧАЯ сегодня
-      const startOfTodayUTC = new Date(now)
-      startOfTodayUTC.setHours(0, 0, 0, 0)
-
-      since = new Date(startOfTodayUTC)
-      since.setDate(since.getDate() - 6)
+      since = new Date(startOfLocalDay().getTime() - 6 * 86400000)
     }
-
+    
     const [user, achievements, sessions, completedTasks, habits, goals, inventory, rewards] = await Promise.all([
       
       prisma.user.findUnique({
@@ -294,11 +278,7 @@ router.get('/profile', async (req: AuthRequest, res: Response) => {
     let totalPercent = 0
 
     for (let i = 0; i < daysInPeriod; i++) {
-      const currentDay = new Date()
-
-      currentDay.setHours(0, 0, 0, 0)
-      currentDay.setDate(currentDay.getDate() - i)
-
+      const currentDay = new Date(startOfLocalDay().getTime() - i * 86400000)
       const dateStr = localDateKey(currentDay)
 
       let completedHabits = 0
@@ -306,10 +286,7 @@ router.get('/profile', async (req: AuthRequest, res: Response) => {
 
       for (const habit of habits) {
         const logsForDay = habit.logs.filter(log => {
-          const logDate = new Date(log.date)
-          logDate.setUTCHours(0, 0, 0, 0)
-
-          return localDateKey(logDate) === dateStr
+          return localDateKey(new Date(log.date)) === dateStr
         })
 
         const isCompleted =
@@ -663,9 +640,7 @@ router.get('/:id/public', async (req: AuthRequest, res: Response) => {
       return
     }
 
-    const since7days = new Date()
-    since7days.setUTCHours(0, 0, 0, 0)
-    since7days.setUTCDate(since7days.getUTCDate() - 6)
+    const since7days = new Date(startOfLocalDay().getTime() - 6 * 86400000)
 
     const [achievements, habits, sessions, tasks, goals, rewards, inventory] = await Promise.all([
       prisma.achievement.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }}),
@@ -723,11 +698,7 @@ router.get('/:id/public', async (req: AuthRequest, res: Response) => {
     const daysInPeriod = 7
 
     for (let i = 0; i < daysInPeriod; i++) {
-      const currentDay = new Date()
-
-      currentDay.setUTCHours(0, 0, 0, 0)
-      currentDay.setUTCDate(currentDay.getUTCDate() - i)
-
+      const currentDay = new Date(startOfLocalDay().getTime() - i * 86400000)
       const dateStr = localDateKey(currentDay)
 
       let completedHabits = 0
@@ -735,11 +706,7 @@ router.get('/:id/public', async (req: AuthRequest, res: Response) => {
 
       for (const habit of habits) {
         const logsForDay = habit.logs.filter(log => {
-          const logDate = new Date(log.date)
-
-          logDate.setUTCHours(0, 0, 0, 0)
-
-          return localDateKey(logDate) === dateStr
+          return localDateKey(new Date(log.date)) === dateStr
         })
 
         const isCompleted =
