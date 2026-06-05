@@ -585,4 +585,38 @@ export const getHeatmap = async (req: AuthRequest, res: Response) => {
   } catch (error) {
     res.status(500).json({ error: 'Ошибка сервера' })
   }
+  
+}
+
+export const updateHabit = async (req: AuthRequest, res: Response) => {
+  try {
+    const habitId = parseInt(req.params.id as string, 10)
+
+    const schema = z.object({
+      title: z.string().min(1).max(100),
+    })
+
+    const { title } = schema.parse(req.body)
+
+    const habit = await prisma.habit.findFirst({
+      where: {
+        id: habitId,
+        userId: req.userId!,
+      },
+    })
+
+    if (!habit) {
+      res.status(404).json({ error: 'Привычка не найдена' })
+      return
+    }
+
+    const updatedHabit = await prisma.habit.update({
+      where: { id: habitId },
+      data: { title },
+    })
+
+    res.json({ habit: updatedHabit })
+  } catch (error) {
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' })
+  }
 }

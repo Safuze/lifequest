@@ -54,6 +54,7 @@ export const habitsApi = {
     const res = await apiClient.get('/habits/templates')
     return res.data
   },
+  
   create: async (data: {
     title: string; type: string; trackingType: string
     frequency?: string; timesPerDay?: number; timesPerWeek?: number; startDate?: string
@@ -98,5 +99,9 @@ export const habitsApi = {
     const res = await apiClient.get(`/habits/heatmap?days=${days}`)
     return res.data
   },
-  
+  updateTitle: async (id: number, title: string): Promise<{ habit: Habit }> => {
+    const res = await apiClient.patch(`/habits/${id}/title`, { title })
+    return res.data
+  },
 }
+

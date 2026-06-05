@@ -325,6 +325,7 @@ interface HabitCardProps {
   onBreak: (id: number) => void
   onDelete: (id: number) => void
   onRestoreStreak: (id: number) => void
+  onRename: (id: number, title: string) => void
   lastReward: {
     xp: number
     gold: number
@@ -369,10 +370,24 @@ function getStreakBorderStyle(streak: number): { borderColor: string; boxShadow?
   return { borderColor: '#334155' }
 }
 
-function HabitCard({ habit, onLog, onBreak, onDelete, onRestoreStreak, lastReward, heatmapView  }: HabitCardProps) {
+function HabitCard({ habit, onLog, onBreak, onDelete, onRestoreStreak, onRename, lastReward, heatmapView  }: HabitCardProps) {
   const [expanded, setExpanded] = useState(false)
   const [timer, setTimer] = useState('')
-  console.log(habit.canRestoreStreak)
+  const [editingTitle, setEditingTitle] = useState(false)
+  const [titleValue, setTitleValue] = useState(habit.title)
+  
+  const saveTitle = async () => {
+    const trimmed = titleValue.trim()
+
+    if (!trimmed || trimmed === habit.title) {
+      setEditingTitle(false)
+      setTitleValue(habit.title)
+      return
+    }
+
+    await onRename(habit.id, trimmed)
+    setEditingTitle(false)
+  }
   const now = new Date()
 
   const startOfWeek = new Date(now)
@@ -424,7 +439,30 @@ function HabitCard({ habit, onLog, onBreak, onDelete, onRestoreStreak, lastRewar
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <h3 className="text-white font-medium truncate">{habit.title}</h3>
+              {editingTitle ? (
+                <input
+                  autoFocus
+                  value={titleValue}
+                  onChange={(e) => setTitleValue(e.target.value)}
+                  onBlur={saveTitle}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') saveTitle()
+                    if (e.key === 'Escape') {
+                      setTitleValue(habit.title)
+                      setEditingTitle(false)
+                    }
+                  }}
+                  className="bg-slate-800 text-white px-2 py-1 rounded w-full outline-none"
+                />
+              ) : (
+                <h3
+                  className="text-white font-medium truncate cursor-text"
+                  onDoubleClick={() => setEditingTitle(true)}
+                  title="Двойной клик для редактирования"
+                >
+                  {habit.title}
+                </h3>
+              )}
               {habit.trackingType === 'continuous' && (
                 <span className="text-xs px-2 py-0.5 rounded-full shrink-0"
                   style={{ backgroundColor: 'rgba(99,102,241,0.2)', color: '#a5b4fc' }}>
@@ -1067,6 +1105,22 @@ export default function HabitsPage() {
     } catch {}
   }
 
+  const handleRenameHabit = async (id: number, title: string) => {
+    try {
+      await habitsApi.updateTitle(id, title)
+
+      setHabits(prev =>
+        prev.map(h =>
+          h.id === id
+            ? { ...h, title }
+            : h
+        )
+      )
+    } catch (error) {
+      console.error(error)
+    }
+  }
+
   const handleRestoreStreak = async (id: number) => {
     if (restoringStreakIds.has(id)) return // уже восстанавливается
     if (!confirm('Восстановить серию за 50 баллов?')) return
@@ -1197,6 +1251,7 @@ export default function HabitsPage() {
                       onBreak={(id) => setBreakConfirmId(id)}
                       onDelete={handleDelete}
                       onRestoreStreak={handleRestoreStreak}
+                      onRename={handleRenameHabit}
                       lastReward={lastRewards[habit.id] || null}
                       heatmapView={heatmapView}
                       streakRestored={restoringStreakIds.has(habit.id)}
@@ -1218,6 +1273,7 @@ export default function HabitsPage() {
                       onBreak={(id) => setBreakConfirmId(id)}
                       onDelete={handleDelete}
                       onRestoreStreak={handleRestoreStreak}
+                      onRename={handleRenameHabit}
                       lastReward={lastRewards[habit.id] || null}
                       heatmapView={heatmapView}
                       streakRestored={restoringStreakIds.has(habit.id)}
