@@ -1145,14 +1145,9 @@ export default function HabitsPage() {
   const continuousHabits = habits.filter(h => h.trackingType === 'continuous')
   const completedCount = discreteHabits.filter(h => {
     if (h.frequency === 'weekly') {
-      const now = new Date()
-      const startOfWeek = new Date(now)
-      const day = now.getDay()
-      const diff = day === 0 ? -6 : 1 - day
-      startOfWeek.setDate(now.getDate() + diff)
-      startOfWeek.setHours(0, 0, 0, 0)
-      const weeklyLogs = h.logs.filter(log => new Date(log.date) >= startOfWeek)
-      return weeklyLogs.length >= (h.timesPerWeek || 1)
+      const todayStr = getLocalDateString()
+      const todayLogs = h.logs.filter(log => getLocalDateFromLog(log.date) === todayStr)
+      return todayLogs.length > 0
     }
     const todayStr = getLocalDateString()
     const todayLogs = h.logs.filter(log => getLocalDateFromLog(log.date) === todayStr)

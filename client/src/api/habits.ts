@@ -100,7 +100,7 @@ export const habitsApi = {
     return res.data
   },
   updateTitle: async (id: number, title: string): Promise<{ habit: Habit }> => {
-    const res = await apiClient.patch(`/habits/${id}/title`, { title })
+    const res = await apiClient.patch(`/habits/${id}`, { title })
     return res.data
   },
 }
