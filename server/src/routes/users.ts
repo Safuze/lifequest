@@ -10,13 +10,7 @@ import { startOfLocalDay, endOfLocalDay, localDateKey } from '../utils/date'
 
 const router = Router()
 router.use(authMiddleware)
-const toLocalDateString = (date: Date) => {
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
 
-  return `${y}-${m}-${d}`
-}
 router.patch('/me', async (req: AuthRequest, res: Response) => {
   try {
     const { goldDelta } = req.body
@@ -148,23 +142,18 @@ router.get('/dashboard', async (req: AuthRequest, res: Response) => {
       )
     ]
 
-    let expectedDate = startOfLocalDay()
+    let expected = startOfLocalDay()
 
     for (const day of uniqueDays) {
-      const [year, month, date] = day.split('-').map(Number)
+      const expectedKey = localDateKey(expected)
 
-      const currentDay = new Date(
-        year,
-        month - 1,
-        date
-      )
-
-      if (currentDay.getTime() === expectedDate.getTime()) {
+      if (day === expectedKey) {
         taskStreak++
-
-        expectedDate.setDate(
-          expectedDate.getDate() - 1
-        )
+        expected = new Date(expected.getTime() - 86400000)
+      } else if (taskStreak === 0 && day === localDateKey(new Date(expected.getTime() - 86400000))) {
+        // сегодня задач ещё нет, но вчера были — стрик продолжается со вчера
+        taskStreak++
+        expected = new Date(expected.getTime() - 2 * 86400000)
       } else {
         break
       }
@@ -310,7 +299,7 @@ router.get('/profile', async (req: AuthRequest, res: Response) => {
       currentDay.setHours(0, 0, 0, 0)
       currentDay.setDate(currentDay.getDate() - i)
 
-      const dateStr = toLocalDateString(currentDay)
+      const dateStr = localDateKey(currentDay)
 
       let completedHabits = 0
       let totalHabits = habits.length
@@ -320,7 +309,7 @@ router.get('/profile', async (req: AuthRequest, res: Response) => {
           const logDate = new Date(log.date)
           logDate.setUTCHours(0, 0, 0, 0)
 
-          return toLocalDateString(logDate) === dateStr
+          return localDateKey(logDate) === dateStr
         })
 
         const isCompleted =
@@ -359,15 +348,18 @@ router.get('/profile', async (req: AuthRequest, res: Response) => {
     for (const task of allCompletedTasks) {
       const d = task.completedAt!
       // const dateStr = d.toISOString().split('T')[0]
-      const dateStr = toLocalDateString(d)
+      const dateStr = localDateKey(d)
       if (!seenDays.has(dateStr)) {
         if (prevDate === null) {
           seenDays.add(dateStr)
           prevDate = d
           taskStreak = 1
         } else {
-          const diffDays = Math.floor((prevDate.getTime() - d.getTime()) / 86400000)
-
+          const prevKey = localDateKey(prevDate)
+          const curKey = localDateKey(d)
+          const prevDayStart = startOfLocalDay(prevDate)
+          const curDayStart = startOfLocalDay(d)
+          const diffDays = Math.round((prevDayStart.getTime() - curDayStart.getTime()) / 86400000)
           if (diffDays <= 1) {
             seenDays.add(dateStr)
             prevDate = d
@@ -736,7 +728,7 @@ router.get('/:id/public', async (req: AuthRequest, res: Response) => {
       currentDay.setUTCHours(0, 0, 0, 0)
       currentDay.setUTCDate(currentDay.getUTCDate() - i)
 
-      const dateStr = toLocalDateString(currentDay)
+      const dateStr = localDateKey(currentDay)
 
       let completedHabits = 0
       const totalHabits = habits.length
@@ -747,7 +739,7 @@ router.get('/:id/public', async (req: AuthRequest, res: Response) => {
 
           logDate.setUTCHours(0, 0, 0, 0)
 
-          return toLocalDateString(logDate) === dateStr
+          return localDateKey(logDate) === dateStr
         })
 
         const isCompleted =

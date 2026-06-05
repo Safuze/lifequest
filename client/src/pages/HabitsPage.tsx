@@ -1089,37 +1089,21 @@ export default function HabitsPage() {
 
   const discreteHabits = habits.filter(h => h.trackingType === 'discrete')
   const continuousHabits = habits.filter(h => h.trackingType === 'continuous')
-  const completedCount = discreteHabits.reduce((total, h) => {
-
-    // weekly
+  const completedCount = discreteHabits.filter(h => {
     if (h.frequency === 'weekly') {
-
       const now = new Date()
-
       const startOfWeek = new Date(now)
       const day = now.getDay()
       const diff = day === 0 ? -6 : 1 - day
-
       startOfWeek.setDate(now.getDate() + diff)
       startOfWeek.setHours(0, 0, 0, 0)
-
-      const weeklyLogs = h.logs.filter(
-        log => new Date(log.date) >= startOfWeek
-      )
-
-      return total + weeklyLogs.length
+      const weeklyLogs = h.logs.filter(log => new Date(log.date) >= startOfWeek)
+      return weeklyLogs.length >= (h.timesPerWeek || 1)
     }
-
-    // daily
     const todayStr = getLocalDateString()
-
-    const todayLogs = h.logs.filter(
-      log => getLocalDateFromLog(log.date) === todayStr
-    )
-
-    return total + todayLogs.length
-
-  }, 0)
+    const todayLogs = h.logs.filter(log => getLocalDateFromLog(log.date) === todayStr)
+    return todayLogs.length >= h.timesPerDay
+  }).length
 
   if (isLoading) {
     return (
@@ -1146,7 +1130,7 @@ export default function HabitsPage() {
           
           {discreteHabits.length > 0 && (
             <p className="text-slate-400 text-sm mt-1">
-              {completedCount}/{totalTarget} выполнено сегодня
+              {completedCount}/{discreteHabits.length} выполнено сегодня
             </p>
           )}
         </div>
@@ -1186,7 +1170,7 @@ export default function HabitsPage() {
               <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
                 <div className="h-full rounded-full transition-all duration-500"
                   style={{
-                    width: `${totalTarget > 0 ? (completedCount / totalTarget) * 100 : 0}%`,
+                    width: `${discreteHabits.length > 0 ? (completedCount / discreteHabits.length) * 100 : 0}%`,
                     backgroundColor: completedCount === discreteHabits.length && completedCount > 0 ? '#22c55e' : '#4f46e5'
                   }} />
               </div>

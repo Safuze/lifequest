@@ -10,8 +10,6 @@ console.log('CHALLENGE SERVICE LOADED')
 //   const d = String(date.getUTCDate()).padStart(2, '0')
 //   return `${y}-${m}-${d}`
 // }
-
-
 function getWeekKey(date: Date): string {
   const d = new Date(date)
 
@@ -37,7 +35,8 @@ async function recalcUserChallenge(
   challenge: { type: string; targetValue: number; durationDays: number }
 ): Promise<{ progress: number; status: string }> {
   const now = new Date()
-  const progress = await calcCurrentProgress(uc, challenge)
+  const { progress, successDays } = await calcCurrentProgress(uc, challenge)
+
 
   // Испытание просрочено
   if (now > uc.expiresAt) {
@@ -45,16 +44,16 @@ async function recalcUserChallenge(
   }
 
   // Считаем сколько дней уже прошло
-  const start = new Date(uc.startedAt)
-  start.setHours(0, 0, 0, 0)
-  const daysPassed = Math.floor((now.getTime() - start.getTime()) / 86400000)
+  const start = startOfLocalDay(uc.startedAt)
+  const todayStart = startOfLocalDay(now)
+  const daysPassed = Math.floor((todayStart.getTime() - start.getTime()) / 86400000)
 
   // Дней осталось
   const daysLeft = Math.max(0, challenge.durationDays - daysPassed)
 
   // Максимально возможный прогресс если выполнять все оставшиеся дни
   // successDays = текущий прогресс в днях + daysLeft
-  const currentSuccessDays = Math.floor((progress / 100) * challenge.durationDays)
+  const currentSuccessDays = successDays
   const maxPossibleDays = currentSuccessDays + daysLeft
   const maxPossibleProgress = Math.round((maxPossibleDays / challenge.durationDays) * 100)
   console.log('CHALLENGE DEBUG', {
@@ -81,15 +80,13 @@ async function recalcUserChallenge(
 async function calcCurrentProgress(
   uc: { userId: number; startedAt: Date; expiresAt: Date; progressData: any },
   challenge: { type: string; targetValue: number; durationDays: number }
-): Promise<number> {
+): Promise<{ progress: number; successDays: number }> {
   const { type, targetValue, durationDays } = challenge
   const today = new Date()
   
   // Сколько дней прошло
   const challengeStart = startOfLocalDay(uc.startedAt)
   const challengeEnd = endOfLocalDay(today)
-
-  challengeStart.setHours(0, 0, 0, 0)
 
   const daysPassed = Math.max(
     0,
@@ -126,7 +123,10 @@ async function calcCurrentProgress(
       if (mins >= targetValue) successDays++
     }
 
-    return Math.min(Math.round((successDays / durationDays) * 100), 100)
+    return {
+      progress: Math.min(Math.round((successDays / durationDays) * 100), 100),
+      successDays
+    }
   }
 
   if (type === 'tasks_daily') {
@@ -157,7 +157,10 @@ async function calcCurrentProgress(
       durationDays,
       byDay,
     })
-    return Math.min(Math.round((successDays / durationDays) * 100), 100)
+    return {
+      progress: Math.min(Math.round((successDays / durationDays) * 100), 100),
+      successDays
+    }
   }
 
   if (type === 'habit_daily') {
@@ -277,16 +280,15 @@ async function calcCurrentProgress(
         durationDays,
       })
 
-    return Math.min(
-      Math.round((successDays / durationDays) * 100),
-      100
-    )
+    return {
+      progress: Math.min(Math.round((successDays / durationDays) * 100), 100),
+      successDays
+    }
     
   }
-  
-
-
-  return 0
+  return {
+    progress: 0, successDays: 0
+  }
 }
 
 // Главная функция — вызывается после каждого события

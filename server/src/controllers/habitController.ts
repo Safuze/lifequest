@@ -303,7 +303,8 @@ export const logHabit = async (req: AuthRequest, res: Response) => {
           },
         })
         const alreadyCompletedThisWeek = habit.lastCompletedWeek && startOfLocalWeek(new Date(habit.lastCompletedWeek)).getTime() === weekStart.getTime()
-        weekCompleted = weeklyLogs >= (habit.timesPerWeek || 1)
+        const weeklyTarget = habit.timesPerWeek ?? 2
+        weekCompleted = weeklyLogs >= weeklyTarget
         if (alreadyCompletedThisWeek) {
           weekCompleted = false
         }
@@ -566,7 +567,8 @@ export const getHeatmap = async (req: AuthRequest, res: Response) => {
     for (let i = days - 1; i >= 0; i--) {
       const d = new Date(today.getTime() - i * 24 * 60 * 60 * 1000)
       const dateStr = localDateKey(d)
-      const activeHabits = habits.filter(h => startOfLocalDay(h.createdAt) <= d)
+      const dCreatedCutoff = localDateKey(d)
+      const activeHabits = habits.filter(h => localDateKey(h.createdAt) <= dCreatedCutoff)
       const totalHabits = activeHabits.length
       let completed = 0
       for (const habit of activeHabits) {
