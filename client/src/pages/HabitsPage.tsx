@@ -1113,13 +1113,6 @@ export default function HabitsPage() {
     )
   }
 
-  const totalTarget = discreteHabits.reduce((total, h) => {
-    if (h.frequency === 'weekly') {
-      return total + (h.timesPerWeek || 1)
-    }
-    return total + h.timesPerDay
-  }, 0)
-
   return (
     <div className="max-w-2xl mx-auto space-y-5">
       
