@@ -1,35 +1,30 @@
-export function startOfLocalDay(date = new Date()) {
-  const d = new Date(date)
+const TZ_OFFSET_MS = 3 * 60 * 60 * 1000 // UTC+3 (МСК)
 
-  d.setHours(0, 0, 0, 0)
-
-  return d
+export function startOfLocalDay(date: Date = new Date()): Date {
+  // переводим в локальное время, обнуляем, переводим обратно в UTC
+  const local = new Date(date.getTime() + TZ_OFFSET_MS)
+  local.setUTCHours(0, 0, 0, 0)
+  return new Date(local.getTime() - TZ_OFFSET_MS)
 }
 
-export function endOfLocalDay(date = new Date()) {
-  const d = new Date(date)
-
-  d.setHours(23, 59, 59, 999)
-
-  return d
+export function endOfLocalDay(date: Date = new Date()): Date {
+  const local = new Date(date.getTime() + TZ_OFFSET_MS)
+  local.setUTCHours(23, 59, 59, 999)
+  return new Date(local.getTime() - TZ_OFFSET_MS)
 }
 
-export function localDateKey(date: Date) {
-  return `${date.getFullYear()}-${String(
-    date.getMonth() + 1
-  ).padStart(2, '0')}-${String(
-    date.getDate()
-  ).padStart(2, '0')}`
+export function localDateKey(date: Date): string {
+  const local = new Date(date.getTime() + TZ_OFFSET_MS)
+  const y = local.getUTCFullYear()
+  const m = String(local.getUTCMonth() + 1).padStart(2, '0')
+  const d = String(local.getUTCDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
 }
 
-export const startOfLocalWeek = (date = new Date()) => {
-  const d = startOfLocalDay(date)
-
-  const day = d.getDay()
-
-  const diff = day === 0 ? 6 : day - 1
-
-  d.setDate(d.getDate() - diff)
-
-  return d
+export function startOfLocalWeek(date: Date = new Date()): Date {
+  const start = startOfLocalDay(date)
+  const local = new Date(start.getTime() + TZ_OFFSET_MS)
+  const day = local.getUTCDay()
+  const diff = day === 0 ? -6 : 1 - day
+  return new Date(start.getTime() + diff * 86400000)
 }

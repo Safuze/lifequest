@@ -272,6 +272,7 @@ function TaskDetailModal({ task, onClose, onUpdate, onDelete }: TaskDetailModalP
   const navigate = useNavigate()
   const [newSubtask, setNewSubtask] = useState('')
   const [newDueDate, setNewDueDate] = useState(task.dueDate ? task.dueDate.split('T')[0] : '')
+  const [dateError, setDateError] = useState('')
   const [newDueTime, setNewDueTime] = useState(() => {
     if (!task.dueDate) return ''
     const d = new Date(task.dueDate)
@@ -342,17 +343,28 @@ function TaskDetailModal({ task, onClose, onUpdate, onDelete }: TaskDetailModalP
   }
 
   const handleDateChange = async () => {
-    if (!newDueDate) {
-      await onUpdate(task.id, { dueDate: null })
-      return
+    setDateError('')
+    try {
+      if (!newDueDate) {
+        await onUpdate(task.id, { dueDate: null })
+        return
+      }
+      const dateTime = newDueTime
+        ? new Date(`${newDueDate}T${newDueTime}:00`).toISOString()
+        : new Date(`${newDueDate}T23:59:00`).toISOString()
+      await onUpdate(task.id, { dueDate: dateTime })
+    } catch (err: any) {
+      // откатываем поля к исходной дате задачи
+      setNewDueDate(task.dueDate ? task.dueDate.split('T')[0] : '')
+      setNewDueTime(() => {
+        if (!task.dueDate) return ''
+        const d = new Date(task.dueDate)
+        if (d.getHours() === 23 && d.getMinutes() === 59) return ''
+        return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`
+      })
+      setDateError(err.response?.data?.error || 'Не удалось изменить дату')
     }
-    const dateTime = newDueTime
-      ? new Date(`${newDueDate}T${newDueTime}:00`).toISOString()
-      : new Date(`${newDueDate}T23:59:00`).toISOString()
-    await onUpdate(task.id, { dueDate: dateTime })
   }
-
-  
 
   const startPomodoro = () => {
     navigate('/pomodoro', { state: { taskId: task.id, taskTitle: task.title, goalId: task.goalId } })
@@ -525,6 +537,9 @@ function TaskDetailModal({ task, onClose, onUpdate, onDelete }: TaskDetailModalP
               className="rounded-lg px-4 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
               style={{ ...inputStyle, color: newDueTime ? '#fff' : '#64748b' }} />
           </div>
+          {dateError && (
+            <p className="text-red-400 text-xs mt-1.5">{dateError}</p>
+          )}
         </div>
 
         {/* Статус */}
@@ -826,8 +841,9 @@ const handleUpdate = useCallback(async (id: number, data: any) => {
       loadUser()
     }
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Update error:', error)
+    throw error
   }
 }, [tasks, loadUser])
 
