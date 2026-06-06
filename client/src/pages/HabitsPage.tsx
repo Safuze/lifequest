@@ -5,11 +5,14 @@ import { useAuth } from '../hooks/useAuth'
 import { Plus, Trash2, X, Flame, Trophy, RotateCcw, ChevronDown, ChevronUp, Calendar } from 'lucide-react'
 import { dispatchRewards } from '../utils/dispatchRewards'
 
+const TZ_OFFSET_MS = 3 * 60 * 60 * 1000 // UTC+3 (МСК)
+
 function getLocalDateString(date?: Date): string {
   const d = date || new Date()
-  const year = d.getFullYear()
-  const month = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
+  const local = new Date(d.getTime() + TZ_OFFSET_MS)
+  const year = local.getUTCFullYear()
+  const month = String(local.getUTCMonth() + 1).padStart(2, '0')
+  const day = String(local.getUTCDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
 }
 
@@ -388,14 +391,6 @@ function HabitCard({ habit, onLog, onBreak, onDelete, onRestoreStreak, onRename,
     await onRename(habit.id, trimmed)
     setEditingTitle(false)
   }
-  const now = new Date()
-
-  const startOfWeek = new Date(now)
-  const day = now.getDay()
-  const diff = day === 0 ? -6 : 1 - day
-
-  startOfWeek.setDate(now.getDate() + diff)
-  startOfWeek.setHours(0, 0, 0, 0)
 
   const todayStr = getLocalDateString()
   const todayLogs = habit.frequency === 'weekly' ? (habit.weeklyProgress ?? 0) : habit.logs.filter(log => getLocalDateFromLog(log.date) === todayStr).length

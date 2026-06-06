@@ -16,6 +16,7 @@ export interface Habit {
   completedWeeks?: number
   bestWeeks?: number
   weeklyProgress?: number
+  weeklyTarget?: number
 }
 
 export interface HabitTemplate {
