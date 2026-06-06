@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { goalsApi } from '../api/goals'
 import type { Goal, CreateGoalData } from '../api/goals'
 import { Plus, Target, Clock, Trash2, CheckCircle, PauseCircle, X } from 'lucide-react'
+import { dispatchRewards } from '../utils/dispatchRewards'
 
 const HORIZONS = [
   { value: 'day',      label: 'На день'  },
@@ -171,7 +172,7 @@ function CreateGoalModal({ onClose, onCreated }: CreateGoalModalProps) {
 
           <div>
             <label className="text-slate-400 text-sm mb-1.5 block">
-              Оценка трудоёмкости (час)
+              Оценка трудоёмкости (час  )
               <span className="text-slate-500 ml-1">(необязательно)</span>
             </label>
             <input
@@ -327,9 +328,7 @@ export default function GoalsPage() {
           {filteredGoals.map(goal => {
             const cat = getCategoryConfig(goal.category)
             const statusCfg = STATUS_CONFIG[goal.status as keyof typeof STATUS_CONFIG]
-            const progressPercent = goal.plannedHours
-              ? Math.min((goal.spentHours / goal.plannedHours) * 100, 100)
-              : goal.progress
+            const progressPercent = goal.plannedHours ? Math.min((goal.spentHours / goal.plannedHours) * 100, 100) : goal.progress
 
             return (
               <div

@@ -344,14 +344,19 @@ function TaskDetailModal({ task, onClose, onUpdate, onDelete }: TaskDetailModalP
 
   const handleDateChange = async () => {
     setDateError('')
-    try {
-      if (!newDueDate) {
-        await onUpdate(task.id, { dueDate: null })
-        return
-      }
-      const dateTime = newDueTime
+
+    // вычисляем новое значение даты
+    const dateTime = !newDueDate
+      ? null
+      : newDueTime
         ? new Date(`${newDueDate}T${newDueTime}:00`).toISOString()
         : new Date(`${newDueDate}T23:59:00`).toISOString()
+
+    // если дата не изменилась — ничего не отправляем
+    const currentDate = task.dueDate || null
+    if (dateTime === currentDate) return
+
+    try {
       await onUpdate(task.id, { dueDate: dateTime })
     } catch (err: any) {
       // откатываем поля к исходной дате задачи

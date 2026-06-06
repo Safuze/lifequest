@@ -55,11 +55,21 @@ export const getHabits = async (req: AuthRequest, res: Response) => {
       }
     })
     const habitsWithMeta = await Promise.all(habits.map(async (habit) => {
-      // Для непрерывных и привычек с нулевым стриком — не показываем восстановление
       if (habit.trackingType !== 'discrete' || habit.currentStreak === 0) {
+        // для недельной привычки всё равно считаем прогресс недели
+        let weeklyProgress: number | undefined
+        if (habit.frequency === 'weekly') {
+          const weekStart = startOfLocalWeek()
+          const weekEnd = endOfLocalDay(new Date())
+          weeklyProgress = await prisma.habitLog.count({
+            where: { habitId: habit.id, date: { gte: weekStart, lte: weekEnd } }
+          })
+        }
         return {
           ...habit,
           canRestoreStreak: false,
+          weeklyProgress,
+          weeklyTarget: habit.frequency === 'weekly' ? habit.timesPerWeek : undefined,
         }
       }
 

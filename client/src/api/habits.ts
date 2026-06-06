@@ -15,6 +15,7 @@ export interface Habit {
   canRestoreStreak?: boolean
   completedWeeks?: number
   bestWeeks?: number
+  weeklyProgress?: number
 }
 
 export interface HabitTemplate {
