@@ -2,6 +2,7 @@ import { Request, Response } from 'express'
 import { z } from 'zod'
 import { prisma } from '../prisma'
 import { AuthRequest } from '../middleware/authMiddleware'
+import { checkAchievementsForUser } from '../services/achievementService'
 
 export const createGoalSchema = z.object({
   title: z.string().min(1).max(100),
@@ -101,7 +102,8 @@ export const updateGoal = async (req: AuthRequest, res: Response) => {
     }
 
     const goal = await prisma.goal.update({ where: { id: goalId }, data: updateData })
-    res.json({ goal })
+    const newAchievements = await checkAchievementsForUser(req.userId!)
+    res.json({ goal, achievements: newAchievements })
   } catch (error) {
     res.status(500).json({ error: 'Внутренняя ошибка сервера' })
   }
