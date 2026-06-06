@@ -397,11 +397,6 @@ function HabitCard({ habit, onLog, onBreak, onDelete, onRestoreStreak, onRename,
   startOfWeek.setDate(now.getDate() + diff)
   startOfWeek.setHours(0, 0, 0, 0)
 
-  const weeklyLogs = habit.logs.filter(log => {
-    const logDate = new Date(log.date)
-    return logDate >= startOfWeek
-  })
-
   const todayStr = getLocalDateString()
   const todayLogs = habit.frequency === 'weekly' ? (habit.weeklyProgress ?? 0) : habit.logs.filter(log => getLocalDateFromLog(log.date) === todayStr).length
 
