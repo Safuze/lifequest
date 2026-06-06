@@ -12,6 +12,7 @@ import { timerService } from '../services/timerService'
 import type { TimerMode } from '../services/timerService'
 import { audioService } from '../services/audioService'
 import { SHOP_ITEMS } from '../data/shopItems'
+
 export type TimerStyle = 'circle' | 'hourglass' | 'cheetah' | 'horse' | 'snail' | 'clock'
 
 
@@ -676,10 +677,13 @@ export default function PomodoroPage() {
 
   useEffect(() => {
     localStorage.setItem('lifequest_sound', selectedSound)
-
-    // меняем звук только если таймер уже идет
     if (isRunning) {
-      audioService.changeSound(selectedSound, true)
+      if (selectedSound === 'none') {
+        audioService.pause()
+      } else {
+        // перезапускаем воспроизведение заново, а не переключаем поток
+        audioService.play(selectedSound)
+      }
     }
   }, [selectedSound])
 

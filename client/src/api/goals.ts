@@ -1,4 +1,5 @@
 import apiClient from './client'
+import type { AchievementItem } from './tasks'
 
 export interface Goal {
   id: number
@@ -31,7 +32,7 @@ export const goalsApi = {
     const res = await apiClient.post('/goals', data)
     return res.data
   },
-  update: async (id: number, data: Partial<Goal & { deadline?: string | null }>): Promise<{ goal: Goal }> => {
+  update: async (id: number, data: Partial<Goal & { deadline?: string | null }>): Promise<{ goal: Goal, achievements?: AchievementItem[] }> => {
     const res = await apiClient.patch(`/goals/${id}`, data)
     return res.data
   },

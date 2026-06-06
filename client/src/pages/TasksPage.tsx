@@ -342,24 +342,22 @@ function TaskDetailModal({ task, onClose, onUpdate, onDelete }: TaskDetailModalP
     }
   }
 
-  const handleDateChange = async () => {
+  const handleDateChange = async (dateVal: string, timeVal: string) => {
     setDateError('')
 
-    // вычисляем новое значение даты
-    const dateTime = !newDueDate
+    const dateTime = !dateVal
       ? null
-      : newDueTime
-        ? new Date(`${newDueDate}T${newDueTime}:00`).toISOString()
-        : new Date(`${newDueDate}T23:59:00`).toISOString()
+      : timeVal
+        ? new Date(`${dateVal}T${timeVal}:00`).toISOString()
+        : new Date(`${dateVal}T23:59:00`).toISOString()
 
-    // если дата не изменилась — ничего не отправляем
-    const currentDate = task.dueDate || null
-    if (dateTime === currentDate) return
+    // если не изменилось — не дёргаем сервер
+    if (dateTime === (task.dueDate || null)) return
 
     try {
       await onUpdate(task.id, { dueDate: dateTime })
     } catch (err: any) {
-      // откатываем поля к исходной дате задачи
+      // откат полей
       setNewDueDate(task.dueDate ? task.dueDate.split('T')[0] : '')
       setNewDueTime(() => {
         if (!task.dueDate) return ''
@@ -532,13 +530,17 @@ function TaskDetailModal({ task, onClose, onUpdate, onDelete }: TaskDetailModalP
           </label>
           <div className="grid grid-cols-2 gap-3">
             <input type="date" value={newDueDate}
-              onChange={e => setNewDueDate(e.target.value)}
-              onBlur={handleDateChange}
+              onChange={e => {
+                const v = e.target.value
+                setNewDueDate(v)
+                // сохраняем сразу, передавая новое значение явно
+                handleDateChange(v, newDueTime)
+              }}
               className="rounded-lg px-4 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
               style={{ ...inputStyle, color: newDueDate ? '#fff' : '#64748b' }} />
             <input type="time" value={newDueTime}
               onChange={e => setNewDueTime(e.target.value)}
-              onBlur={handleDateChange}
+              onBlur={() => handleDateChange(newDueDate, newDueTime)}
               className="rounded-lg px-4 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
               style={{ ...inputStyle, color: newDueTime ? '#fff' : '#64748b' }} />
           </div>

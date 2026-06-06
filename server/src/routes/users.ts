@@ -566,9 +566,10 @@ router.patch('/friends/:id', async (req: AuthRequest, res: Response) => {
         data: { status: 'accepted' }
       })
     try {
-      const a1 = await checkAchievementsForUser(fs.senderId)
-      const a2 = await checkAchievementsForUser(fs.receiverId)
-      achievements = [...(a1 || []), ...(a2 || [])]
+      // достижения отправителя проверяем (запишутся в БД), но НЕ возвращаем ему в этом ответе
+      await checkAchievementsForUser(fs.senderId)
+      // принимающему возвращаем только его достижения
+      achievements = await checkAchievementsForUser(fs.receiverId) || []
       } catch (e) {
         console.error('Achievement error:', e)
       }
@@ -872,6 +873,24 @@ router.get('/achievements', async (req: AuthRequest, res: Response) => {
       orderBy: { createdAt: 'desc' }
     })
     res.json({ achievements })
+  } catch (error) {
+    res.status(500).json({ error: 'Ошибка сервера' })
+  }
+})
+
+router.get('/achievements/unseen', async (req: AuthRequest, res: Response) => {
+  try {
+    const unseen = await prisma.achievement.findMany({
+      where: { userId: req.userId!, seen: false },
+      orderBy: { createdAt: 'asc' }
+    })
+    if (unseen.length > 0) {
+      await prisma.achievement.updateMany({
+        where: { userId: req.userId!, seen: false },
+        data: { seen: true }
+      })
+    }
+    res.json({ achievements: unseen })
   } catch (error) {
     res.status(500).json({ error: 'Ошибка сервера' })
   }

@@ -4,6 +4,7 @@ import { useAuth } from '../../hooks/useAuth'
 import apiClient from '../../api/client'
 import AchievementToast from '../AchievementToast'
 import { RewardModalManager } from '../RewardModal'
+import { dispatchRewards } from '../../utils/dispatchRewards'
 import { getAvatarBorderStyle, getAvatarBorderClass } from '../../utils/avatar'
 import { LEVEL_XP } from '../../data/levelData'
 import {
@@ -199,6 +200,14 @@ export default function Layout() {
     return () => window.removeEventListener('rewards', handler as EventListener)
   }, [])
 
+  useEffect(() => {
+    apiClient.get('/users/achievements/unseen').then(res => {
+      if (res.data.achievements?.length) {
+        dispatchRewards(res.data.achievements, null)
+      }
+    }).catch(() => {})
+  }, [])
+  
   // Загружаем счётчик непрочитанных
   useEffect(() => {
     const loadUnread = async () => {

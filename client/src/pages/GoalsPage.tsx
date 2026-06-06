@@ -248,6 +248,9 @@ export default function GoalsPage() {
     try {
       const result = await goalsApi.update(id, { status })
       setGoals(prev => prev.map(g => g.id === id ? result.goal : g))
+      if (result.achievements?.length) {
+        dispatchRewards(result.achievements, null)
+      }
     } catch (error) {
       console.error('Failed to update goal:', error)
     }

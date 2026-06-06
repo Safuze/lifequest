@@ -1,5 +1,3 @@
-// This is your Prisma schema file
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,63 +8,61 @@ datasource db {
 }
 
 model User {
-  id             Int      @id @default(autoincrement())
-  publicId       String   @unique @default(cuid())
-  email          String   @unique
-  passwordHash   String?
-  oauthProvider  String?
-  oauthId        String?
-  name           String
-  avatar         String?
-  avatarBorder   String   @default("none")
-  profileBg      String   @default("default")
-  level          Int      @default(0)
-  xp             Int      @default(0)
-  gold           Float    @default(0)
-  theme          String   @default("dark")
-  createdAt      DateTime @default(now())
-  isProfilePublic Boolean @default(true)
-  habitSlots     Int @default(10)
-  taskSlots      Int @default(20)
-  dailyTaskLimit Int @default(10)
-  activePetId    String?  
-  activePomodoroSound String? @default("none")
-  activePomodoroTimer String? @default("default")
-
-  goals          Goal[]
-  projects       Project[]
-  tasks          Task[]
-  habits         Habit[]
-  sessions       PomodoroSession[]
-  achievements   Achievement[]
-  transactions   RewardTransaction[]
-  inventory      InventoryItem[]
-  weeklyReports  WeeklyReport[]
-  sentRequests   Friendship[]      @relation("sender")
-  receivedRequests Friendship[]    @relation("receiver")
-  pomodoroSettings PomodoroSettings?
-  notifications Notification[]
-  activeBoosters  ActiveBooster[]
-  permanentPerks  PermanentPerk[]
-  challenges      UserChallenge[]
+  id                  Int                 @id @default(autoincrement())
+  publicId            String              @unique @default(cuid())
+  email               String              @unique
+  passwordHash        String?
+  oauthProvider       String?
+  oauthId             String?
+  name                String
+  avatar              String?
+  avatarBorder        String              @default("none")
+  profileBg           String              @default("default")
+  level               Int                 @default(0)
+  xp                  Int                 @default(0)
+  gold                Float               @default(0)
+  theme               String              @default("dark")
+  createdAt           DateTime            @default(now())
+  isProfilePublic     Boolean             @default(true)
+  habitSlots          Int                 @default(10)
+  taskSlots           Int                 @default(20)
+  dailyTaskLimit      Int                 @default(10)
+  activePetId         String?
+  activePomodoroSound String?             @default("none")
+  activePomodoroTimer String?             @default("default")
+  achievements        Achievement[]
+  activeBoosters      ActiveBooster[]
+  receivedRequests    Friendship[]        @relation("receiver")
+  sentRequests        Friendship[]        @relation("sender")
+  goals               Goal[]
+  habits              Habit[]
+  inventory           InventoryItem[]
+  notifications       Notification[]
+  permanentPerks      PermanentPerk[]
+  sessions            PomodoroSession[]
+  pomodoroSettings    PomodoroSettings?
+  projects            Project[]
+  transactions        RewardTransaction[]
+  tasks               Task[]
+  challenges          UserChallenge[]
+  WeeklyReport        WeeklyReport[]
 }
 
 model Goal {
-  id           Int       @id @default(autoincrement())
+  id           Int               @id @default(autoincrement())
   userId       Int
   title        String
   category     String
   horizon      String
   deadline     DateTime?
   plannedHours Float?
-  spentHours   Float     @default(0)
-  progress     Int       @default(0)
-  status       String    @default("active")
-  createdAt    DateTime  @default(now())
-
-  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tasks        Task[]
+  spentHours   Float             @default(0)
+  progress     Int               @default(0)
+  status       String            @default("active")
+  createdAt    DateTime          @default(now())
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   sessions     PomodoroSession[]
+  tasks        Task[]
 
   @@index([userId])
 }
@@ -76,7 +72,6 @@ model Project {
   userId    Int
   title     String
   createdAt DateTime @default(now())
-
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   tasks     Task[]
 
@@ -84,30 +79,29 @@ model Project {
 }
 
 model Task {
-  id           Int       @id @default(autoincrement())
+  id           Int               @id @default(autoincrement())
   userId       Int
   goalId       Int?
   projectId    Int?
   parentId     Int?
   title        String
   description  String?
-  priority     String    @default("medium")
+  priority     String            @default("medium")
   category     String?
   labels       String[]
-  status       String    @default("todo")
+  status       String            @default("todo")
   dueDate      DateTime?
   completedAt  DateTime?
-  isPinned     Boolean   @default(false)
-  isFocusToday Boolean   @default(false)
-  timeSpent    Float     @default(0)
-  createdAt    DateTime  @default(now())
-
-  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  goal         Goal?     @relation(fields: [goalId], references: [id], onDelete: SetNull)
-  project      Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  parent       Task?     @relation("subtasks", fields: [parentId], references: [id])
-  subtasks     Task[]    @relation("subtasks")
+  isPinned     Boolean           @default(false)
+  isFocusToday Boolean           @default(false)
+  timeSpent    Float             @default(0)
+  createdAt    DateTime          @default(now())
   sessions     PomodoroSession[]
+  goal         Goal?             @relation(fields: [goalId], references: [id])
+  parent       Task?             @relation("subtasks", fields: [parentId], references: [id])
+  subtasks     Task[]            @relation("subtasks")
+  project      Project?          @relation(fields: [projectId], references: [id])
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([goalId])
@@ -115,22 +109,21 @@ model Task {
 }
 
 model PomodoroSession {
-  id              Int       @id @default(autoincrement())
+  id              Int                 @id @default(autoincrement())
   userId          Int
   taskId          Int?
   goalId          Int?
   plannedDuration Int
-  actualDuration  Int       @default(0)
-  status          String    @default("active")
-  cycleNumber     Int       @default(1)
-  startedAt       DateTime  @default(now())
+  actualDuration  Int                 @default(0)
+  status          String              @default("active")
+  cycleNumber     Int                 @default(1)
+  startedAt       DateTime            @default(now())
   completedAt     DateTime?
-  earnedXp        Int   @default(0)
-  earnedGold      Float @default(0)
-
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  task            Task?     @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  goal            Goal?     @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  earnedXp        Int                 @default(0)
+  earnedGold      Float               @default(0)
+  goal            Goal?               @relation(fields: [goalId], references: [id])
+  task            Task?               @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions    RewardTransaction[]
 
   @@index([userId])
@@ -139,27 +132,25 @@ model PomodoroSession {
 }
 
 model Habit {
-  id                  Int       @id @default(autoincrement())
-  userId              Int
-  title               String
-  type                String
-  trackingType        String    @default("discrete")
-  frequency           String    @default("daily")
-  timesPerDay         Int       @default(1)
-  timesPerWeek        Int?
-  currentStreak       Int       @default(0)
-  bestStreak          Int       @default(0)
-  completedWeeks      Int @default(0)
-  lastCompletedWeek   DateTime?
-  bestWeeks           Int @default(0)
-  startDate           DateTime?
-  isDayTrackingEnabled Boolean  @default(false)
-  createdAt           DateTime  @default(now())
-  streakRestoredAt DateTime?
-  
-
-  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  logs                HabitLog[]
+  id                   Int        @id @default(autoincrement())
+  userId               Int
+  title                String
+  type                 String
+  trackingType         String     @default("discrete")
+  frequency            String     @default("daily")
+  timesPerDay          Int        @default(1)
+  timesPerWeek         Int?
+  currentStreak        Int        @default(0)
+  bestStreak           Int        @default(0)
+  completedWeeks       Int        @default(0)
+  lastCompletedWeek    DateTime?
+  bestWeeks            Int        @default(0)
+  startDate            DateTime?
+  isDayTrackingEnabled Boolean    @default(false)
+  createdAt            DateTime   @default(now())
+  streakRestoredAt     DateTime?
+  user                 User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  logs                 HabitLog[]
 
   @@index([userId])
 }
@@ -171,7 +162,6 @@ model HabitLog {
   repetition Int      @default(1)
   note       String?
   createdAt  DateTime @default(now())
-
   habit      Habit    @relation(fields: [habitId], references: [id], onDelete: Cascade)
 
   @@unique([habitId, date, repetition])
@@ -180,7 +170,7 @@ model HabitLog {
 }
 
 model HabitTemplate {
-  id       Int    @id @default(autoincrement())
+  id       Int     @id @default(autoincrement())
   title    String
   type     String
   tracking String
@@ -189,32 +179,31 @@ model HabitTemplate {
 }
 
 model Achievement {
-  id       Int      @id @default(autoincrement())
-  userId   Int
-  type     String
-  title    String
-  description String  @default("")
-  icon        String  @default("🏆")
-  rarity      String  @default("common")
-  createdAt DateTime  @default(now())
-
-  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  @@unique([userId, type]) 
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  type        String
+  title       String
+  description String   @default("")
+  icon        String   @default("🏆")
+  rarity      String   @default("common")
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  seen        Boolean  @default(false)
+  @@unique([userId, type])
   @@index([userId])
 }
 
 model RewardTransaction {
-  id         Int      @id @default(autoincrement())
+  id         Int              @id @default(autoincrement())
   userId     Int
   sessionId  Int?
   sourceType String
-  sourceId   Int      @default(0)
+  sourceId   Int              @default(0)
   rewardType String
   amount     Float
-  createdAt  DateTime @default(now())
-
-  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  session    PomodoroSession?  @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  createdAt  DateTime         @default(now())
+  session    PomodoroSession? @relation(fields: [sessionId], references: [id])
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([createdAt])
@@ -234,7 +223,6 @@ model InventoryItem {
   dropChance Float?
   assetUrl   String?
   earnedAt   DateTime @default(now())
-
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
@@ -246,13 +234,95 @@ model Friendship {
   receiverId Int
   status     String   @default("pending")
   createdAt  DateTime @default(now())
-
-  sender     User     @relation("sender",   fields: [senderId],   references: [id], onDelete: Cascade)
   receiver   User     @relation("receiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  sender     User     @relation("sender", fields: [senderId], references: [id], onDelete: Cascade)
 
   @@unique([senderId, receiverId])
   @@index([senderId])
   @@index([receiverId])
+}
+
+model PomodoroSettings {
+  id                   Int       @id @default(autoincrement())
+  userId               Int       @unique
+  workDuration         Int       @default(25)
+  shortBreak           Int       @default(5)
+  longBreak            Int       @default(15)
+  cyclesBeforeLong     Int       @default(4)
+  currentCycleSessions Int       @default(0)
+  lastSessionDate      DateTime?
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  type      String
+  title     String
+  body      String
+  isRead    Boolean  @default(false)
+  data      Json?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+}
+
+model ActiveBooster {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  type       String
+  multiplier Float    @default(2.0)
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+}
+
+model PermanentPerk {
+  id           Int     @id @default(autoincrement())
+  userId       Int
+  type         String
+  level        Int     @default(0)
+  bonusPercent Float
+  isActive     Boolean @default(true)
+  user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type])
+  @@index([userId])
+}
+
+model Challenge {
+  id            Int             @id @default(autoincrement())
+  title         String
+  description   String
+  type          String
+  targetValue   Int
+  durationDays  Int
+  entryFee      Int
+  rewardXp      Int
+  rewardCredits Int
+  isActive      Boolean         @default(true)
+  createdAt     DateTime        @default(now())
+  participants  UserChallenge[]
+}
+
+model UserChallenge {
+  id           Int       @id @default(autoincrement())
+  userId       Int
+  challengeId  Int
+  status       String    @default("active")
+  progress     Float     @default(0)
+  progressData Json?
+  startedAt    DateTime  @default(now())
+  completedAt  DateTime?
+  expiresAt    DateTime
+  challenge    Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, challengeId])
+  @@index([userId, status])
 }
 
 model WeeklyReport {
@@ -268,98 +338,8 @@ model WeeklyReport {
   categoryData     Json     @default("{}")
   recommendations  Json     @default("[]")
   createdAt        DateTime @default(now())
-
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  User             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, weekStart])
   @@index([userId])
-}
-
-model PomodoroSettings {
-  id              Int  @id @default(autoincrement())
-  userId          Int  @unique
-  workDuration    Int  @default(25)
-  shortBreak      Int  @default(5)
-  longBreak       Int  @default(15)
-  cyclesBeforeLong Int @default(4)
-  currentCycleSessions Int @default(0)
-  lastSessionDate      DateTime?
-  user            User @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model Notification {
-  id        Int      @id @default(autoincrement())
-  userId    Int
-  type      String   // 'friend_request' | 'task_due' | 'habit_reminder' | 'achievement'
-  title     String
-  body      String
-  isRead    Boolean  @default(false)
-  data      Json?    // дополнительные данные (taskId, habitId и т.д.)
-  createdAt DateTime @default(now())
-
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId, isRead])
-}
-
-// Активные временные бустеры
-model ActiveBooster {
-  id          Int      @id @default(autoincrement())
-  userId      Int
-  type        String   // 'xp_boost' | 'gold_boost' | 'combo_boost'
-  multiplier  Float    @default(2.0)
-  expiresAt   DateTime
-  createdAt   DateTime @default(now())
-
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId, expiresAt])
-}
-
-// Постоянные перки (накапливаются, не истекают)
-model PermanentPerk {
-  id          Int      @id @default(autoincrement())
-  userId      Int
-  type        String   // 'xp_bonus' | 'gold_bonus'
-  level       Int      @default(0)
-  bonusPercent Float   // 10.0 = +10%
-  isActive     Boolean @default(true)
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, type]) // один перк каждого типа на пользователя
-  @@index([userId])
-}
-
-model Challenge {
-  id            Int      @id @default(autoincrement())
-  title         String
-  description   String
-  type          String   // 'pomodoro_daily' | 'tasks_daily' | 'habit_streak' | 'combined'
-  targetValue   Int      // целевое значение (например, 240 минут или 5 задач)
-  durationDays  Int      // длительность испытания в днях
-  entryFee      Int      // стоимость участия в кредитах
-  rewardXp      Int
-  rewardCredits Int
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-
-  participants  UserChallenge[]
-}
-
-model UserChallenge {
-  id            Int       @id @default(autoincrement())
-  userId        Int
-  challengeId   Int
-  status        String    @default("active") // 'active' | 'completed' | 'failed'
-  progress      Float     @default(0)        // текущий прогресс (0..100 процент)
-  progressData  Json?     // детальные данные прогресса {dailyLogs: [...]}
-  startedAt     DateTime  @default(now())
-  completedAt   DateTime?
-  expiresAt     DateTime  // startedAt + durationDays
-
-  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  challenge     Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, challengeId]) // нельзя участвовать дважды в одном испытании
-  @@index([userId, status])
 }

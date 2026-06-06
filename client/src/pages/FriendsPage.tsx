@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import apiClient from '../api/client'
 import { Search, UserPlus, Check, X, Users, UserMinus } from 'lucide-react'
 import { LEVEL_NAMES, LEVEL_COLORS } from '../data/levelData'
+import { dispatchRewards } from '../utils/dispatchRewards'
 
 interface Friend {
   id: number
@@ -70,8 +71,11 @@ export default function FriendsPage() {
 
   const handleFriendAction = async (friendshipId: number, action: 'accept' | 'reject') => {
     try {
-      await apiClient.patch(`/users/friends/${friendshipId}`, { action })
+      const res = await apiClient.patch(`/users/friends/${friendshipId}`, { action })
       await loadFriends()
+      if (res.data.achievements?.length) {
+        dispatchRewards(res.data.achievements, null)
+      }
     } catch (error) {
       console.error('Friend action error:', error)
     }
