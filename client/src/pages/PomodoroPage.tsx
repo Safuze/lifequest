@@ -681,7 +681,8 @@ export default function PomodoroPage() {
   const [showSettings, setShowSettings] = useState(false)
   const [showTaskSelect, setShowTaskSelect] = useState(false)
   const initDone = useRef(false)
-
+  const pomodoroSettingsRef = useRef<PomodoroSettings | null>(null)
+  useEffect(() => { pomodoroSettingsRef.current = pomodoroSettings }, [pomodoroSettings])
   useEffect(() => {
     localStorage.setItem('lifequest_sound', selectedSound)
     if (isRunning) {
@@ -717,48 +718,21 @@ export default function PomodoroPage() {
     timerService.setLoadUser(loadUser)
   }, [loadUser])
 
-  // visibilitychange — пересчитываем время при возврате на страницу
   useEffect(() => {
-    const handleVisibility = async () => {
-      if (document.visibilityState === 'visible' && pomodoroSettings) {
-        timerService.syncFromStorage(pomodoroSettings)
-        // подтягиваем актуальную статистику (могла наступить новая дата)
-        try {
-          const statsData = await pomodoroApi.getTodayStats()
-          useTimerStore.getState().setTodayStats(
-            statsData.totalMinutes,
-            statsData.sessionsCount,
-            statsData.completedCycles
-          )
-        } catch { /* ignore */ }
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        const settings = pomodoroSettingsRef.current
+        if (!settings) return
+        timerService.syncFromStorage(settings)
+        // лёгкое обновление статистики — без await, не блокируем
+        pomodoroApi.getTodayStats().then(s => {
+          useTimerStore.getState().setTodayStats(s.totalMinutes, s.sessionsCount, s.completedCycles)
+        }).catch(() => {})
       }
     }
     document.addEventListener('visibilitychange', handleVisibility)
     return () => document.removeEventListener('visibilitychange', handleVisibility)
-  }, [pomodoroSettings])
-
-  useEffect(() => {
-    if (!pomodoroSettings) return
-    // запоминаем текущий локальный день (МСК)
-    let currentDayKey = getLocalDayKey()
-
-    const interval = setInterval(async () => {
-      const nowKey = getLocalDayKey()
-      if (nowKey !== currentDayKey) {
-        currentDayKey = nowKey
-        try {
-          const statsData = await pomodoroApi.getTodayStats()
-          useTimerStore.getState().setTodayStats(
-            statsData.totalMinutes,
-            statsData.sessionsCount,
-            statsData.completedCycles
-          )
-        } catch { /* ignore */ }
-      }
-    }, 60000) // раз в минуту
-
-    return () => clearInterval(interval)
-  }, [pomodoroSettings])
+  }, [])  // ← пустой массив, эффект навешивается ОДИН раз
 
   // Инициализация
   useEffect(() => {
