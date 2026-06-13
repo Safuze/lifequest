@@ -677,25 +677,31 @@ export default function PomodoroPage() {
   const initDone = useRef(false)
   const pomodoroSettingsRef = useRef<PomodoroSettings | null>(null)
   useEffect(() => { pomodoroSettingsRef.current = pomodoroSettings }, [pomodoroSettings])
+
+  // храним предыдущий выбранный звук, чтобы понять — это смена звука или нет
+  const prevSoundRef = useRef(selectedSound)
+
   useEffect(() => {
     localStorage.setItem('lifequest_sound', selectedSound)
-    if (isRunning) {
-      if (selectedSound === 'none') {
-        audioService.pause()
-      } else {
-        // перезапускаем воспроизведение заново, а не переключаем поток
-        audioService.play(selectedSound)
-      }
+
+    const soundChanged = prevSoundRef.current !== selectedSound
+    prevSoundRef.current = selectedSound
+
+    // реагируем только если звук реально сменили во время работы таймера
+    if (!soundChanged) return
+    if (!isRunning) return
+
+    if (selectedSound === 'none') {
+      audioService.pause()
+    } else {
+      audioService.play(selectedSound)
     }
-  }, [selectedSound])
+  }, [selectedSound, isRunning])
 
   useEffect(() => {
     if (isRunning) {
-      if (selectedSound === 'none') {
-        audioService.pause()
-      } else {
-        audioService.resume()
-      }
+      if (selectedSound === 'none') audioService.pause()
+      else audioService.resume()
     } else {
       audioService.pause()
     }
@@ -837,7 +843,6 @@ export default function PomodoroPage() {
   }, [])
 
   // Сохраняем UI настройки
-  useEffect(() => { localStorage.setItem('lifequest_sound', selectedSound) }, [selectedSound])
   useEffect(() => { localStorage.setItem('lifequest_bg', selectedBg) }, [selectedBg])
   useEffect(() => { localStorage.setItem('lifequest_timer_style', selectedTimerStyle) }, [selectedTimerStyle])
   useEffect(() => { localStorage.setItem('lifequest_auto_switch', String(autoSwitch)) }, [autoSwitch])
