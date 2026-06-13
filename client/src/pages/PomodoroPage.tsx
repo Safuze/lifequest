@@ -13,12 +13,6 @@ import type { TimerMode } from '../services/timerService'
 import { audioService } from '../services/audioService'
 import { SHOP_ITEMS } from '../data/shopItems'
 
-
-const TZ_OFFSET_MS = 3 * 60 * 60 * 1000 // UTC+3 (МСК)
-function getLocalDayKey(): string {
-  const local = new Date(Date.now() + TZ_OFFSET_MS)
-  return local.toISOString().split('T')[0]
-}
 export type TimerStyle = 'circle' | 'hourglass' | 'cheetah' | 'horse' | 'snail' | 'clock'
 
 const SOUND_ITEMS = [
