@@ -13,8 +13,13 @@ import type { TimerMode } from '../services/timerService'
 import { audioService } from '../services/audioService'
 import { SHOP_ITEMS } from '../data/shopItems'
 
-export type TimerStyle = 'circle' | 'hourglass' | 'cheetah' | 'horse' | 'snail' | 'clock'
 
+const TZ_OFFSET_MS = 3 * 60 * 60 * 1000 // UTC+3 (МСК)
+function getLocalDayKey(): string {
+  const local = new Date(Date.now() + TZ_OFFSET_MS)
+  return local.toISOString().split('T')[0]
+}
+export type TimerStyle = 'circle' | 'hourglass' | 'cheetah' | 'horse' | 'snail' | 'clock'
 
 const SOUND_ITEMS = [
   {
@@ -53,6 +58,8 @@ const TIMER_STYLE_ITEMS = [
   },
   ...SHOP_ITEMS.filter(i => i.category === 'pomodoro_timer')
 ]
+
+
 
 function LiveBackground({ bgId }: { bgId: string }) {
   const config = BACKGROUND_ITEMS.find(b => b.id === bgId)
@@ -689,19 +696,15 @@ export default function PomodoroPage() {
 
   useEffect(() => {
     if (isRunning) {
-      audioService.resume()
+      if (selectedSound === 'none') {
+        audioService.pause()
+      } else {
+        audioService.resume()
+      }
     } else {
       audioService.pause()
     }
-  }, [isRunning])
-
-  useEffect(() => {
-    if (isRunning) {
-      audioService.resume()
-    } else {
-      audioService.pause()
-    }
-  }, [isRunning])
+  }, [isRunning, selectedSound])
 
   useEffect(() => {
     localStorage.setItem('lifequest_volume', String(volume))
@@ -716,13 +719,45 @@ export default function PomodoroPage() {
 
   // visibilitychange — пересчитываем время при возврате на страницу
   useEffect(() => {
-    const handleVisibility = () => {
+    const handleVisibility = async () => {
       if (document.visibilityState === 'visible' && pomodoroSettings) {
         timerService.syncFromStorage(pomodoroSettings)
+        // подтягиваем актуальную статистику (могла наступить новая дата)
+        try {
+          const statsData = await pomodoroApi.getTodayStats()
+          useTimerStore.getState().setTodayStats(
+            statsData.totalMinutes,
+            statsData.sessionsCount,
+            statsData.completedCycles
+          )
+        } catch { /* ignore */ }
       }
     }
     document.addEventListener('visibilitychange', handleVisibility)
     return () => document.removeEventListener('visibilitychange', handleVisibility)
+  }, [pomodoroSettings])
+
+  useEffect(() => {
+    if (!pomodoroSettings) return
+    // запоминаем текущий локальный день (МСК)
+    let currentDayKey = getLocalDayKey()
+
+    const interval = setInterval(async () => {
+      const nowKey = getLocalDayKey()
+      if (nowKey !== currentDayKey) {
+        currentDayKey = nowKey
+        try {
+          const statsData = await pomodoroApi.getTodayStats()
+          useTimerStore.getState().setTodayStats(
+            statsData.totalMinutes,
+            statsData.sessionsCount,
+            statsData.completedCycles
+          )
+        } catch { /* ignore */ }
+      }
+    }, 60000) // раз в минуту
+
+    return () => clearInterval(interval)
   }, [pomodoroSettings])
 
   // Инициализация

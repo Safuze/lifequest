@@ -56,12 +56,11 @@
     }
 
     resume() {
-      console.log('RESUME CALLED')
+      if (this.currentSound === 'none') return   
       if (this.audio && !this.isPlaying && this.currentSound !== 'none') {
         this.audio.play().catch((err) => {
           console.error('Audio play failed:', err)
         })
-
         this.isPlaying = true
       }
     }
