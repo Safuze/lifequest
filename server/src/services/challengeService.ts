@@ -37,40 +37,33 @@ async function recalcUserChallenge(
   const now = new Date()
   const { progress, successDays } = await calcCurrentProgress(uc, challenge)
 
-
-  // Испытание просрочено
+  // Испытание просрочено по времени
   if (now > uc.expiresAt) {
     return { progress, status: progress >= 100 ? 'completed' : 'failed' }
   }
 
-  // Считаем сколько дней уже прошло
+  // Уже выполнено полностью
+  if (progress >= 100) {
+    return { progress, status: 'completed' }
+  }
+
   const start = startOfLocalDay(uc.startedAt)
   const todayStart = startOfLocalDay(now)
-  const daysPassed = Math.floor((todayStart.getTime() - start.getTime()) / 86400000)
 
-  // Дней осталось
-  const daysLeft = Math.max(0, challenge.durationDays - daysPassed)
+  // Сколько ПОЛНЫХ дней уже завершилось (вчера и раньше).
+  // Сегодня ещё идёт и не считается "потерянным".
+  const daysCompleted = Math.floor((todayStart.getTime() - start.getTime()) / 86400000)
 
-  // Максимально возможный прогресс если выполнять все оставшиеся дни
-  // successDays = текущий прогресс в днях + daysLeft
-  const currentSuccessDays = successDays
-  const maxPossibleDays = currentSuccessDays + daysLeft
-  const maxPossibleProgress = Math.round((maxPossibleDays / challenge.durationDays) * 100)
-  console.log('CHALLENGE DEBUG', {
-    challengeId: uc.challengeId,
-    userId: uc.userId,
-    progress,
-    durationDays: challenge.durationDays,
-    currentSuccessDays,
-    daysPassed,
-    daysLeft,
-    maxPossibleDays,
-    maxPossibleProgress,
-    now,
-    startedAt: uc.startedAt,
-    expiresAt: uc.expiresAt,
-  })
-  if (maxPossibleProgress < 100) {
+  // Сколько проваленных дней среди уже завершённых:
+  // завершилось daysCompleted дней, из них успешных не более successDays.
+  // Но successDays может включать и сегодняшний выполненный день — поэтому
+  // ограничиваем число "успешных завершённых дней" сверху значением daysCompleted.
+  const successCompletedDays = Math.min(successDays, daysCompleted)
+  const failedDays = daysCompleted - successCompletedDays
+
+  // Если хоть один полностью завершённый день провален — серия порвана.
+  // (для типа "каждый день подряд" любой пропуск = провал)
+  if (failedDays > 0) {
     return { progress, status: 'failed' }
   }
 
