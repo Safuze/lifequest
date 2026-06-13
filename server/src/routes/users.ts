@@ -566,10 +566,10 @@ router.patch('/friends/:id', async (req: AuthRequest, res: Response) => {
         data: { status: 'accepted' }
       })
     try {
-      // достижения отправителя проверяем (запишутся в БД), но НЕ возвращаем ему в этом ответе
+      // отправителя проверяем в фон (markSeen не указываем → false, придёт через unseen)
       await checkAchievementsForUser(fs.senderId)
-      // принимающему возвращаем только его достижения
-      achievements = await checkAchievementsForUser(fs.receiverId) || []
+      // принимающему — показываем сразу, значит сразу seen:true
+      achievements = await checkAchievementsForUser(fs.receiverId, true) || []
       } catch (e) {
         console.error('Achievement error:', e)
       }

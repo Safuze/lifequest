@@ -74,7 +74,8 @@ export async function checkAndAwardAchievements(
     totalGoldEarned?: number 
     currentLevel?: number
     goalsCompleted?: number
-  }
+  },
+  markSeen: boolean = false
 ): Promise<AchievementDef[]> {
   const newAchievements: AchievementDef[] = []
 
@@ -151,6 +152,7 @@ export async function checkAndAwardAchievements(
         description: def.description,
         icon: def.icon,
         rarity: def.rarity,
+        seen: markSeen,
       }
     })
     newAchievements.push(def)
@@ -160,7 +162,7 @@ export async function checkAndAwardAchievements(
 }
 
 // Вспомогательная функция — собирает контекст из БД и проверяет достижения
-export async function checkAchievementsForUser(userId: number): Promise<AchievementDef[]> {
+export async function checkAchievementsForUser(userId: number, markSeen: boolean = false): Promise<AchievementDef[]> {
   const [
     tasksCompleted,
     pomodoroStats,
@@ -211,5 +213,5 @@ export async function checkAchievementsForUser(userId: number): Promise<Achievem
     totalGoldEarned: totalGoldEarned._sum.amount || 0,
     currentLevel: user?.level || 0,
     goalsCompleted,
-  })
+  }, markSeen)
 }

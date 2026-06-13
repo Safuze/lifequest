@@ -240,19 +240,28 @@ export const logHabit = async (req: AuthRequest, res: Response) => {
     if (habit.frequency === 'weekly') {
       const existingTodayLog =
         await prisma.habitLog.findFirst({
-          where: {
-            habitId,
-            date: {
-              gte: today,
-              lte: todayEnd,
-            },
-          },
+          where: { habitId, date: { gte: today, lte: todayEnd } },
         })
 
       if (existingTodayLog) {
         res.status(400).json({
-          error:
-            'Weekly привычку можно отмечать только 1 раз в день',
+          error: 'Weekly привычку можно отмечать только 1 раз в день',
+        })
+        return
+      }
+
+      // НЕДЕЛЬНЫЙ ЛИМИТ: нельзя отмечать сверх timesPerWeek в текущей неделе
+      const weekStart = startOfLocalWeek()
+      const weekEnd = endOfLocalDay(new Date(weekStart.getTime() + 6 * 86400000))
+      const weekTarget = habit.timesPerWeek ?? 2
+
+      const weekLogsCount = await prisma.habitLog.count({
+        where: { habitId, date: { gte: weekStart, lte: weekEnd } }
+      })
+
+      if (weekLogsCount >= weekTarget) {
+        res.status(400).json({
+          error: 'Недельная цель уже выполнена. Следующая отметка — на новой неделе.'
         })
         return
       }
@@ -438,7 +447,7 @@ export const logHabit = async (req: AuthRequest, res: Response) => {
       levelUp = userBefore?.level !== undefined && userAfter?.level !== undefined && userAfter.level > userBefore.level ? {
         level: userAfter.level, levelName: getLevelName(userAfter.level)
       }: null
-      const extraAchievements = await checkAchievementsForUser(req.userId!)
+      const extraAchievements = await checkAchievementsForUser(req.userId!, true)
       newAchievements.push(...extraAchievements) 
       }
 

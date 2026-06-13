@@ -389,7 +389,7 @@ export const updateTask = async (req: AuthRequest, res: Response) => {
     })
 
     // достижения проверяем после того как статус задачи уже done в БД
-    const newAchievements = await checkAchievementsForUser(req.userId!)
+    const newAchievements = await checkAchievementsForUser(req.userId!, true)
 
     res.json({
       task: {

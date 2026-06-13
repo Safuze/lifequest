@@ -102,7 +102,7 @@ export const updateGoal = async (req: AuthRequest, res: Response) => {
     }
 
     const goal = await prisma.goal.update({ where: { id: goalId }, data: updateData })
-    const newAchievements = await checkAchievementsForUser(req.userId!)
+    const newAchievements = await checkAchievementsForUser(req.userId!, true)
     res.json({ goal, achievements: newAchievements })
   } catch (error) {
     res.status(500).json({ error: 'Внутренняя ошибка сервера' })
