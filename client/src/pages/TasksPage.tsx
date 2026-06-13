@@ -34,8 +34,12 @@ const COLUMNS = [
   { id: 'done',       label: 'Готово'        },
 ]
 
+const TZ_OFFSET_MS = 3 * 60 * 60 * 1000 // UTC+3 (МСК)
+
 function toDateInputValue(date: Date): string {
-  return date.toISOString().split('T')[0]
+  // сдвигаем на МСК и берём дату уже по «московским» стенным часам
+  const local = new Date(date.getTime() + TZ_OFFSET_MS)
+  return local.toISOString().split('T')[0]
 }
 
 function formatDateTime(dateStr: string): string {
@@ -881,7 +885,7 @@ const handleUpdate = useCallback(async (id: number, data: any) => {
       if (filterGoal && task.goalId !== parseInt(filterGoal)) return false
       if (selectedDate) {
         if (!task.dueDate) return false
-        if (task.dueDate.split('T')[0] !== selectedDate) return false
+        if (toDateInputValue(new Date(task.dueDate)) !== selectedDate) return false
       }
       return true
     })

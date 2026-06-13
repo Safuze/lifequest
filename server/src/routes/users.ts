@@ -880,16 +880,32 @@ router.get('/achievements', async (req: AuthRequest, res: Response) => {
 
 router.get('/achievements/unseen', async (req: AuthRequest, res: Response) => {
   try {
+    // Сначала забираем id непросмотренных
     const unseen = await prisma.achievement.findMany({
       where: { userId: req.userId!, seen: false },
       orderBy: { createdAt: 'asc' }
     })
-    if (unseen.length > 0) {
-      await prisma.achievement.updateMany({
-        where: { userId: req.userId!, seen: false },
-        data: { seen: true }
-      })
+
+    if (unseen.length === 0) {
+      res.json({ achievements: [] })
+      return
     }
+
+    // Атомарно помечаем именно эти id как просмотренные.
+    // updateMany вернёт count — сколько строк реально перешло из seen:false в seen:true.
+    const ids = unseen.map(a => a.id)
+    const result = await prisma.achievement.updateMany({
+      where: { id: { in: ids }, seen: false }, // ← ключевое: seen:false ещё раз в условии
+      data: { seen: true }
+    })
+
+    // Если второй (гоночный) запрос пришёл следом — он обновит 0 строк
+    // и вернёт пустой массив, потому что эти достижения уже seen:true
+    if (result.count === 0) {
+      res.json({ achievements: [] })
+      return
+    }
+
     res.json({ achievements: unseen })
   } catch (error) {
     res.status(500).json({ error: 'Ошибка сервера' })

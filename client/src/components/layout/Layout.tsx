@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import apiClient from '../../api/client'
-import AchievementToast from '../AchievementToast'
+// import AchievementToast from '../AchievementToast'
 import { RewardModalManager } from '../RewardModal'
 import { dispatchRewards } from '../../utils/dispatchRewards'
 import { getAvatarBorderStyle, getAvatarBorderClass } from '../../utils/avatar'
@@ -164,7 +164,7 @@ export default function Layout() {
   const [collapsed, setCollapsed] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
-  const [pendingAchievements, setPendingAchievements] = useState<any[]>([])
+  // const [pendingAchievements, setPendingAchievements] = useState<any[]>([])
 
 
   function getXpProgress(xp: number) {
@@ -187,18 +187,18 @@ export default function Layout() {
     navigate('/login')
   }
 
-  useEffect(() => {
-    const handler = (e: CustomEvent) => {
-      const { achievements } = e.detail || {}
+  // useEffect(() => {
+  //   const handler = (e: CustomEvent) => {
+  //     const { achievements } = e.detail || {}
 
-      if (achievements?.length > 0) {
-        setPendingAchievements(prev => [...prev, ...achievements])
-      }
-    }
+  //     if (achievements?.length > 0) {
+  //       setPendingAchievements(prev => [...prev, ...achievements])
+  //     }
+  //   }
 
-    window.addEventListener('rewards', handler as EventListener)
-    return () => window.removeEventListener('rewards', handler as EventListener)
-  }, [])
+  //   window.addEventListener('rewards', handler as EventListener)
+  //   return () => window.removeEventListener('rewards', handler as EventListener)
+  // }, [])
 
   useEffect(() => {
     apiClient.get('/users/achievements/unseen').then(res => {
@@ -372,12 +372,12 @@ export default function Layout() {
           <Outlet />
         </main>
       </div>
-      {pendingAchievements.length > 0 && (
+      {/* {pendingAchievements.length > 0 && (
         <AchievementToast
           achievements={pendingAchievements}
           onDismiss={() => setPendingAchievements(prev => prev.slice(1))}
         />
-      )}
+      )} */}
       <RewardModalManager />
     </div>
   )
