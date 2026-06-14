@@ -261,7 +261,7 @@ export const completeSession = async (req: AuthRequest, res: Response) => {
             levelName: getLevelName(userAfter.level)
           }
         : null
-    const newAchievements = await checkAchievementsForUser(req.userId!)
+    const newAchievements = await checkAchievementsForUser(req.userId!, true)
     res.json({
       session,
       reward: { xp: finalXp, gold: Number(finalGold.toFixed(1)) },

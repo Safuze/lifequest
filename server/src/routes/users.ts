@@ -912,4 +912,21 @@ router.get('/achievements/unseen', async (req: AuthRequest, res: Response) => {
   }
 })
 
+router.post('/achievements/mark-seen', async (req: AuthRequest, res: Response) => {
+  try {
+    const { types } = req.body  // массив type показанных достижений
+    if (!Array.isArray(types) || types.length === 0) {
+      res.json({ success: true })
+      return
+    }
+    await prisma.achievement.updateMany({
+      where: { userId: req.userId!, type: { in: types }, seen: false },
+      data: { seen: true }
+    })
+    res.json({ success: true })
+  } catch (error) {
+    res.status(500).json({ error: 'Ошибка сервера' })
+  }
+})
+
 export default router

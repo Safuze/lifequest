@@ -13,6 +13,11 @@ import type { TimerMode } from '../services/timerService'
 import { audioService } from '../services/audioService'
 import { SHOP_ITEMS } from '../data/shopItems'
 
+const TZ_OFFSET_MS = 3 * 60 * 60 * 1000 // UTC+3 (МСК)
+function getLocalDayKey(): string {
+  return new Date(Date.now() + TZ_OFFSET_MS).toISOString().split('T')[0]
+}
+
 export type TimerStyle = 'circle' | 'hourglass' | 'cheetah' | 'horse' | 'snail' | 'clock'
 
 const SOUND_ITEMS = [
@@ -733,6 +738,21 @@ export default function PomodoroPage() {
     document.addEventListener('visibilitychange', handleVisibility)
     return () => document.removeEventListener('visibilitychange', handleVisibility)
   }, [])  // ← пустой массив, эффект навешивается ОДИН раз
+
+  useEffect(() => {
+    let currentDayKey = getLocalDayKey()
+    const interval = setInterval(() => {
+      const nowKey = getLocalDayKey()
+      if (nowKey !== currentDayKey) {
+        currentDayKey = nowKey
+        // день сменился — перечитываем статистику (она обнулится)
+        pomodoroApi.getTodayStats().then(s => {
+          useTimerStore.getState().setTodayStats(s.totalMinutes, s.sessionsCount, s.completedCycles)
+        }).catch(() => {})
+      }
+    }, 60000)
+    return () => clearInterval(interval)
+  }, [])
 
   // Инициализация
   useEffect(() => {
