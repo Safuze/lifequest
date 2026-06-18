@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import {
   getHabits, createHabit, deleteHabit, logHabit,
-  breakContinuousHabit, restoreStreak, getHeatmap,
+  breakContinuousHabit, restoreStreak, skipRestoreStreak, getHeatmap,
   getTemplates, createHabitSchema, updateHabit
 } from '../controllers/habitController'
 import { authMiddleware } from '../middleware/authMiddleware'
@@ -17,6 +17,7 @@ router.delete('/:id', deleteHabit)
 router.post('/:id/log', logHabit)
 router.post('/:id/break', breakContinuousHabit)
 router.post('/:id/restore-streak', restoreStreak)
+router.post('/:id/skip-restore', skipRestoreStreak)
 router.get('/:id/heatmap', getHeatmap)
 router.get('/heatmap', getHeatmap)
 router.patch('/:id', updateHabit)

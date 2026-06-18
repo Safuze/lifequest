@@ -297,14 +297,12 @@ export const logHabit = async (req: AuthRequest, res: Response) => {
 
       if (habit.frequency === 'weekly') {
         const weekStart = startOfLocalWeek()
-
         const alreadyLoggedThisWeek = await prisma.habitLog.findFirst({
           where: {
             habitId,
             date: { gte: weekStart }
           }
         })
-
         if (habit.frequency === 'weekly' && alreadyLoggedThisWeek && nextRep > 1) {
           res.status(400).json({
             error: 'Weekly привычка уже засчитана на эту неделю'
@@ -321,7 +319,8 @@ export const logHabit = async (req: AuthRequest, res: Response) => {
             },
           },
         })
-        const alreadyCompletedThisWeek = habit.lastCompletedWeek && startOfLocalWeek(new Date(habit.lastCompletedWeek)).getTime() === weekStart.getTime()
+        const alreadyCompletedThisWeek = habit.lastCompletedWeek && 
+        startOfLocalWeek(new Date(habit.lastCompletedWeek)).getTime() === weekStart.getTime()
         const weeklyTarget = habit.timesPerWeek ?? 2
         weekCompleted = weeklyLogs >= weeklyTarget
         if (alreadyCompletedThisWeek) {
@@ -329,7 +328,6 @@ export const logHabit = async (req: AuthRequest, res: Response) => {
         }
         if (weekCompleted && !alreadyCompletedThisWeek) {
           newStreak = habit.currentStreak + 1
-
           await prisma.habit.update({
             where: { id: habitId },
             data: {
@@ -534,6 +532,29 @@ export const restoreStreak = async (req: AuthRequest, res: Response) => {
     ])
 
     res.json({ success: true, goldSpent: Number(COST.toFixed(1)) })
+  } catch (error) {
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' })
+  }
+}
+
+export const skipRestoreStreak = async (req: AuthRequest, res: Response) => {
+  try {
+    const habitId = parseInt(req.params.id as string, 10)
+    const habit = await prisma.habit.findFirst({
+      where: { id: habitId, userId: req.userId! }
+    })
+    if (!habit) { res.status(404).json({ error: 'Не найдена' }); return }
+
+    // Обнуляем серию и помечаем, что вопрос восстановления на сегодня закрыт
+    await prisma.habit.update({
+      where: { id: habitId },
+      data: {
+        currentStreak: 0,
+        streakRestoredAt: null,
+      }
+    })
+
+    res.json({ success: true, reset: true })
   } catch (error) {
     res.status(500).json({ error: 'Внутренняя ошибка сервера' })
   }

@@ -328,6 +328,7 @@ interface HabitCardProps {
   onBreak: (id: number) => void
   onDelete: (id: number) => void
   onRestoreStreak: (id: number) => void
+  onSkipRestore: (id: number) => void
   onRename: (id: number, title: string) => void
   lastReward: {
     xp: number
@@ -373,7 +374,7 @@ function getStreakBorderStyle(streak: number): { borderColor: string; boxShadow?
   return { borderColor: '#334155' }
 }
 
-function HabitCard({ habit, onLog, onBreak, onDelete, onRestoreStreak, onRename, lastReward, heatmapView  }: HabitCardProps) {
+function HabitCard({ habit, onLog, onBreak, onDelete, onRestoreStreak, onSkipRestore, onRename, lastReward, heatmapView  }: HabitCardProps) {
   const [expanded, setExpanded] = useState(false)
   const [timer, setTimer] = useState('')
   const [editingTitle, setEditingTitle] = useState(false)
@@ -514,18 +515,29 @@ function HabitCard({ habit, onLog, onBreak, onDelete, onRestoreStreak, onRename,
         {/* Кнопки действий */}
         {habit.trackingType === 'discrete' ? (
           habit.canRestoreStreak ? (
-            // ТОЛЬКО ВОССТАНОВЛЕНИЕ
-            <button
-              onClick={() => onRestoreStreak(habit.id)}
-              className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-medium transition-all"
-              style={{
-                backgroundColor: 'rgba(245,158,11,0.15)',
-                color: '#f59e0b',
-                border: '1px solid rgba(245,158,11,0.3)'
-              }}>
-              <RotateCcw size={14} />
-              Восстановить серию за<strong>50</strong>баллов
-            </button>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => onRestoreStreak(habit.id)}
+                className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-medium transition-all"
+                style={{
+                  backgroundColor: 'rgba(245,158,11,0.15)',
+                  color: '#f59e0b',
+                  border: '1px solid rgba(245,158,11,0.3)'
+                }}>
+                <RotateCcw size={14} />
+                Восстановить серию за 50 баллов
+              </button>
+              <button
+                onClick={() => onSkipRestore(habit.id)}
+                className="w-full py-2 rounded-xl text-sm font-medium transition-all"
+                style={{
+                  backgroundColor: '#0f172a',
+                  color: '#94a3b8',
+                  border: '1px solid #334155'
+                }}>
+                Не восстанавливать (сбросить серию)
+              </button>
+            </div>
           ) : (
             // ОБЫЧНЫЕ КНОПКИ
             <div className="flex items-center gap-3">
@@ -1131,6 +1143,16 @@ export default function HabitsPage() {
     // При успехе — НЕ разблокируем, кнопка остаётся скрытой до следующего дня
   }
 
+  const handleSkipRestore = async (id: number) => {
+    if (!confirm('Сбросить серию? Она обнулится, восстановить будет нельзя.')) return
+    try {
+      await habitsApi.skipRestore(id)
+      await loadHabits()
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Ошибка')
+    }
+  }
+
   const discreteHabits = habits.filter(h => h.trackingType === 'discrete')
   const continuousHabits = habits.filter(h => h.trackingType === 'continuous')
   const completedCount = discreteHabits.filter(h => {
@@ -1236,6 +1258,7 @@ export default function HabitsPage() {
                       onBreak={(id) => setBreakConfirmId(id)}
                       onDelete={handleDelete}
                       onRestoreStreak={handleRestoreStreak}
+                      onSkipRestore={handleSkipRestore}
                       onRename={handleRenameHabit}
                       lastReward={lastRewards[habit.id] || null}
                       heatmapView={heatmapView}
@@ -1258,6 +1281,7 @@ export default function HabitsPage() {
                       onBreak={(id) => setBreakConfirmId(id)}
                       onDelete={handleDelete}
                       onRestoreStreak={handleRestoreStreak}
+                      onSkipRestore={handleSkipRestore}
                       onRename={handleRenameHabit}
                       lastReward={lastRewards[habit.id] || null}
                       heatmapView={heatmapView}

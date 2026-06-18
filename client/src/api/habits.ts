@@ -97,6 +97,8 @@ export const habitsApi = {
     const res = await apiClient.post(`/habits/${id}/restore-streak`)
     return res.data
   },
+  skipRestore: (id: number) => apiClient.post(`/habits/${id}/skip-restore`).then(r => r.data),
+
   getHeatmap: async (days = 30): Promise<{ heatmap: HeatmapDay[] }> => {
     const res = await apiClient.get(`/habits/heatmap?days=${days}`)
     return res.data
